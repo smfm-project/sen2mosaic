@@ -61,15 +61,15 @@ def download(products_df, output = os.getcwd()):
 if __name__ == '__main__':
 
     # Set up command line parser
-    parser = argparse.ArgumentParser(description = 'Download Sentinel-2 data from the Sentinel Scientific Data Hub, specifying a particular tile, date ranges and degrees of cloud cover.')
+    parser = argparse.ArgumentParser(description = 'Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover.')
 
     # Required arguments
-    parser.add_argument('-u', '--user', type = str, help = "Sentinel data hub user name")
-    parser.add_argument('-p', '--password', type = str, help = "Sentinel data hub password")
+    parser.add_argument('-u', '--user', type = str, help = "Scihub username")
+    parser.add_argument('-p', '--password', type = str, help = "Scihub password")
     parser.add_argument('-t', '--tile', type = str, help = "Sentinel 2 tile name, in format ##XXX")
     
     # Optional arguments
-    parser.add_argument('-s', '--start', type = str, default = '20161206', help = "Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files were simplified. Defaults to 20161206.")
+    parser.add_argument('-s', '--start', type = str, default = '20161206', help = "Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.")
     parser.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
     parser.add_argument('-c', '--cloud', type = int, default = 100, help = "Maximum percentage of cloud cover to download.")
     parser.add_argument('-o', '--output', type = str, default = os.getcwd(), help = "Optionally specify an output directory. Defaults to the present working directory.")
