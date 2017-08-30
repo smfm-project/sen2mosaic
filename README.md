@@ -19,6 +19,10 @@ These tools are written in Python for use in Linux. You will need to have first 
 
 which are both built around the [Anaconda](https://www.anaconda.com/download/) distribution of Python. The modules used in these scripts are all available in Anaconda Python.
 
+### How does it work? ###
+
+Full documentation is hosted at: [http://sen2mosaic.readthedocs.io/en/latest/](http://sen2mosaic.readthedocs.io/en/latest/).
+
 ### Who do I talk to? ###
 
 Written and maintained by Samuel Bowers ([sam.bowers@ed.ac.uk](mailto:sam.bowers@ed.ac.uk)).
