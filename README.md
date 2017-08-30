@@ -21,7 +21,7 @@ which are both built around the [Anaconda](https://www.anaconda.com/download/) d
 
 ### How does it work? ###
 
-Full documentation is hosted at: [http://sen2mosaic.readthedocs.io/en/latest/](http://sen2mosaic.readthedocs.io/en/latest/).
+Full documentation is hosted at: [http://sen2mosaic.readthedocs.io/](http://sen2mosaic.readthedocs.io/).
 
 ### Who do I talk to? ###
 
