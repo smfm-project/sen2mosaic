@@ -6,7 +6,7 @@ This is a set of tools to aid in the production of large-scale cloud-free season
 
 This repository contains three command-line based tools to perform the following tasks:
 
-* Downloading Sentinel-2 data from the [Sentinel Scientific Data Hub](https://scihub.copernicus.eu/) for a particular tile, specifying date ranges and degrees of cloud cover.
+* Downloading Sentinel-2 data from the [Copernicus Open Access Hub](https://scihub.copernicus.eu/) for a particular tile, specifying date ranges and degrees of cloud cover.
 * Executing the [sen2cor](http://step.esa.int/main/third-party-plugins-2/sen2cor/) tool to perform atmospheric correction, and performing simple improvements to its cloud mask.
 * Building a mosaic of cloud-free outputs from [sen2three](http://step.esa.int/main/third-party-plugins-2/sen2three/).
 
