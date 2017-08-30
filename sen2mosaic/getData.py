@@ -7,31 +7,55 @@ import re
 import sentinelsat
 
 
-def download_granule(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  output = os.getcwd(), maxcloud = 100):
+def connectToAPI(username, password):
     '''
-    Downloads all images from a single Sentinel-2 Granule that meet specified conditions.
+    Connect to the SciHub API with sentinelsat.
     '''
+    
+    # Let API be accessed by other functions
+    global scihub_api
+    
+    # Connect to Sentinel API
+    scihub_api = sentinelsat.SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
+    
+
+
+def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100):
+    '''
+    Searches for images from a single Sentinel-2 Granule that meet conditions of date range and cloud cover.
+    Returns a dataframe with details of scenes matching conditions.
+    '''
+
+    # Test that we're connected to the 
+    assert 'scihub_api' in globals(), "The global variable scihub_api doesn't exist. You should run connectToAPI(username, password) before searching the data archive."
 
     # Validate tile input format for search
     assert bool(re.match("[0-9]{2}[A-Z]{3}$",tile)), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
 
-    # Set up sentinelsat API
-    api = sentinelsat.SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
-
+    # Set up start and end dates
     startdate = sentinelsat.format_query_date(start)
     enddate = sentinelsat.format_query_date(end)
 
     # Search data, filtering by options.
-    products = api.query(beginposition = (startdate,enddate),
+    products = scihub_api.query(beginposition = (startdate,enddate),
                          platformname = 'Sentinel-2',
                          cloudcoverpercentage = (0,maxcloud),
                          filename = '*T%s*'%tile)
 
-    # convert to Pandas DataFrame (for later tweaking of which files to download)
-    products_df = api.to_dataframe(products)
+    # convert to Pandas DataFrame, which can be searched modified before commiting to download()
+    products_df = scihub_api.to_dataframe(products)
 
-    # And download
-    api.download_all(products_df['uuid'], output)
+    return products_df
+
+
+def download(products_df, output = os.getcwd()):
+    '''
+    Downloads all images from a dataframe produced by sentinelsat.
+    '''
+    
+    # And download selected products
+    scihub_api.download_all(products_df['uuid'], output)
+
 
 
 if __name__ == '__main__':
@@ -52,6 +76,13 @@ if __name__ == '__main__':
 
     # Get arguments
     args = parser.parse_args()
+    
+    # Connect to API
+    connectToAPI(args.user, args.password)
         
-    # Run the script
-    download_granule(args.user, args.password, args.tile, args.start, args.end, output = args.output, maxcloud = args.cloud)
+    # Search for files, return a data frame
+    products = search(args.tile, api, start = args.start, end = args.end, maxcloud = args.cloud)
+    
+    # Download products
+    download(products, api, output = args.output)
+    
