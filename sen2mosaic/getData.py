@@ -81,8 +81,8 @@ if __name__ == '__main__':
     connectToAPI(args.user, args.password)
         
     # Search for files, return a data frame
-    products = search(args.tile, api, start = args.start, end = args.end, maxcloud = args.cloud)
+    products = search(args.tile, start = args.start, end = args.end, maxcloud = args.cloud)
     
     # Download products
-    download(products, api, output = args.output)
+    download(products, output = args.output)
     
