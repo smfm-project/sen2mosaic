@@ -60,11 +60,11 @@ def processToL2A(infile, output_dir = os.getcwd()):
 def loadMask(L2A_file, res):
     '''
     Load classification mask given .SAFE file and resolution.
-    Returns a glymur .jp2 file the directory and name of the classified image.
+    Returns a glymur .jp2 file the path to the classified image.
     '''
     
     # Remove trailing slash from input filename, if it exists
-    L2A_file.rstrip('/')
+    L2A_file = L2A_file.rstrip('/')
     
     # Identify the cloud mask following the standardised file pattern
     image_path = glob.glob('%s/GRANULE/*/IMG_DATA/R*m/*_SCL_*R%s*m.jp2'%(L2A_file, str(res)))[0]
@@ -168,6 +168,7 @@ def main(infile, output_dir = os.getcwd()):
         writeMask(cloudmask_old, cloudmask_new, image_path)
 
 
+
 if __name__ == '__main__':
 
     # Set up command line parser
@@ -177,7 +178,7 @@ if __name__ == '__main__':
     parser.add_argument('infiles', metavar = 'N', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (*). Input wills will be atmospherically corrected.')
 
     # Optional arguments
-    parser.add_argument('-o', '--output', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the present working directory.")
+    parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the present working directory.")
     
     # Get arguments
     args = parser.parse_args()
@@ -190,5 +191,5 @@ if __name__ == '__main__':
         
     # Run the script for each input file
     for infile in infiles:
-        main(infile, output_dir = args.output)
+        main(infile, output_dir = args.output_dir)
     

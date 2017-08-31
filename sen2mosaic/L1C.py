@@ -25,7 +25,7 @@ def connectToAPI(username, password):
     scihub_api = sentinelsat.SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
     
 
-def validate_tile(tile):
+def validateTile(tile):
     '''
     Validates the name structure of a Sentinel-2 tile
     '''
@@ -35,7 +35,6 @@ def validate_tile(tile):
     
     return bool(name_test)
     
-
 
 def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100):
     '''
@@ -47,7 +46,7 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
     assert 'scihub_api' in globals(), "The global variable scihub_api doesn't exist. You should run connectToAPI(username, password) before searching the data archive."
 
     # Validate tile input format for search
-    assert validate_tile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
+    assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
 
     # Set up start and end dates
     startdate = sentinelsat.format_query_date(start)
@@ -65,7 +64,7 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
     return products_df
 
 
-def download(products_df, output = os.getcwd()):
+def download(products_df, output_dir = os.getcwd()):
     '''
     Downloads all images from a dataframe produced by sentinelsat.
     '''
@@ -75,8 +74,7 @@ def download(products_df, output = os.getcwd()):
         
     else:
         # Download selected products
-        scihub_api.download_all(products_df['uuid'], output)
-
+        scihub_api.download_all(products_df['uuid'], output_dir)
 
 
 def decompress(tile, dataloc = os.getcwd()):
@@ -85,7 +83,7 @@ def decompress(tile, dataloc = os.getcwd()):
     '''
     
     # Validate tile input format for file search
-    assert validate_tile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
+    assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
     
     # Add a trailing slash to direcotry name where not included
     if dataloc[-1]!='/': dataloc += '/'
@@ -101,7 +99,7 @@ def decompress(tile, dataloc = os.getcwd()):
 
 
 def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d')
-         maxcloud = 100, output = os.getcwd()):
+         maxcloud = 100, output_dir = os.getcwd()):
     '''
     Function to initiate entire data preparation sequence.
     '''
@@ -113,10 +111,10 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
     products = search(tile, start = args.start, end = args.end, maxcloud = args.cloud)
     
     # Download products
-    download(products, output = args.output)
+    download(products, output_dir = output_dir)
     
     # Decompress data
-    decompress(args.tile, dataloc = args.output)
+    decompress(args.tile, dataloc = output_dir)
     
 
 
@@ -134,10 +132,10 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--start', type = str, default = '20161206', help = "Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.")
     parser.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
     parser.add_argument('-c', '--cloud', type = int, default = 100, help = "Maximum percentage of cloud cover to download.")
-    parser.add_argument('-o', '--output', type = str, default = os.getcwd(), help = "Optionally specify an output directory. Defaults to the present working directory.")
+    parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. Defaults to the present working directory.")
 
     # Get arguments from command line
     args = parser.parse_args()
     
     # Run through entire processing sequence
-    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, output = args.output)
+    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, output_dir = args.output_dir)
