@@ -8,6 +8,10 @@ import time
 import sentinelsat
 import zipfile
 
+"""
+A set of tools to assist in the searching, downloading, and decompression of Sentinel-2 data that matches critera of acquisition date and cloud cover for a given Sentinel-2 tile.
+"""
+
 
 def connectToAPI(username, password):
     '''
@@ -96,6 +100,25 @@ def decompress(tile, dataloc = os.getcwd()):
         obj.extractall(dataloc)
 
 
+def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d')
+         maxcloud = 100, output = os.getcwd()):
+    '''
+    Function to initiate entire data preparation sequence.
+    '''
+    
+    # Connect to API
+    connectToAPI(username, password)
+        
+    # Search for files, return a data frame containing details of matching Sentinel-2 images
+    products = search(tile, start = args.start, end = args.end, maxcloud = args.cloud)
+    
+    # Download products
+    download(products, output = args.output)
+    
+    # Decompress data
+    decompress(args.tile, dataloc = args.output)
+    
+
 
 if __name__ == '__main__':
 
@@ -116,14 +139,5 @@ if __name__ == '__main__':
     # Get arguments from command line
     args = parser.parse_args()
     
-    # Connect to API
-    connectToAPI(args.user, args.password)
-        
-    # Search for files, return a data frame
-    products = search(args.tile, start = args.start, end = args.end, maxcloud = args.cloud)
-    
-    # Download products
-    download(products, output = args.output)
-    
-    # Decompress data
-    decompress(args.tile, dataloc = args.output)
+    # Run through entire processing sequence
+    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, output = args.output)
