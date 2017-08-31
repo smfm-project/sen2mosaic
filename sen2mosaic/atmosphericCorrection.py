@@ -7,7 +7,14 @@ import numpy as np
 import os
 from scipy import ndimage
 import shutil
+import subprocess
 import tempfile
+
+
+"""
+A set of tools to assist in the processing Sentinel-2 data to bottom of atmosphere reflectance values.
+It also performs simple corrections to cloud masks, resulting in improved mosaic products.
+"""
 
 
 @contextmanager
@@ -36,7 +43,7 @@ def processToL2A(infile, output_dir = os.getcwd()):
     
     # Move to output directory and run sen2cor (L2A_Process)
     with cd(output_dir):
-        os.system('L2A_Process %s'%this_file)
+        L2A_output = subprocess.check_output(['L2A_Process',this_file])
     
     # Determine output file name, replacing last instance only of substring _MSIL1C_ with _MSIL2A_
     outfile = infile[::-1].replace('_MSIL1C_','_MSIL2A_',1)[::-1]
