@@ -14,8 +14,9 @@ This repository contains three command-line based tools to perform the following
 
 These tools are written in Python for use in Linux. You will need to have first successfully installed:
 
-* [sen2cor](http://step.esa.int/main/third-party-plugins-2/sen2cor/)
-* [sen2three](http://step.esa.int/main/third-party-plugins-2/sen2three/)
+* [sentinelhub](https://github.com/sinergise/sentinelhub): A library for searching and downloading Sentinel-2 products.
+* [sen2cor](http://step.esa.int/main/third-party-plugins-2/sen2cor/): Atmospheric correction and cloud masking for Sentinel-2.
+* [sen2three](http://step.esa.int/main/third-party-plugins-2/sen2three/): Synthesis of atmospherically corrected Sentinel-2 images into cloud-free composite images (version 1.1.0 or later).
 
 which are both built around the [Anaconda](https://www.anaconda.com/download/) distribution of Python. The modules used in these scripts are all available in Anaconda Python.
 
