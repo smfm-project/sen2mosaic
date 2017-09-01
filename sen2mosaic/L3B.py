@@ -7,6 +7,7 @@ import os
 from osgeo import gdal
 from osgeo import osr
 from scipy import ndimage
+import subprocess
 
 try:
     import xml.etree.cElementTree as ET
@@ -103,16 +104,13 @@ def testOutsideTile(md_source, md_dest):
     Uses metadata to test whether source data falls inside destination tile.
     Returns a boolean (True/False) value.
     '''
-    
-    # First reproject source extents to destination CRS if different
-    if md_source['proj'] == md_dest['proj']:
-        
-        # Set up function to translate coordinates from source to destination
-        tx = osr.CoordinateTransformation(md_source['proj'], md_dest['proj'])
+            
+    # Set up function to translate coordinates from source to destination
+    tx = osr.CoordinateTransformation(md_source['proj'], md_dest['proj'])
          
-        # And translate the source coordinates
-        md_source['ulx'], md_source['uly'], z = tx.TransformPoint(md_source['ulx'], md_source['uly'])
-        md_source['lrx'], md_source['lry'], z = tx.TransformPoint(md_source['lrx'], md_source['lry'])   
+    # And translate the source coordinates
+    md_source['ulx'], md_source['uly'], z = tx.TransformPoint(md_source['ulx'], md_source['uly'])
+    md_source['lrx'], md_source['lry'], z = tx.TransformPoint(md_source['lrx'], md_source['lry'])   
     
     out_of_tile =  md_source['ulx'] >= md_dest['lrx'] or \
                    md_source['lrx'] <= md_dest['ulx'] or \
@@ -222,7 +220,7 @@ def reprojectImage(ds_source, ds_dest, md_source, md_dest):
     
     proj_source = md_source['proj'].ExportToWkt()
     proj_dest = md_dest['proj'].ExportToWkt()
-       
+    
     # Reproject source into dest project coordinates
     gdal.ReprojectImage(ds_source, ds_dest, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
             
