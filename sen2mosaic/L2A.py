@@ -43,7 +43,7 @@ def processToL2A(infile, output_dir = os.getcwd()):
     
     # Move to output directory and run sen2cor (L2A_Process)
     with cd(output_dir):
-        L2A_output = subprocess.check_output(['L2A_Process',this_file])
+        L2A_output = subprocess.check_output(['L2A_Process', infile])
     
     # Determine output file name, replacing last instance only of substring _MSIL1C_ with _MSIL2A_
     outfile = infile[::-1].replace('_MSIL1C_','_MSIL2A_',1)[::-1]
@@ -159,6 +159,7 @@ def main(infile, output_dir = os.getcwd()):
     """
     
     # Run sen2cor
+    print 'Processing %s'%infile.split('/')[-1]
     L2A_file = processToL2A(infile, output_dir = output_dir)
     
     # Perform improvements to mask for each resolution
@@ -172,10 +173,10 @@ def main(infile, output_dir = os.getcwd()):
 if __name__ == '__main__':
 
     # Set up command line parser
-    parser = argparse.ArgumentParser(description = 'Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to bottom of atmosphere reflectance, and generate a cloud mask. This script initiates sen2cor, then performs simple improvements to the cloud mask.')
+    parser = argparse.ArgumentParser(description = 'Proceslevel 1C Sentinel-2 data from the Copernicus Open Access Hub to bottom of atmosphere reflectance, and generate a cloud mask. This script initiates sen2cor, then performs simple improvements to the cloud mask.')
     
     # Required arguments
-    parser.add_argument('infiles', metavar = 'N', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (*). Input wills will be atmospherically corrected.')
+    parser.add_argument('infiles', metavar = 'N', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (*). Input files will be atmospherically corrected.')
 
     # Optional arguments
     parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the present working directory.")
