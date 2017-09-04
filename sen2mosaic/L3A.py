@@ -115,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--tile', type = str, help = "Sentinel 2 tile name, in format ##XXX")
 
     # Optional arguments
-    parser.add_argument('input_dir', metavar = 'N', nargs = 1, type = str, default = os.getcwd(), help = 'Directory where the Level-2A input files are located. By default this will be the current working directory.')
+    parser.add_argument('input_dir', metavar = 'input_dir', nargs = 1, type = str, default = os.getcwd(), help = 'Directory where the Level-2A input files are located. By default this will be the current working directory.')
     parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L3_Process settings file (default = L3_GIPP.xml). Required if specifying output directory.')
     parser.add_argument('-o', '--output_dir', type = str, default = None, help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
     
