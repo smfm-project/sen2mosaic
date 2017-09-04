@@ -1,5 +1,7 @@
 import argparse
+import glob
 import os
+import re
 import shutil
 import subprocess
 
@@ -65,7 +67,7 @@ def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.get
     
     # Test that input location contains appropriate files in .SAFE format
     infiles = glob.glob('%s/*_MSIL2A_*.SAFE'%input_dir)
-    assert len(infiles) > 0, "Input files must be in .SAFE format."
+    assert len(infiles) > 0, "Input directory must contain files in .SAFE format."
 
     # Validate tile input format for search   
     assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
@@ -88,7 +90,7 @@ def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.get
     subprocess.call(command)
     
     # Determine output file path
-    outpath = glob.glob('%s/*_MSIL03_*_T%s_*.SAFE'%(output_dir, tile))[0]
+    outpath = glob.glob('%s/*_MSIL03_*_T%s_*.SAFE'%(input_dir, tile))[0]
     
     # Tidy up huge .database.h5 files. These files are very large, and aren't subsequently required.
     h5_files = glob.glob('%s/GRANULE/*/IMG_DATA/R*m/.database.h5'%outpath)
@@ -112,15 +114,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script initiates sen2three from within Python.')
     
     # Required arguments
+    parser.add_argument('input_dir', metavar = 'input_dir', nargs = 1, type = str, help = 'Directory where the Level-2A input files are located. By default this will be the current working directory.')
     parser.add_argument('-t', '--tile', type = str, help = "Sentinel 2 tile name, in format ##XXX")
 
     # Optional arguments
-    parser.add_argument('input_dir', metavar = 'input_dir', nargs = 1, type = str, default = os.getcwd(), help = 'Directory where the Level-2A input files are located. By default this will be the current working directory.')
     parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L3_Process settings file (default = L3_GIPP.xml). Required if specifying output directory.')
-    parser.add_argument('-o', '--output_dir', type = str, default = None, help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
+    parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
     
     # Get arguments
     args = parser.parse_args()
+    
+    input_dir = args.input_dir[0]
         
     # Run the script
-    main(tile, gipp = args.gipp, input_dir = input_dir, output_dir = args.output_dir)
+    main(args.tile, gipp = args.gipp, input_dir = input_dir, output_dir = args.output_dir)
