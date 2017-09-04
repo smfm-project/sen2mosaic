@@ -79,7 +79,7 @@ def download(products_df, output_dir = os.getcwd()):
 
 def decompress(tile, dataloc = os.getcwd()):
     '''
-    Unzips .zip files downloaded from SciHub
+    Unzips .zip files downloaded from SciHub, and removes original
     '''
 
     # Validate tile input format for file search
@@ -94,9 +94,9 @@ def decompress(tile, dataloc = os.getcwd()):
     # Unzip each one using the system command
     for zip_file in zip_files:
         print 'Extracting %s'%zip_file
-        obj = zipfile.ZipFile(zip_file)
-        obj.extractall(dataloc)
-
+        with zipfile.ZipFile(zip_file) as obj:
+            obj.extractall(dataloc)
+        os.remove(zip_file)
 
 def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd()):
     '''
