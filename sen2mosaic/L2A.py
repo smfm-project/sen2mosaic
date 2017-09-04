@@ -230,9 +230,10 @@ if __name__ == '__main__':
     infiles = [os.path.abspath(i) for i in infiles]
     
     # Get absolute path for output file
-    output_dir = os.path.abspath(args.output_dir)
+    if args.output_dir != None:
+        args.output_dir = os.path.abspath(args.output_dir)
         
     # Run the script for each input file
     for infile in infiles:
-        main(infile, gipp = args.gipp, output_dir = output_dir)
+        main(infile, gipp = args.gipp, output_dir = args.output_dir)
     
