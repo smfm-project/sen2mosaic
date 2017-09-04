@@ -8,7 +8,7 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 
-import L1C.validateTile as validateTile
+from . import L1C.validateTile as validateTile
 
 
 def setGipp(gipp, output_dir):
