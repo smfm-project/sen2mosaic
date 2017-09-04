@@ -14,7 +14,6 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 
-import pdb
 
 
 def getSourceMetadata(safe_file, res):

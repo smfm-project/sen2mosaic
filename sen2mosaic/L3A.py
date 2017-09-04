@@ -3,11 +3,47 @@ import os
 import shutil
 import subprocess
 
+try:
+    import xml.etree.cElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
+
 import L1C.validateTile as validateTile
-import L2A.cd as cd
 
 
-def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd()):
+def setGipp(gipp, output_dir):
+    """
+    Tweaks options in L2A_GIPP.xml file to set output directory correctly.
+    Returns the location of a temporary .gipp file, for input to L2A_Process
+    """
+    
+    print "WARNING: It's not currently possible to set GIPP file options via this script. For now, make changes to the .GIPP file by hand."
+    
+    # Test that GIPP and output directory exist
+    assert gipp != None, "GIPP file must be specified if you're changing sen2three options."
+    assert os.path.isfile(gipp), "GIPP XML options file doesn't exist at the location %s."%gipp
+    assert os.path.isdir(output_dir), "Output directory %s doesn't exist."%output_dir
+    
+    # Adds a trailing / to output_dir if not already specified
+    output_dir = os.path.join(output_dir, '')
+   
+    # Read GIPP file
+    tree = ET.ElementTree(file = gipp)
+    root = tree.getroot()
+
+    # Change output directory    
+    root.find('Common_Section/Target_Directory').text = output_dir
+    
+    # Generate a temporary output file
+    temp_gipp = tempfile.mktemp(suffix='.xml')
+    
+    # Ovewrite old GIPP file with new options
+    tree.write(temp_gipp)
+    
+    return temp_gipp
+    
+
+def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.getcwd()):
     """
     Processes Sentinel-2 level 2A files to level 3A with sen2three.
     Input a tile in format ##XXX, a directory containing L2A files, and an output directory.
@@ -29,9 +65,18 @@ def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd()):
     for i in infiles:
         assert i.split('_')[-2] == 'T%s'%tile, "The tile name input (%s) does not match all L2A files in input directory. As  sen2Three will process everything in a directory, each tile needs to be placed in its own directory."
     
-    # Move to output directory and run sen2cor (L3_Process)
-    with cd(output_dir):
-        L3A_output = subprocess.check_output(['L3_Process', '--clean', this_file])
+    # Set options in L3 GIPP xml. Returns the modified .GIPP file
+    if gipp != None:
+        temp_gipp = setGipp(gipp, output_dir)
+    
+     # Set up sen2three command
+    command = ['L3_Process']
+    if gipp != None:
+        command += ['--GIP_L3', temp_gipp]
+    command += ['--clean', input_dir]
+    
+    # Run sen2three (L3_Process)
+    subprocess.call(command)
     
     # Determine output file path
     outpath = glob.glob('%s/*_MSIL03_*_T%s_*.SAFE'%(output_dir, tile))[0]
@@ -43,13 +88,13 @@ def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd()):
         shutil.rmtree(h5_file)
 
 
-def main(tile, input_dir, output_dir = os.getcwd()):
-    '''
+def main(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.getcwd()):
+    """
     Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script initiates sen2three from within Python.
-    '''
+    """
 
     # Do the processing    
-    processToL3A(tile, input_dir, output_dir = output_dir)
+    processToL3A(tile, input_dir = input_dir, output_dir = output_dir, gipp = gipp)
 
 
 if __name__ == '__main__':
@@ -58,14 +103,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script initiates sen2three from within Python.')
     
     # Required arguments
-    parser.add_argument('input_dir', type = str, help = 'Directory where the Level-2A input files are located.')
     parser.add_argument('-t', '--tile', type = str, help = "Sentinel 2 tile name, in format ##XXX")
 
     # Optional arguments
-    parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, outputs will be written to the present working directory.")
+    parser.add_argument('input_dir', metavar = 'N', nargs = 1, type = str, default = os.getcwd(), help = 'Directory where the Level-2A input files are located. By default this will be the current working directory.')
+    parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L3_Process settings file (default = L3_GIPP.xml). Required if specifying output directory.')
+    parser.add_argument('-o', '--output_dir', type = str, default = None, help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
     
     # Get arguments
     args = parser.parse_args()
         
     # Run the script
-    main(tile, input_dir, output_dir = args.output_dir)
+    main(tile, gipp = args.gipp, input_dir = input_dir, output_dir = args.output_dir)

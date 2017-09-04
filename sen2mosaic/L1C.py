@@ -69,8 +69,8 @@ def download(products_df, output_dir = os.getcwd()):
     Downloads all images from a dataframe produced by sentinelsat.
     '''
 
-    if products_df.empty == False:
-        print 'No products to download! Check your search terms.'
+    if products_df.empty == True:
+        print 'WARNING: No products found to download. Check your search terms.'
         
     else:
         # Download selected products
@@ -81,15 +81,15 @@ def decompress(tile, dataloc = os.getcwd()):
     '''
     Unzips .zip files downloaded from SciHub
     '''
-    
+
     # Validate tile input format for file search
     assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
     
-    # Add a trailing slash to direcotry name where not included
-    if dataloc[-1]!='/': dataloc += '/'
+    # Remove trailing slash to directory name where included
+    dataloc = dataloc.rstrip('/')
     
     # Get a list of zip files matching the Level 1C file pattern
-    zip_files = glob.glob(dataloc + '*_MSIL1C_*_%s_*.zip'%tile)
+    zip_files = glob.glob('%s/*_MSIL1C_*_T%s_*.zip'%(dataloc,tile))
     
     # Unzip each one using the system command
     for zip_file in zip_files:
@@ -98,8 +98,7 @@ def decompress(tile, dataloc = os.getcwd()):
         obj.extractall(dataloc)
 
 
-def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d')
-         maxcloud = 100, output_dir = os.getcwd()):
+def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd()):
     '''
     Function to initiate entire data preparation sequence.
     '''
@@ -109,7 +108,7 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
         
     # Search for files, return a data frame containing details of matching Sentinel-2 images
     products = search(tile, start = args.start, end = args.end, maxcloud = args.cloud)
-    
+
     # Download products
     download(products, output_dir = output_dir)
     

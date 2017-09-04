@@ -10,28 +10,50 @@ import shutil
 import subprocess
 import tempfile
 
+try:
+    import xml.etree.cElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
+
 
 """
 A set of tools to assist in the processing Sentinel-2 data to bottom of atmosphere reflectance values.
 It also performs simple corrections to cloud masks, resulting in improved mosaic products.
 """
 
+    
 
-@contextmanager
-def cd(newdir):
+def setGipp(gipp, output_dir):
     """
-    This code ensures that the user returns to the original directory after running L2A_Process.
-    It's necessary as sen2cor's L2A_Process only outputs to the present working directory.
+    Tweaks options in L2A_GIPP.xml file to set output directory correctly.
+    Returns the location of a temporary .gipp file, for input to L2A_Process
     """
-    prevdir = os.getcwd()
-    os.chdir(os.path.expanduser(newdir))
-    try:
-        yield
-    finally:
-        os.chdir(prevdir)
+    
+    # Test that GIPP and output directory exist
+    assert gipp != None, "GIPP file must be specified if you're changing sen2cor options."
+    assert os.path.isfile(gipp), "GIPP XML options file doesn't exist at the location %s."%gipp
+    assert os.path.isdir(output_dir), "Output directory %s doesn't exist."%output_dir
+    
+    # Adds a trailing / to output_dir if not already specified
+    output_dir = os.path.join(output_dir, '')
+   
+    # Read GIPP file
+    tree = ET.ElementTree(file = gipp)
+    root = tree.getroot()
 
+    # Change output directory    
+    root.find('Common_Section/Target_Directory').text = output_dir
+    
+    # Generate a temporary output file
+    temp_gipp = tempfile.mktemp(suffix='.xml')
+    
+    # Ovewrite old GIPP file with new options
+    tree.write(temp_gipp)
+    
+    return temp_gipp
+    
 
-def processToL2A(infile, output_dir = os.getcwd()):
+def processToL2A(infile, gipp = None, output_dir = None):
     """
     Processes Sentinel-2 level 1C files to level L2A with sen2cor.
     Input a single .SAFE file.
@@ -39,16 +61,31 @@ def processToL2A(infile, output_dir = os.getcwd()):
     """
     
     # Test that input file is in .SAFE format
-    assert infile[-5:] == '.SAFE', "Input files must be in .SAFE format."
+    assert infile[-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
     
-    # Move to output directory and run sen2cor (L2A_Process)
-    with cd(output_dir):
-        L2A_output = subprocess.check_output(['L2A_Process', infile])
+    # Set options in L2A GIPP xml. Returns the modified .GIPP file
+    if gipp != None:
+        temp_gipp = setGipp(gipp, output_dir)
     
+    # Set up sen2cor command
+    command = ['L2A_Process']
+    if gipp != None:
+        command += ['--GIP_L2A', temp_gipp]
+    command += [infile]
+    
+    # Print command for user info
+    print '%s'%' '.join(command)
+    
+    # Run sen2cor (L2A_Process)
+    subprocess.call(command)
+
     # Determine output file name, replacing last instance only of substring _MSIL1C_ with _MSIL2A_
     outfile = infile[::-1].replace('_MSIL1C_','_MSIL2A_',1)[::-1]
     
-    outpath = os.path.join(output_dir, outfile)
+    if output_dir != None:
+        outpath = os.path.join(output_dir, outfile)
+    else:
+        outpath = outfile
     
     # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2Three.
     if not os.path.exists('%s/AUX_DATA'%outpath):
@@ -58,10 +95,10 @@ def processToL2A(infile, output_dir = os.getcwd()):
 
 
 def loadMask(L2A_file, res):
-    '''
+    """
     Load classification mask given .SAFE file and resolution.
     Returns a glymur .jp2 file the path to the classified image.
-    '''
+    """
     
     # Remove trailing slash from input filename, if it exists
     L2A_file = L2A_file.rstrip('/')
@@ -76,13 +113,13 @@ def loadMask(L2A_file, res):
 
 
 def improveMask(jp2, res):
-    '''
+    """
     Tweaks the cloud mask output from sen2cor.
     Processes are:
         1) Changing 'dark features' to 'cloud shadows
         2) Dilating 'cloud shadows', 'medium probability cloud' and 'high probability cloud' by 120 m
         3) Eroding outer 3 km of the tile to improve stitching of images by sen2Three.
-    '''
+    """
     
     # Read file as numpy array
     data = jp2[:]
@@ -114,17 +151,17 @@ def improveMask(jp2, res):
     # Shrink the area of measured pixels (everything that is not equal to 0)
     mask_erode = ndimage.morphology.binary_erosion((data_orig != 0).astype(np.int), iterations=iterations)
     
-    # Set these eroided areas to 0
+    # Set these eroded areas to 0
     data[mask_erode == False] = 0
     
     return data
 
 
 def writeMask(jp2, data, image_path):
-    '''
+    """
     Overwrites the old mask with a new one, preserving the metadata (including projection info) from the original .jp2 file.
     Inputs are a glymur jp2 file, the new data to overwrite the old mask with, and the path to the original classified image.
-    '''
+    """
           
     # Get metadata from original .jp2 file (including projection)
     boxes = jp2.box
@@ -153,14 +190,15 @@ def writeMask(jp2, data, image_path):
     jp2_out.wrap(image_path, boxes = boxes_out)
 
 
-def main(infile, output_dir = os.getcwd()):
+def main(infile, gipp = None, output_dir = None):
     """
     Function to initiate L2A_Process on input files and improvements to cloud masking.
     """
+
+    print 'Processing %s'%infile.split('/')[-1]
     
     # Run sen2cor
-    print 'Processing %s'%infile.split('/')[-1]
-    L2A_file = processToL2A(infile, output_dir = output_dir)
+    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir)
     
     # Perform improvements to mask for each resolution
     for res in [20,60]:
@@ -173,13 +211,14 @@ def main(infile, output_dir = os.getcwd()):
 if __name__ == '__main__':
 
     # Set up command line parser
-    parser = argparse.ArgumentParser(description = 'Proceslevel 1C Sentinel-2 data from the Copernicus Open Access Hub to bottom of atmosphere reflectance, and generate a cloud mask. This script initiates sen2cor, then performs simple improvements to the cloud mask.')
+    parser = argparse.ArgumentParser(description = 'Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to bottom of atmosphere reflectance, and generate a cloud mask. This script initiates sen2cor, then performs simple improvements to the cloud mask.')
     
     # Required arguments
     parser.add_argument('infiles', metavar = 'N', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (*). Input files will be atmospherically corrected.')
 
     # Optional arguments
-    parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the present working directory.")
+    parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L2A_Process settings file (default = L2A_GIPP.xml). Required if specifying output directory.')
+    parser.add_argument('-o', '--output_dir', type = str, default = None, help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
     
     # Get arguments
     args = parser.parse_args()
@@ -189,8 +228,11 @@ if __name__ == '__main__':
     
     # Get absolute path of input files.
     infiles = [os.path.abspath(i) for i in infiles]
+    
+    # Get absolute path for output file
+    output_dir = os.path.abspath(args.output_dir)
         
     # Run the script for each input file
     for infile in infiles:
-        main(infile, output_dir = args.output_dir)
+        main(infile, gipp = args.gipp, output_dir = output_dir)
     
