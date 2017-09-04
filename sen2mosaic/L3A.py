@@ -8,8 +8,6 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 
-from . import L1C.validateTile as validateTile
-
 
 def setGipp(gipp, output_dir):
     """
@@ -41,6 +39,17 @@ def setGipp(gipp, output_dir):
     tree.write(temp_gipp)
     
     return temp_gipp
+
+
+def validateTile(tile):
+    '''
+    Validates the name structure of a Sentinel-2 tile
+    '''
+    
+    # Tests whether string is in format ##XXX
+    name_test = re.match("[0-9]{2}[A-Z]{3}$",tile)
+    
+    return bool(name_test)
     
 
 def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.getcwd()):
