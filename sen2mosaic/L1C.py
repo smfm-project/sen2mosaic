@@ -107,8 +107,8 @@ def removeZip(zip_file):
     Input is a Sentinel-2 level 1C file from Copernicus Open Access Data Hub
     """
     
-    assert '_MSIL1C_' in L1C_file, "removeZip function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
-    assert L1C_file.split('/')[-1][-4:] == '.zip', "removeL1C function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
+    assert '_MSIL1C_' in zip_file, "removeZip function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
+    assert zip_file.split('/')[-1][-4:] == '.zip', "removeL1C function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
     
     os.remove(zip_file)
     
