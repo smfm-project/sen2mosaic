@@ -276,8 +276,8 @@ def buildVRT(red_band, green_band, blue_band, output_path):
     if output_path[-4:] != '.vrt':
         output_path += '.vrt'
     
-    subprocess.call('gdalbuildvrt -separate -overwrite %s.vrt %s %s %s'%(red_band, \
-                     green_band, blue_band, output_path))
+    subprocess.call('gdalbuildvrt -separate -overwrite %s.vrt %s %s %s'%(output_path,
+                     red_band, green_band, blue_band))
 
 
 
