@@ -79,7 +79,7 @@ def download(products_df, output_dir = os.getcwd()):
         scihub_api.download_all(products_df['uuid'], output_dir)
 
 
-def decompress(tile, dataloc = os.getcwd()):
+def decompress(tile, dataloc = os.getcwd(), remove = False):
     '''
     Unzips .zip files downloaded from SciHub, and removes original
     '''
@@ -98,9 +98,22 @@ def decompress(tile, dataloc = os.getcwd()):
         print 'Extracting %s'%zip_file
         with zipfile.ZipFile(zip_file) as obj:
             obj.extractall(dataloc)
-        os.remove(zip_file)
+        if remove: removeZip(zip_file)
 
-def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd()):
+
+def removeZip(zip_file):
+    """
+    Deletes Level 1C .zip file from disk.
+    Input is a Sentinel-2 level 1C file from Copernicus Open Access Data Hub
+    """
+    
+    assert '_MSIL1C_' in L1C_file, "removeZip function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
+    assert L1C_file.split('/')[-1][-4:] == '.zip', "removeL1C function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
+    
+    os.remove(zip_file)
+    
+
+def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False):
     '''
     Function to initiate entire data preparation sequence.
     '''
@@ -115,7 +128,7 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
     download(products, output_dir = output_dir)
     
     # Decompress data
-    decompress(args.tile, dataloc = output_dir)
+    decompress(args.tile, dataloc = output_dir, remove = remove)
     
 
 
@@ -134,9 +147,10 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
     parser.add_argument('-c', '--cloud', type = int, default = 100, help = "Maximum percentage of cloud cover to download.")
     parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. Defaults to the present working directory.")
+    parser.add_argument('-r', -'--remove', type = bool, default = False, help = "Optionally remove level 1C .zip files after decompression.")
 
     # Get arguments from command line
     args = parser.parse_args()
     
     # Run through entire processing sequence
-    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, output_dir = args.output_dir)
+    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, output_dir = args.output_dir, remove = args.remove)

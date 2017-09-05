@@ -192,7 +192,20 @@ def writeMask(jp2, data, image_path):
     jp2_out.wrap(image_path, boxes = boxes_out)
 
 
-def main(infile, gipp = None, output_dir = None):
+def removeL1C(L1C_file):
+    """
+    Deletes Level 1C file from disk.
+    Input is a Sentinel-2 level 1C file
+    """
+    
+    assert '_MSIL1C_' in L1C_file, "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
+    assert L1C_file.split('/')[-1][-5:] == '.SAFE', "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
+    
+    shutil.rmtree(L1C_file)
+    
+
+
+def main(infile, gipp = None, output_dir = None, remove = False):
     """
     Function to initiate L2A_Process on input files and improvements to cloud masking.
     """
@@ -207,6 +220,8 @@ def main(infile, gipp = None, output_dir = None):
         cloudmask_old, image_path = loadMask(L2A_file, res)
         cloudmask_new = improveMask(cloudmask_old, res)
         writeMask(cloudmask_old, cloudmask_new, image_path)
+    
+    if remove: removeL1C(infile)
 
 
 
@@ -221,6 +236,7 @@ if __name__ == '__main__':
     # Optional arguments
     parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L2A_Process settings file (default = L2A_GIPP.xml). Required if specifying output directory.')
     parser.add_argument('-o', '--output_dir', type = str, default = None, help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
+    parser.add_argument('-r', '--remove', type = bool, default = False, help = "Optionally remove level 1C files after processing.")
     
     # Get arguments
     args = parser.parse_args()
@@ -237,5 +253,5 @@ if __name__ == '__main__':
         
     # Run the script for each input file
     for infile in infiles:
-        main(infile, gipp = args.gipp, output_dir = args.output_dir)
+        main(infile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
     

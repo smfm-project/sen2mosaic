@@ -99,16 +99,39 @@ def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.get
     
     for h5_file in h5_files:
         shutil.rmtree(h5_file)
+    
+
+def remove2A(input_dir):
+    """
+    Function to remove all Sentinel-2 level 2A files from a directory.
+    Input is a directory containing level 2A .SAFE files.
+    """
+
+    # Remove trailing / from input and output directories if present
+    input_dir = input_dir.rstrip('/')
+    
+    # Test that input location contains appropriate files in .SAFE format
+    infiles = glob.glob('%s/*_MSIL2A_*.SAFE'%input_dir)
+    assert len(infiles) > 0, "Input directory must contain files in .SAFE format."
+
+    # Validate tile input format for search   
+    assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
+    
+    for this_file in infiles:
+        shutil.rmtree(this_file)
 
 
-def main(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.getcwd()):
+def main(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.getcwd(), remove = False):
     """
     Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script initiates sen2three from within Python.
     """
 
     # Do the processing    
     processToL3A(tile, input_dir = input_dir, output_dir = output_dir, gipp = gipp)
-
+    
+    # Remove level 2A files
+    remove2A(input_dir)
+    
 
 if __name__ == '__main__':
 
@@ -122,6 +145,7 @@ if __name__ == '__main__':
     # Optional arguments
     parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L3_Process settings file (default = L3_GIPP.xml). Required if specifying output directory.')
     parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
+    parser.add_argument('-r', '--remove', type = bool, default = False, help = "Optionally remove all matching Sentinel-2 level 2A files from input directory. Be careful.")
     
     # Get arguments
     args = parser.parse_args()
@@ -129,4 +153,4 @@ if __name__ == '__main__':
     input_dir = args.input_dir[0]
         
     # Run the script
-    main(args.tile, gipp = args.gipp, input_dir = input_dir, output_dir = args.output_dir)
+    main(args.tile, gipp = args.gipp, input_dir = input_dir, output_dir = args.output_dir, remove = args.remove)
