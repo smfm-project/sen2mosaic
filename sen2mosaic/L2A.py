@@ -236,7 +236,7 @@ if __name__ == '__main__':
     # Optional arguments
     parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L2A_Process settings file (default = L2A_GIPP.xml). Required if specifying output directory.')
     parser.add_argument('-o', '--output_dir', type = str, default = None, help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
-    parser.add_argument('-r', '--remove', type = bool, default = False, help = "Optionally remove level 1C files after processing.")
+    parser.add_argument('-r', '--remove', action='store_true', default = False, help = "Optionally remove level 1C files after processing.")
     
     # Get arguments
     args = parser.parse_args()

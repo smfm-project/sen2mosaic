@@ -145,7 +145,7 @@ if __name__ == '__main__':
     # Optional arguments
     parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L3_Process settings file (default = L3_GIPP.xml). Required if specifying output directory.')
     parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
-    parser.add_argument('-r', '--remove', type = bool, default = False, help = "Optionally remove all matching Sentinel-2 level 2A files from input directory. Be careful.")
+    parser.add_argument('-r', '--remove', action='store_true', default = False, help = "Optionally remove all matching Sentinel-2 level 2A files from input directory. Be careful.")
     
     # Get arguments
     args = parser.parse_args()

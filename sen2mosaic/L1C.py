@@ -147,7 +147,7 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
     parser.add_argument('-c', '--cloud', type = int, default = 100, help = "Maximum percentage of cloud cover to download.")
     parser.add_argument('-o', '--output_dir', type = str, default = os.getcwd(), help = "Optionally specify an output directory. Defaults to the present working directory.")
-    parser.add_argument('-r', -'--remove', type = bool, default = False, help = "Optionally remove level 1C .zip files after decompression.")
+    parser.add_argument('-r', '--remove', action='store_true', default = False, help = "Optionally remove level 1C .zip files after decompression.")
 
     # Get arguments from command line
     args = parser.parse_args()
