@@ -98,7 +98,7 @@ def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.get
     h5_files = glob.glob('%s/GRANULE/*/IMG_DATA/R*m/.database.h5'%outpath)
     
     for h5_file in h5_files:
-        shutil.rmtree(h5_file)
+        os.remove(h5_file)
     
 
 def remove2A(input_dir):
