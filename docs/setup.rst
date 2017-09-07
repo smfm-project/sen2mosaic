@@ -169,7 +169,7 @@ Installing sen2mosaic
 
 sen2mosaic can be downloaded to a machine from its repository. To do this, open a terminal window and input:
 
-
+..
     git clone git@bitbucket.org:sambowers/sen2mosaic.git
 
 
