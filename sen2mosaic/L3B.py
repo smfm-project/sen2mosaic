@@ -272,6 +272,9 @@ def buildVRT(red_band, green_band, blue_band, output_path):
     output_name = Path to output file
     '''
     
+    # Remove trailing / from output directory name if present
+    output_path = output_path.rstrip('/')
+    
     # Ensure output name is a VRT
     if output_path[-4:] != '.vrt':
         output_path += '.vrt'
@@ -296,7 +299,6 @@ def main(source_files, extent_dest, EPSG_dest,
     # Sort source files alphabetically by tile reference.    
     source_files = sortSourceFiles(source_files)
 
-    
     # For each of the input resolutions
     for res in [10, 20]:
         
