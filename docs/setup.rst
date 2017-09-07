@@ -18,29 +18,32 @@ The ESA tools sen2cor and sen2three are at present reliant upon use of a particu
 
 To install Anaconda Python, open a terminal window, change directory to the location you'd like to install Anaconda Python, and run the following commands:
 
-```
-wget https://repo.continuum.io/archive/Anaconda2-4.2.0-Linux-x86_64.sh
-bash Anaconda2-4.2.0-Linux-x86_64.sh
-```
+.. code-block:: console
+
+    wget https://repo.continuum.io/archive/Anaconda2-4.2.0-Linux-x86_64.sh
+    bash Anaconda2-4.2.0-Linux-x86_64.sh
+
 
 Once complete, you'll need to add this version of Python to your .bashrc file as follows:
 
-```
-# Substitute root for the path to your system's installation and .bashrc file.
-echo 'export PATH="/root/anaconda2/bin:$PATH"' >> /root/.bashrc
-exec -l $SHELL
-```
+.. code-block:: console
+
+    # Substitute root for the path to your system's installation and .bashrc file.
+    echo 'export PATH="/root/anaconda2/bin:$PATH"' >> /root/.bashrc
+    exec -l $SHELL
+
 
 If this has functioned, on executing `python` in a terminal window, you should ssee the following:
 
-```
-Python 2.7.12 |Anaconda custom (64-bit)| (default, Jul  2 2016, 17:42:40) 
-[GCC 4.4.7 20120313 (Red Hat 4.4.7-1)] on linux2
-Type "help", "copyright", "credits" or "license" for more information.
-Anaconda is brought to you by Continuum Analytics.
-Please check out: http://continuum.io/thanks and https://anaconda.org
->>> 
-```
+.. code-block:: console
+
+    Python 2.7.12 |Anaconda custom (64-bit)| (default, Jul  2 2016, 17:42:40) 
+    [GCC 4.4.7 20120313 (Red Hat 4.4.7-1)] on linux2
+    Type "help", "copyright", "credits" or "license" for more information.
+    Anaconda is brought to you by Continuum Analytics.
+    Please check out: http://continuum.io/thanks and https://anaconda.org
+    >>> 
+
 
 Installing sen2cor
 ------------------
@@ -51,52 +54,55 @@ For further details and up-to-date installation instructions, see [http://step.e
 
 At the time of writing, sen2cor can be installed using the following commands. sen2cor must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2cor to be installed, and run the following commands:
 
-```
-wget http://step.esa.int/thirdparties/sen2cor/2.3.1/sen2cor-2.3.1.tar.gz
-tar -xvzf sen2cor-2.3.1.tar.gz
-rm sen2cor-2.3.1.tar.gz
-cd sen2cor-2.3.1
-python setup.py install
-```
+.. code-block:: console
+
+    wget http://step.esa.int/thirdparties/sen2cor/2.3.1/sen2cor-2.3.1.tar.gz
+    tar -xvzf sen2cor-2.3.1.tar.gz
+    rm sen2cor-2.3.1.tar.gz
+    cd sen2cor-2.3.1
+    python setup.py install
+
 Once complete, you need to reference this software in your .bashrc file as follows:
 
-```
-# Substitute root for the path to your system's installation and .bashrc file.
-echo "source /root/sen2cor/L2A_Bashrc" >> /root/.bashrc
-exec -l $SHELL
-```
+.. code-block:: console
+
+    # Substitute root for the path to your system's installation and .bashrc file.
+    echo "source /root/sen2cor/L2A_Bashrc" >> /root/.bashrc
+    exec -l $SHELL
+
 
 To test the installation, type `L2A_Process --help` in a terminal window to show running instructions. You should see something that looks like the following:
 
-```
-usage: L2A_Process [-h] [--resolution {10,20,60}] [--sc_only] [--cr_only]
-                   [--refresh] [--GIP_L2A GIP_L2A] [--GIP_L2A_SC GIP_L2A_SC]
-                   [--GIP_L2A_AC GIP_L2A_AC]
-                   directory
+.. code-block:: console
 
-Sentinel-2 Level 2A Processor (Sen2Cor). Version: 2.3.1, created: 2017.02.03,
-supporting Level-1C product version: 14.
+    usage: L2A_Process [-h] [--resolution {10,20,60}] [--sc_only] [--cr_only]
+                       [--refresh] [--GIP_L2A GIP_L2A] [--GIP_L2A_SC GIP_L2A_SC]
+                       [--GIP_L2A_AC GIP_L2A_AC]
+                       directory
+    
+    Sentinel-2 Level 2A Processor (Sen2Cor). Version: 2.3.1, created: 2017.02.03,
+    supporting Level-1C product version: 14.
+    
+    positional arguments:
+      directory             Directory where the Level-1C input files are located
 
-positional arguments:
-  directory             Directory where the Level-1C input files are located
+    optional arguments:
+      -h, --help            show this help message and exit
+      --resolution {10,20,60}
+                            Target resolution, can be 10, 20 or 60m. If omitted,
+                            all resolutions will be processed
+      --sc_only             Performs only the scene classification at 60 or 20m
+                            resolution
+      --cr_only             Performs only the creation of the L2A product tree, no
+                            processing
+      --refresh             Performs a refresh of the persistent configuration
+                            before start
+      --GIP_L2A GIP_L2A     Select the user GIPP
+      --GIP_L2A_SC GIP_L2A_SC
+                            Select the scene classification GIPP
+      --GIP_L2A_AC GIP_L2A_AC
+                            Select the atmospheric correction GIPP
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --resolution {10,20,60}
-                        Target resolution, can be 10, 20 or 60m. If omitted,
-                        all resolutions will be processed
-  --sc_only             Performs only the scene classification at 60 or 20m
-                        resolution
-  --cr_only             Performs only the creation of the L2A product tree, no
-                        processing
-  --refresh             Performs a refresh of the persistent configuration
-                        before start
-  --GIP_L2A GIP_L2A     Select the user GIPP
-  --GIP_L2A_SC GIP_L2A_SC
-                        Select the scene classification GIPP
-  --GIP_L2A_AC GIP_L2A_AC
-                        Select the atmospheric correction GIPP
-``` 
 
 Installing sen2three
 --------------------
@@ -107,6 +113,8 @@ For further details and up-to-date installation instructions, see [http://step.e
 
 At the time of writing, sen2three can be installed using the following commands. sen2three must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2three to be installed, and run the following commands:
 
+.. code-block:: console
+
     wget https://github.com/senbox-org/sen2proc/blob/master/SEN2THREE/distributions/v1.1.0/sen2three-1.1.0.tar.gz
     tar -xvzf sen2three-1.1.0.tar.gz
     rm sen2three-1.1.0.tar.gz
@@ -115,12 +123,15 @@ At the time of writing, sen2three can be installed using the following commands.
 
 Once complete, you need to reference this software in your .bashrc file as follows:
 
+.. code-block:: console
+
     # Substitute root for the path to your system's installation and .bashrc file.
     echo "source /root/sen2three/L3_Bashrc" >> /root/.bashrc
     exec -l $SHELL
 
 To test the installation, type `L3_Process --help` in a terminal window. You should see the following:
 
+.. code-block:: console
 
     usage: L2A_Process [-h] [--resolution {10,20,60}] [--sc_only] [--cr_only]
                        [--refresh] [--GIP_L2A GIP_L2A] [--GIP_L2A_SC GIP_L2A_SC]
@@ -160,6 +171,7 @@ Up-to-date installation instructions can be found at [https://pypi.python.org/py
 
 At the time of writing, the installation process is as follows:
 
+.. code-block:: console
 
     pip install sentinelsat
 
@@ -169,7 +181,8 @@ Installing sen2mosaic
 
 sen2mosaic can be downloaded to a machine from its repository. To do this, open a terminal window and input:
 
-..
+.. code-block:: console
+
     git clone git@bitbucket.org:sambowers/sen2mosaic.git
 
 
