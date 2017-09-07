@@ -175,7 +175,7 @@ def improveSCLMask(data, res):
     Returns a numpy array with a slightly modified mask.    
     '''
     
-    mask_dilate = ndimage.morphology.binary_dilation((data == 0).astype(np.int), iterations = 60 / res)
+    mask_dilate = ndimage.morphology.binary_dilation((data == 0).astype(np.int), iterations = 120 / res)
     data[mask_dilate] = 0
     
     return data

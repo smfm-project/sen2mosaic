@@ -133,7 +133,7 @@ def improveMask(jp2, res):
     data[data==2] = 3
         
     # Dilate cloud shadows, med clouds and high clouds by 120 m.
-    iterations = 120 / res
+    iterations = 240 / res
     
     # Make a temporary dataset to prevent dilated masks overwriting each other
     data_temp = data
@@ -148,7 +148,7 @@ def improveMask(jp2, res):
     data = data_temp
 
     # Erode outer 3 km of image tile (should retain overlap)
-    iterations = 3000/res # 3 km buffer around edge
+    iterations = 1500/res # 3 km buffer around edge
     
     # Shrink the area of measured pixels (everything that is not equal to 0)
     mask_erode = ndimage.morphology.binary_erosion((data_orig != 0).astype(np.int), iterations=iterations)
