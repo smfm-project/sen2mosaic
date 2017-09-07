@@ -88,12 +88,14 @@ sen2cor, then performs simple improvements to the cloud mask.
 
 For example, to run L2A.py on a set of level 1C Sentinel-2 files in a directory, use the following command:
 
-::
+.. code-block:: console
+    
     python /path/to/sen2mosaic/L2A.py ~/path/to/36KWA_data/S2*_MSIL1C_*.SAFE
 
 If specifying an output directory, you'll need to include a reference to the location of your sen2cor options file ('GIPP'). This is by default in the directory /path/to/sen2cor/cfg/L2A_GIPP.xml, but can be moved to a location of your choosing. To write outputs to the same directory as input files, and delete level 1C files after processing, input:
 
-::
+.. code-block:: console
+    
     python /path/to/sen2mosaic/L2A.py -r -g /path/to/sen2mosaic/cfg/L2A_GIPP.xml -o /path/to/36KWA_data/ /path/to/36KWA_data/S2*_MSIL1C_*.SAFE
 
 Processing to L3A
@@ -131,7 +133,8 @@ Help for ``L3A.py`` can be viewed by typing ``python /path/to/sen2mosaic/L3A.py 
                            
 For example, to run L3A.py on the directory ``/path/to/36KWA_data/`` which contains L2A data for the tile 36KWA and output the level 3A product to the same directory, use the following command:
 
-::
+.. code-block:: console
+    
     python /path/to/sen2mosaic/L3A.py -o /path/to/36KWA_data/ /path/to/36KWA_data/
     
 .. warning:: It's not currently possible to input a custom L3_GIPP.xml file to ``sen2three``, so this option does not at present work.
@@ -177,12 +180,14 @@ Help for ``L3B.py`` can be viewed by typing ``python /path/to/sen2mosaic/L3B.py 
 
 For example, to run L3B.py in the directory ``/path/to/L3A_tiles/`` which contains level 3A files to create a 200 x 200 km output tile in the UTM36S projection, input:
 
-::
+.. code-block:: console
+    
     python /path/to/sen2mosaic/L3B.py -te 700000 7900000 900000 8100000 -e 32736 /path/to/L3A_tiles/S2A_MSIL03_*.SAFE
 
 To do the same operati, but specifying an output directory and a name to prepend to outputs from this tile, input:
 
-::
+.. code-block:: console
+    
     python /path/to/sen2mosaic/L3B.py -te 700000 7900000 900000 8100000 -e 32736 -o /path/to/output/ -n tile_1 /path/to/L3A_tiles/S2A_MSIL03_*.SAFE
 
 
