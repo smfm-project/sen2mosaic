@@ -6,10 +6,10 @@ Requirements
 
 This toolset is written for use in Linux.
 
-You will need acess to a PC or server with at least:
+You will need access to a PC or server with at least:
 
-* 8 GB of RAM to process Sentinel-2 data to level 2A
-* 32 - 128 GB of RAM to process Sentinel-2 data to level 3A (depending on how many images you aim to combine).
+* 8 GB of RAM to run sen2cor.
+* 32 - 128 GB of RAM to run sen2three (depending on how many images you aim to combine).
 
 Installing Anaconda Python
 --------------------------
@@ -19,7 +19,7 @@ The ESA tools sen2cor and sen2three are at present reliant upon use of a particu
 To install Anaconda Python, open a terminal window, change directory to the location you'd like to install Anaconda Python, and run the following commands:
 
 .. code-block:: console
-
+    
     wget https://repo.continuum.io/archive/Anaconda2-4.2.0-Linux-x86_64.sh
     bash Anaconda2-4.2.0-Linux-x86_64.sh
 
@@ -27,7 +27,7 @@ To install Anaconda Python, open a terminal window, change directory to the loca
 Once complete, you'll need to add this version of Python to your .bashrc file as follows:
 
 .. code-block:: console
-
+    
     # Substitute root for the path to your system's installation and .bashrc file.
     echo 'export PATH="/root/anaconda2/bin:$PATH"' >> /root/.bashrc
     exec -l $SHELL
@@ -50,7 +50,7 @@ Installing sen2cor
 
 sen2cor is an ESA program to perform atmospheric correction and cloud masking of Sentinel-2 level 1C images. It generates a new file containing bottom of atmosphere reflectance values and a cloud mask.
 
-For further details and up-to-date installation instructions, see [http://step.esa.int/main/third-party-plugins-2/sen2cor/](http://step.esa.int/main/third-party-plugins-2/sen2cor/).
+For further details and up-to-date installation instructions, see the `sen2cor website <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_.
 
 At the time of writing, sen2cor can be installed using the following commands. sen2cor must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2cor to be installed, and run the following commands:
 
@@ -71,7 +71,7 @@ Once complete, you need to reference this software in your .bashrc file as follo
     exec -l $SHELL
 
 
-To test the installation, type `L2A_Process --help` in a terminal window to show running instructions. You should see something that looks like the following:
+To test the installation, type ``L2A_Process --help`` in a terminal window to show running instructions. You should see something that looks like the following:
 
 .. code-block:: console
 
@@ -109,7 +109,7 @@ Installing sen2three
 
 sen2three is an ESA program to combine multiple level 2A images from Sentinel-2 into cloud-free composite images. It generates a new file containing the best quality cloud-free image that it can construct from available imagery. Note: this processing chain requires sen2three version 1.1.0 or later.
 
-For further details and up-to-date installation instructions, see [http://step.esa.int/main/third-party-plugins-2/sen2three/](http://step.esa.int/main/third-party-plugins-2/sen2three/).
+For further details and up-to-date installation instructions, see the `sen2three website <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_.
 
 At the time of writing, sen2three can be installed using the following commands. sen2three must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2three to be installed, and run the following commands:
 
@@ -167,7 +167,7 @@ Installing sentinelsat
 
 Sentinelsat is the toolset used to access data from the Sentinel-2 archive at the [Copernicus Open Access Data Hub](https://scihub.copernicus.eu/).
 
-Up-to-date installation instructions can be found at [https://pypi.python.org/pypi/sentinelsat](https://pypi.python.org/pypi/sentinelsat).
+Up-to-date installation instructions can be found `here <https://pypi.python.org/pypi/sentinelsat>`_.
 
 At the time of writing, the installation process is as follows:
 
@@ -189,5 +189,5 @@ sen2mosaic can be downloaded to a machine from its repository. To do this, open 
 Where do I get help?
 --------------------
 
-For help installing sen2cor and sen2three, it's best to refer to the [ESA STEP forum](http://forum.step.esa.int/). For assistance in setting up and using sen2mosaic, email [sam.bowers@ed.ac.uk](mailto:sam.bowers@ed.ac.uk).
+For help installing sen2cor and sen2three, it's best to refer to the `ESA STEP forum <http://forum.step.esa.int/>`_. For assistance in setting up and using sen2mosaic, email `sam.bowers@ed.ac.uk <mailto:sam.bowers@ed.ac.uk>`_.
 
