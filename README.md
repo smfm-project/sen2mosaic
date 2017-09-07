@@ -1,6 +1,8 @@
 # README #
 
-{note:title=Note}This repository is under development, and not all features of currently functional.{note}
+<aside class="notice">
+This repository is under development, and not all features of currently functional.
+</aside>
 
 ### What is this repository for? ###
 
