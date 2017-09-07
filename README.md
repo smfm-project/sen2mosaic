@@ -1,14 +1,20 @@
 # README #
 
+{note:title=Note}This repository is under development, and not all features of currently functional.{note}
+
 ### What is this repository for? ###
 
-This is a set of tools to aid in the production of large-scale cloud-free seasonal mosaic products from Sentinel-2 data.
+Building cloud-free mosaics of Sentinel-2 data for land cover mapping is difficult, with existing tools still under-development and frequently confusing.
 
-This repository contains three command-line based tools to perform the following tasks:
+This is a set of tools to aid in the production of large-scale cloud-free seasonal mosaic products from Sentinel-2 data. The goal is to streamline this processing chain with a set of straightforward command line tools.
 
-* Downloading Sentinel-2 data from the [Copernicus Open Access Hub](https://scihub.copernicus.eu/) for a particular tile, specifying date ranges and degrees of cloud cover.
+This repository contains four command-line based scripts to perform the following tasks:
+
+* Downloading Sentinel-2 data from the [Copernicus Open Access Hub](https://scihub.copernicus.eu/) for a particular tile, specifying date ranges and degrees of cloud cover. This is based on the [Sentinelsat](https://github.com/sentinelsat/sentinelsat) utility.
 * Executing the [sen2cor](http://step.esa.int/main/third-party-plugins-2/sen2cor/) tool to perform atmospheric correction, and performing simple improvements to its cloud mask.
-* Building a mosaic of cloud-free outputs from [sen2three](http://step.esa.int/main/third-party-plugins-2/sen2three/).
+* Building a mosaic of cloud-free outputs with [sen2three](http://step.esa.int/main/third-party-plugins-2/sen2three/).
+* Mosaicking cloud-free Sentinel-2 .SAFE files into larger GeoTIFF files that are suitable for image classification.
+
 
 ### How do I get set up? ###
 
@@ -18,7 +24,7 @@ These tools are written in Python for use in Linux. You will need to have first 
 * [sen2cor](http://step.esa.int/main/third-party-plugins-2/sen2cor/): Atmospheric correction and cloud masking for Sentinel-2.
 * [sen2three](http://step.esa.int/main/third-party-plugins-2/sen2three/): Synthesis of atmospherically corrected Sentinel-2 images into cloud-free composite images (version 1.1.0 or later).
 
-which are both built around the [Anaconda](https://www.anaconda.com/download/) distribution of Python. The modules used in these scripts are all available in Anaconda Python.
+The tools sen2cor and sen2three are both built around the [Anaconda](https://www.anaconda.com/download/) distribution of Python. The modules used in these scripts are all available in Anaconda Python.
 
 ### How does it work? ###
 
