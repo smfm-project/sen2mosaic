@@ -22,19 +22,20 @@ How do I get set up?
 
 These tools are written in Python for use in Linux. You will need to have first successfully installed the following:
 
-* [sentinelhub](https://github.com/sinergise/sentinelhub): A library for searching and downloading Sentinel-2 products.
-* [sen2cor](http://step.esa.int/main/third-party-plugins-2/sen2cor/): Atmospheric correction and cloud masking for Sentinel-2.
-* [sen2three](http://step.esa.int/main/third-party-plugins-2/sen2three/): Synthesis of atmospherically corrected Sentinel-2 images into cloud-free composite images (version 1.1.0 or later).
+* `Sentinelhub <https://github.com/sinergise/sentinelhub>`_: A library for searching and downloading Sentinel-2 products.
+* `Sen2cor <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_: Atmospheric correction and cloud masking for Sentinel-2.
+* `Sen2three <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_: Synthesis of atmospherically corrected Sentinel-2 images into cloud-free composite images (version 1.1.0 or later).
 
 The tools sen2cor and sen2three are both built around the `Anaconda <https://www.anaconda.com/download/>`_ distribution of Python. The modules used in these scripts are all available in Anaconda Python.
 
 Who do I talk to?
 -----------------
 
-Written and maintained by Samuel Bowers ([sam.bowers@ed.ac.uk](mailto:sam.bowers@ed.ac.uk)).
+Written and maintained by Samuel Bowers (`sam.bowers@ed.ac.uk <mailto:sam.bowers@ed.ac.uk>`_).
 
 
 Contents:
+---------
 
 .. toctree::
    :maxdepth: 2
@@ -44,10 +45,4 @@ Contents:
    command_line.rst
    python.rst
 
-Search
-======
-
-* :ref:`genindex`
-.. * :ref:`modindex`
-.. * :ref:`search`
 
