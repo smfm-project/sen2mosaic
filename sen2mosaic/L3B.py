@@ -279,8 +279,10 @@ def buildVRT(red_band, green_band, blue_band, output_path):
     if output_path[-4:] != '.vrt':
         output_path += '.vrt'
     
-    subprocess.call('gdalbuildvrt -separate -overwrite %s %s %s %s'%(output_path,
-                     red_band, green_band, blue_band))
+    command = ['gdalbuildvrt', '-separate', '-overwrite']
+    command += [output_path, red_band, green_band, blue_band]
+    
+    subprocess.call(command)
 
 
 
@@ -418,7 +420,7 @@ def main(source_files, extent_dest, EPSG_dest,
             ds_out = createGdalDataset(md_dest, data_out = data_out,
                                    filename = '%s/%s_%s_R%sm.tif'%(output_dir, output_name, band, str(res)),
                                    driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
-
+        
     # Build VRT output files for straightforward visualisation
     print 'Building .VRT images for visualisation'
 
