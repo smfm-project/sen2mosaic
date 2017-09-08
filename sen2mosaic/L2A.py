@@ -106,7 +106,7 @@ def loadMask(L2A_file, res):
     L2A_file = L2A_file.rstrip('/')
     
     # Identify the cloud mask following the standardised file pattern
-    image_path = glob.glob('%s/GRANULE/*/IMG_DATA/R*m/*_SCL_*R%s*m.jp2'%(L2A_file, str(res)))[0]
+    image_path = glob.glob('%s/GRANULE/*/IMG_DATA/R%sm/*_SCL_*m.jp2'%(L2A_file,str(res)))[0]
     
     # Load the cloud mask (.jp2 format)
     jp2 = glymur.Jp2k(image_path)
@@ -133,12 +133,12 @@ def improveMask(jp2, res):
     data[data==2] = 3
         
     # Dilate cloud shadows, med clouds and high clouds by 120 m.
-    iterations = 240 / res
+    iterations = 120 / res
     
     # Make a temporary dataset to prevent dilated masks overwriting each other
     data_temp = data.copy()
     
-    for i in [3,7,8,9]:
+    for i in [3,8,9]:
         # Grow the area of each input class
         mask_dilate = ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
         
@@ -148,7 +148,7 @@ def improveMask(jp2, res):
     data = data_temp
 
     # Erode outer 3 km of image tile (should retain overlap)
-    iterations = 1500/res # 3 km buffer around edge
+    iterations = 3000/res # 3 km buffer around edge
     
     # Shrink the area of measured pixels (everything that is not equal to 0)
     mask_erode = ndimage.morphology.binary_erosion((data_orig != 0).astype(np.int), iterations=iterations)
@@ -217,9 +217,9 @@ def main(infile, gipp = None, output_dir = None, remove = False):
     
     # Perform improvements to mask for each resolution
     for res in [20,60]:
-        cloudmask_old, image_path = loadMask(L2A_file, res)
-        cloudmask_new = improveMask(cloudmask_old, res)
-        writeMask(cloudmask_old, cloudmask_new, image_path)
+        cloudmask_jp2, image_path = loadMask(L2A_file, res)
+        cloudmask_new = improveMask(cloudmask_jp2, res)
+        writeMask(cloudmask_jp2, cloudmask_new, image_path)
     
     if remove: removeL1C(infile)
 
