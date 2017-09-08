@@ -138,7 +138,7 @@ def improveMask(jp2, res):
     # Make a temporary dataset to prevent dilated masks overwriting each other
     data_temp = data
     
-    for i in [3,8,9]:
+    for i in [3,7,8,9]:
         # Grow the area of each input class
         mask_dilate = ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
         
