@@ -127,7 +127,7 @@ def improveMask(jp2, res):
     data = jp2[:]
     
     # Make a copy of the original classification mask
-    data_orig = data
+    data_orig = data.copy()
     
     # Change pixels labelled as 'dark features' to cloud shadows
     data[data==2] = 3
@@ -136,7 +136,7 @@ def improveMask(jp2, res):
     iterations = 240 / res
     
     # Make a temporary dataset to prevent dilated masks overwriting each other
-    data_temp = data
+    data_temp = data.copy()
     
     for i in [3,7,8,9]:
         # Grow the area of each input class
