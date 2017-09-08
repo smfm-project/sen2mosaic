@@ -132,8 +132,8 @@ def improveMask(jp2, res):
     # Change pixels labelled as 'dark features' to cloud shadows
     data[data==2] = 3
         
-    # Dilate cloud shadows, med clouds and high clouds by 120 m.
-    iterations = 120 / res
+    # Dilate cloud shadows, med clouds and high clouds by 180 m.
+    iterations = 180 / res
     
     # Make a temporary dataset to prevent dilated masks overwriting each other
     data_temp = data.copy()
