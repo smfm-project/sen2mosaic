@@ -295,6 +295,9 @@ def main(source_files, extent_dest, EPSG_dest,
 
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(res_list) == len(band_list), "For each band to process you must specify a resolution"
+    
+    # Remove trailing / from output directory if present 
+    output_dir = output_dir.rstrip('/')
       
     # Sort source files alphabetically by tile reference.    
     source_files = sortSourceFiles(source_files)
