@@ -101,7 +101,7 @@ def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.get
         os.remove(h5_file)
     
 
-def remove2A(input_dir):
+def remove2A(input_dir, tile):
     """
     Function to remove all Sentinel-2 level 2A files from a directory.
     Input is a directory containing level 2A .SAFE files.
@@ -109,14 +109,14 @@ def remove2A(input_dir):
 
     # Remove trailing / from input and output directories if present
     input_dir = input_dir.rstrip('/')
-    
-    # Test that input location contains appropriate files in .SAFE format
-    infiles = glob.glob('%s/*_MSIL2A_*.SAFE'%input_dir)
-    assert len(infiles) > 0, "Input directory must contain files in .SAFE format."
 
     # Validate tile input format for search   
     assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
-    
+        
+    # Test that input location contains appropriate files in .SAFE format
+    infiles = glob.glob('%s/*_MSIL2A_*T%s_*.SAFE'%(input_dir,tile))
+    assert len(infiles) > 0, "Input directory must contain files in .SAFE format."
+
     for this_file in infiles:
         shutil.rmtree(this_file)
 
@@ -130,7 +130,7 @@ def main(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.getcwd(), r
     processToL3A(tile, input_dir = input_dir, output_dir = output_dir, gipp = gipp)
     
     # Remove level 2A files
-    remove2A(input_dir)
+    remove2A(input_dir, tile)
     
 
 if __name__ == '__main__':
