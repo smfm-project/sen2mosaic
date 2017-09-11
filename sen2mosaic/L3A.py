@@ -71,7 +71,7 @@ def processToL3A(tile, gipp = None, input_dir = os.getcwd(), output_dir = os.get
     assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
     
     # Test that input location contains appropriate files in .SAFE format
-    infiles = glob.glob('%s/*_MSIL2A_*_T%s_.SAFE'%(input_dir,tile))
+    infiles = glob.glob('%s/*_MSIL2A_*_T%s_*.SAFE'%(input_dir,tile))
     assert len(infiles) > 0, "Input directory must contain files in .SAFE format, from tile %s."%tile
     
     # Test whether directory contains files from only one tile. Sen2three will process everything in a directory, so this is important
