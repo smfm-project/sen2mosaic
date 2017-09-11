@@ -82,7 +82,7 @@ def processToL2A(infile, gipp = None, output_dir = None):
     subprocess.call(command)
 
     # Determine output file name, replacing last instance only of substring _MSIL1C_ with _MSIL2A_
-    outfile = infile[::-1].replace('_MSIL1C_','_MSIL2A_',1)[::-1]
+    outfile = infile[::-1].replace('_MSIL1C_'[::-1],'_MSIL2A_'[::-1],1)[::-1]
     
     if output_dir != None:
         outpath = os.path.join(output_dir, outfile)
