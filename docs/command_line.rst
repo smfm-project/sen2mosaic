@@ -1,19 +1,21 @@
 
-Using sen2mosaic on the command line
-====================================
+Command line tools
+==================
 
-The most straightforward way of using sen2mosaic it to call its various stages from the Linux command line. Here I'll show how it can be used by example. Remember, each command line script has a help flag, which can be examined when in doubt.
+The most straightforward way of using sen2mosaic it to call its various stages from the Linux command line. Here the functionality of each of the four commands is explained. In the next section we show how it can be used by example.
+
+.. note:: Remember, each command line script has a help flag, which can be examined when in doubt.
 
 Getting L1C data
 ----------------
 
 Data from Sentinel-2 are available from the `Copernicus Open Access Data Hub <https://scihub.copernicus.eu/>`_, which has a graphical interface to download scenes from selected areas. Whilst useful for smaller areas, generating mosaics at national scales requires a volume of data which makes this extremely labour intensive.
 
-The alternative is to download data using the `API Hub <https://scihub.copernicus.eu/twiki/do/view/SciHubWebPortal/APIHubDescription>`_. This system allows users to search for files using conditions on the command line, and automatically download files. To interface with the API hub, we use an excellent open source utility called [Sentinelsat](https://sentinelsat.readthedocs.io/en/v0.12/). This operates both as a command line tool, and as a Python API, which we use here. You will need to sign up for an account `Scihub <https://scihub.copernicus.eu/>`_.
+The alternative is to download data using the `API Hub <https://scihub.copernicus.eu/twiki/do/view/SciHubWebPortal/APIHubDescription>`_. This system allows users to search for files using conditions on the command line, and automatically download files. To interface with the API hub, we use an excellent open source utility called `Sentinelsat <https://sentinelsat.readthedocs.io/en/v0.12/>`_. This operates both as a command line tool, and as a Python API, which we use here. You will need to sign up for an account at `Scihub <https://scihub.copernicus.eu/>`_.
 
-``L1C.py`` is a program to interface with Sentinelsat to download Sentinel-2 files, specifying a particular tile, date ranges and degrees of cloud cover. It will also decompress and tidy up .zip files, ready for use with ``L2A.py``.
+`L1C.py`_ is a program to interface with Sentinelsat to download Sentinel-2 files, specifying a particular tile, date ranges and degrees of cloud cover. It will also decompress and tidy up .zip files, ready for use with `L2A.py`_.
 
-Help for ``L1C.py`` can be viewed by typing ``python /path/to/sen2mosaic/L1C.py --help``:
+Help for `L1C.py`_ can be viewed by typing `python /path/to/sen2mosaic/L1C.py --help`_:
 
 .. code-block:: console
     
@@ -48,18 +50,18 @@ For example, to download all data for tile 36KWA between for May and June 2017, 
 
 .. code-block:: console
     
-    python /path/to/sen2mosaic/L1C.py -u sam.bowers -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30 -r -o ~/path/to/36KWA_data/
+    python /path/to/sen2mosaic/L1C.py -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30 -r -o ~/path/to/36KWA_data/
 
-.. note:: If you already have access to Sentinel-2 data, skip to L2A.py. This may be the case if you're using a cloud platform where Sentinel-2 data archives are stored at the same location as servers.
+.. note:: If you already have access to Sentinel-2 data, you can skip straight to L2A.py. This may be the case if you're using a cloud platform where Sentinel-2 data archives are stored at the same location as servers.
 
 Processing to L2A
 -----------------
 
 Once you have Sentinel-2 (Level 1C) data, the next step is to perform atmospheric correction and identify clouds and cloud shadows. This step is based on `sen2cor <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_.
 
-``L2A.py`` takes a list of level 1C .SAFE files as input, initiates sen2cor, and performs simple modifications to improve the quality of it's cloud and cloud shadow mask.
+`L2A.py`_ takes a list of level 1C .SAFE files as input, initiates sen2cor, and performs simple modifications to improve the quality of it's cloud and cloud shadow mask.
 
-Help for ``L2A.py`` can be viewed by typing ``python /path/to/sen2mosaic/L2A.py --help``:
+Help for `L2A.py`_ can be viewed by typing `python /path/to/sen2mosaic/L2A.py --help`_:
 
 usage: L2A.py [-h] [-g GIPP] [-o OUTPUT_DIR] [-r] N [N ...]
 

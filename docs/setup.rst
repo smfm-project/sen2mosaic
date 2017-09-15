@@ -33,7 +33,7 @@ Once complete, you'll need to add this version of Python to your .bashrc file as
     exec -l $SHELL
 
 
-If this has functioned, on executing `python` in a terminal window, you should ssee the following:
+If this has functioned, on executing `python`_ in a terminal window, you should ssee the following:
 
 .. code-block:: console
 
@@ -66,8 +66,8 @@ Once complete, you need to reference this software in your .bashrc file as follo
 
 .. code-block:: console
 
-    # Substitute root for the path to your system's installation and .bashrc file.
-    echo "source /root/sen2cor/L2A_Bashrc" >> /root/.bashrc
+    # Substitute /home/user for the path to your system's installation and .bashrc file.
+    echo "source /home/user/sen2cor/L2A_Bashrc" >> /home/user/.bashrc
     exec -l $SHELL
 
 
@@ -107,29 +107,32 @@ To test the installation, type ``L2A_Process --help`` in a terminal window to sh
 Installing sen2three
 --------------------
 
-sen2three is an ESA program to combine multiple level 2A images from Sentinel-2 into cloud-free composite images. It generates a new file containing the best quality cloud-free image that it can construct from available imagery. Note: this processing chain requires sen2three version 1.1.0 or later.
+sen2three is an ESA program to combine multiple level 2A images from Sentinel-2 into cloud-free composite images. It generates a new file containing the best quality cloud-free image that it can construct from available imagery.
 
 For further details and up-to-date installation instructions, see the `sen2three website <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_.
 
-At the time of writing, sen2three can be installed using the following commands. sen2three must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2three to be installed, and run the following commands:
+.. note: This processing chain requires sen2three version 1.1.0 or later. At the time of writing this has not been formally released, but can be downloaded from GitHub.
+
+At the time of writing, sen2three can be installed as follows. sen2three must be installed after Anaconda Python. The first step is to download the the file `sen2three-1.1.0.tar.gz`_ from GitHub using an internet browser window from the URL https://github.com/senbox-org/sen2proc/blob/master/SEN2THREE/distributions/v1.1.0/sen2three-1.1.0.tar.gz. Save the file to the location that you'd like it to be installed.
+
+Open a terminal window, change directory to the location you saved `sen2three-1.0.0.tar.gz`_, and run the following commands:
 
 .. code-block:: console
 
-    wget https://github.com/senbox-org/sen2proc/blob/master/SEN2THREE/distributions/v1.1.0/sen2three-1.1.0.tar.gz
     tar -xvzf sen2three-1.1.0.tar.gz
     rm sen2three-1.1.0.tar.gz
     cd sen2three-1.1.0
     python setup.py install
 
-Once complete, you need to reference this software in your .bashrc file as follows:
+Once complete, you need to reference this software in your `.bashrc`_ file as follows:
 
 .. code-block:: console
 
-    # Substitute root for the path to your system's installation and .bashrc file.
-    echo "source /root/sen2three/L3_Bashrc" >> /root/.bashrc
+    # Substitute /home/user for the path to your system's installation and .bashrc file.
+    echo "source /home/user/sen2three/L3_Bashrc" >> /home/user/.bashrc
     exec -l $SHELL
 
-To test the installation, type `L3_Process --help` in a terminal window. You should see the following:
+To test the installation, type `L3_Process --help`_ in a terminal window. You should see the following:
 
 .. code-block:: console
 
@@ -160,6 +163,8 @@ To test the installation, type `L3_Process --help` in a terminal window. You sho
                             Select the scene classification GIPP
       --GIP_L2A_AC GIP_L2A_AC
                             Select the atmospheric correction GIPP
+
+.. note:: Installation of sen2three v1.1.0 has been known to cause issues with the glymur library in Anaconda Python. If you encounter error messages relating to glymur, they can be fixed by re-installing glymur using the command: `pip install 'glymur==0.8.6'`.
 
 
 Installing sentinelsat
