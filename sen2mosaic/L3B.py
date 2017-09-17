@@ -317,7 +317,11 @@ def main(source_files, extent_dest, EPSG_dest,
         image_n = createOutputArray(md_dest, dtype = np.uint8) 
         
         print 'Doing SCL mask at %s m resolution'%str(res)
-
+        
+        # It's only worth processing a tile if at least one input image is inside tile
+        # This variable keeps tack of that
+        do_tile = False
+        
         # First process classified images of residual cloud cover
         for n, safe_file in enumerate(source_files):
             
@@ -333,6 +337,8 @@ def main(source_files, extent_dest, EPSG_dest,
             if testOutsideTile(md_source, md_dest):
                 print '       Tile out of bounds, skipping...'
                 continue
+            
+            do_tile = True 
             
             print '        Getting pixels from tile...'
             
@@ -357,7 +363,9 @@ def main(source_files, extent_dest, EPSG_dest,
             # Tidy up
             ds_source = None
             ds_dest = None
-    
+        
+        assert do_tile == True, "No data inside specified mask. Not processing this tile."            
+        
         print 'Outputting SCL mask'
     
         # Write output cloud mask to disk for each resolution
