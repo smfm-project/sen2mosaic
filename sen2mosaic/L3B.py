@@ -136,7 +136,7 @@ def sortSourceFiles(source_files):
     When building a large mosaic, it's necessary for input tiles to be in a consistent order to avoid strange overlap artefcacts.
     This function sorts a list of safe files in alphabetical order by their tile reference.
     '''
-       
+    
     source_files.sort(key = lambda x: x.split('/')[-1].split('_T')[1])
     
     return source_files
@@ -245,7 +245,7 @@ def updateMaskArrays(scl_out, scl_resampled, image_n, n):
     return scl_out, image_n
 
 
-def updateBandArray(data_out, data_resampled, scl_resampled, image_n, n):
+def updateBandArray(data_out, data_resampled, image_n, n, scl_out):
     '''
     Updates contents of output array based on image_n array
     '''
@@ -258,18 +258,20 @@ def updateBandArray(data_out, data_resampled, scl_resampled, image_n, n):
                
     # Set bad values from scl mask to 0, to keep things tidy
     for i in [1, 2, 3, 8, 9, 10, 11, 12]:
-        data_out[scl_resampled == i] = 0
-    
+        data_out[selection][scl_out[selection] == i] = 0
+
     return data_out
 
 
 def buildVRT(red_band, green_band, blue_band, output_path):
     '''
-    Builds a three band RGB vrt for image visualisation.
-    red_band = Filename to add to red band
-    green_band = Filename to add to green band
-    blue_band = Filename to add to blue band
-    output_name = Path to output file
+    Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.
+    
+    Args:
+        red_band: Filename to add to red band
+        green_band: Filename to add to green band
+        blue_band: Filename to add to blue band
+        output_name: Path to output file
     '''
     
     # Remove trailing / from output directory name if present
@@ -285,149 +287,224 @@ def buildVRT(red_band, green_band, blue_band, output_path):
     subprocess.call(command)
 
 
+def getSafeFilesInTile(source_files, extent_dest, res, EPSG_dest):
+    '''
+    Takes a list of source files as input, and determines where each falls within extent of output tile.
+    
+    Args:
+        source_files: A list of level 3A input files.
+        extent_dest: List of values describing output extent in format [xmin, ymin, xmax, ymax].
+        res: Integer for output resolution for band (i.e. 10, 20, 60).
+        EPSG_dest: Output coordinate reference system, described by its EPSG code.
 
+    Returns:
+        a reduced list of source_files containing only files that will contribute to each tile.
+    '''
+    
+    # Sort source files alphabetically by tile reference.    
+    source_files = sortSourceFiles(source_files)
+
+    # Define destination file metadata dictionary
+    md_dest = buildMetadataDictionary(extent_dest, res, EPSG_dest)
+                
+    # Determine which L3A images are within specified tile bounds
+    do_tile = []
+    
+    print 'Searching for source files within specified tile...'
+
+    for safe_file in source_files:
+                                           
+        # Get source file metadata
+        extent_source, EPSG_source = getSourceMetadata(safe_file, res)
+        
+        # Define source file metadata dictionary
+        md_source = buildMetadataDictionary(extent_source, res, EPSG_source)
+
+        # Skip processing the file if image falls outside of tile area
+        if testOutsideTile(md_source, md_dest):
+            do_tile.append(False)
+            continue
+        
+        print '    Found one: %s'%safe_file
+        do_tile.append(True)
+    
+    # Get subset of source_files in specified tile
+    source_files_tile = list(np.array(source_files)[np.array(do_tile)])
+    
+    return source_files_tile
+
+
+def generateSCLArray(source_files, extent_dest, res, EPSG_dest, output_dir = os.getcwd(), output_name = 'L3B_output'):
+    '''
+    Function which generates an mask GeoTiff file from list of level 3B source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from
+
+    Args:
+        source_files: A list of level 3A input files.
+        extent_dest: List of values describing output extent in format [xmin, ymin, xmax, ymax].
+        res: Integer for output resolution for band (i.e. 10, 20, 60).
+        EPSG_dest: Output coordinate reference system, described by its EPSG code.
+        output_dir: Optionally specify directory for output file. Defaults to current working directory.
+        output_name: Optionally specify a string to prepend to output files. Defaults to 'L3B_output'.
+        
+    Returns:
+        A numpy array containing mosaic data for the input band.
+        A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first source_file, 2 = second source_file etc.
+    '''
+
+    # Define destination file metadata dictionary
+    md_dest = buildMetadataDictionary(extent_dest, res, EPSG_dest)
+    
+    # Create array to contain output classified cloud mask array
+    scl_out = createOutputArray(md_dest, dtype = np.uint8)
+    
+    # Create array to contain record of the number of source image
+    image_n = createOutputArray(md_dest, dtype = np.uint8) 
+
+    for n, safe_file in enumerate(source_files):
+        
+        print '    Getting pixels from %s'%safe_file.split('/')[-1]
+
+        # Get source file metadata
+        extent_source, EPSG_source = getSourceMetadata(safe_file, res)
+        
+        # Define source file metadata dictionary
+        md_source = buildMetadataDictionary(extent_source, res, EPSG_source)
+        
+        # Load source data
+        scl = loadSourceFile(safe_file, res, 'SCL')
+        
+        # Tweak output mask to fix anomalies introduced by sen2Three median filter
+        scl = improveSCLMask(scl, res)
+        
+        # Write array to a gdal dataset
+        ds_source = createGdalDataset(md_source, data_out = scl, dtype = gdal.GDT_Byte)
+         
+        # Create an empty gdal dataset for destination
+        ds_dest = createGdalDataset(md_dest, dtype = gdal.GDT_Byte)
+        
+        # Reproject source to destination projection and extent
+        scl_resampled = reprojectImage(ds_source, ds_dest, md_source, md_dest)
+
+        # Add reprojected data to SCL output array
+        scl_out, image_n = updateMaskArrays(scl_out, scl_resampled, image_n, n + 1)
+        
+        # Tidy up
+        ds_source = None
+        ds_dest = None
+    
+    
+    print 'Outputting SCL mask'
+    
+    # Write output cloud mask to disk for each resolution
+    ds_out = createGdalDataset(md_dest, data_out = scl_out,
+                               filename = '%s/%s_SCL_R%sm.tif'%(output_dir, output_name, str(res)),
+                               driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
+    
+    return scl_out, image_n
+
+
+def generateBandArray(source_files, image_n, band, extent_dest, res, EPSG_dest, scl_out, output_dir = os.getcwd(), output_name = 'L3B_output'):
+    """
+    Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
+
+    Args:
+        source_files: A list of level 3A input files.
+        image_n: An array of integers from generateSCLArray(), which describes the source_file that each pixel should come from. 0 = No data, 1 = first source_file, 2 = second source_file etc.
+        band: String describing bad to process. e.g. B02, B03, B8A....
+        extent_dest: List of values describing output extent in format [xmin, ymin, xmax, ymax].
+        res: Integer for output resolution for band (i.e. 10, 20, 60).
+        EPSG_dest: Output coordinate reference system, described by its EPSG code.
+        scl_out: Numpy array with mask from generateSCLArray().
+        output_dir: Optionally specify directory for output file. Defaults to current working directory.
+        output_name: Optionally specify a string to prepend to output files. Defaults to 'L3B_output'.
+        
+    Returns:
+        A numpy array containing mosaic data for the input band.
+    """
+
+    # Define destination file metadata dictionary
+    md_dest = buildMetadataDictionary(extent_dest, res, EPSG_dest)
+
+    # Create array to contain output array for this band
+    data_out = createOutputArray(md_dest, dtype = np.uint16)
+    
+    # For each source file
+    for n, safe_file in enumerate(source_files):
+        
+        print '    Getting pixels from %s'%safe_file.split('/')[-1]
+        
+        # Get source file metadata
+        extent_source, EPSG_source = getSourceMetadata(safe_file, res)
+     
+        # Define source file metadata dictionary
+        md_source = buildMetadataDictionary(extent_source, res, EPSG_source)
+
+        # Load source data for the band
+        data = loadSourceFile(safe_file, res, band)
+        
+        # Write array to a gdal dataset
+        ds_source = createGdalDataset(md_source, data_out = data)                
+
+        # Create an empty gdal dataset for destination
+        ds_dest = createGdalDataset(md_dest, dtype = gdal.GDT_Byte)
+                
+        # Reproject source to destination projection and extent
+        data_resampled = reprojectImage(ds_source, ds_dest, md_source, md_dest)
+                
+        # Add reprojected data to band output array at appropriate image_n
+        data_out = updateBandArray(data_out, data_resampled, image_n, n + 1, scl_out)
+                
+        # Tidy up
+        ds_source = None
+        ds_dest = None
+
+    print 'Outputting band %s'%band
+
+    # Write output for this band to disk
+    ds_out = createGdalDataset(md_dest, data_out = data_out,
+                               filename = '%s/%s_%s_R%sm.tif'%(output_dir, output_name, band, str(res)),
+                               driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
+
+    return data_out
+
+    
 
 def main(source_files, extent_dest, EPSG_dest,
     res_list = np.array([10, 10, 10, 10, 20, 20, 20, 20, 20, 20]),
     band_list = np.array(['B02', 'B03', 'B04', 'B08', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12']),
-    output_dir = os.getcwd(), output_name = 'output'):
+    output_dir = os.getcwd(), output_name = 'L3B_output'):
     '''
     Convert outputs of sen2Three to a customisable grid, based on specified UTM coordinate bounds.
     '''
 
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(res_list) == len(band_list), "For each band to process you must specify a resolution"
+    assert len(source_files) > 1, "No source files in specified location."
     
     # Remove trailing / from output directory if present 
     output_dir = output_dir.rstrip('/')
-      
-    # Sort source files alphabetically by tile reference.    
-    source_files = sortSourceFiles(source_files)
-
+    
     # For each of the input resolutions
-    for res in [10, 20]:
+    for res in sorted(list(set(res_list))):
         
-        # Define destination file metadata dictionary
-        md_dest = buildMetadataDictionary(extent_dest, res, EPSG_dest)
-                
-        # Create array to contain output classified cloud mask array
-        scl_out = createOutputArray(md_dest, dtype = np.uint8)
-        
-        # Create array to contain record of the number of source image
-        image_n = createOutputArray(md_dest, dtype = np.uint8) 
-        
-        print 'Doing SCL mask at %s m resolution'%str(res)
+        # Reduce the pool of source_files to only those that overlap with output tile
+        source_files_tile = getSafeFilesInTile(source_files, extent_dest, res, EPSG_dest)
         
         # It's only worth processing a tile if at least one input image is inside tile
-        # This variable keeps tack of that
-        do_tile = False
+        assert len(source_files_tile) > 1, "No data inside specified tile. Not processing this tile."
         
-        # First process classified images of residual cloud cover
-        for n, safe_file in enumerate(source_files):
-            
-            print '    Processing %s'%safe_file.split('/')[-1]
-                       
-            # Get source file metadata
-            extent_source, EPSG_source = getSourceMetadata(safe_file, res)
-            
-            # Define source file metadata dictionary
-            md_source = buildMetadataDictionary(extent_source, res, EPSG_source)
-
-            # Skip processing the file if image falls outside of tile area
-            if testOutsideTile(md_source, md_dest):
-                print '       Tile out of bounds, skipping...'
-                continue
-            
-            do_tile = True 
-            
-            print '        Getting pixels from tile...'
-            
-            # Load source data
-            scl = loadSourceFile(safe_file, res, 'SCL')
-            
-            # Tweak output mask to fix anomalies introduced by sen2Three median filter
-            scl = improveSCLMask(scl, res)
-            
-            # Write array to a gdal dataset
-            ds_source = createGdalDataset(md_source, data_out = scl, dtype = gdal.GDT_Byte)
-            
-            # Create an empty gdal dataset for destination
-            ds_dest = createGdalDataset(md_dest, dtype = gdal.GDT_Byte)
-            
-            # Reproject source to destination projection and extent
-            scl_resampled = reprojectImage(ds_source, ds_dest, md_source, md_dest)
-
-            # Add reprojected data to SCL output array
-            scl_out, image_n = updateMaskArrays(scl_out, scl_resampled, image_n, n + 1)
-            
-            # Tidy up
-            ds_source = None
-            ds_dest = None
-        
-        assert do_tile == True, "No data inside specified mask. Not processing this tile."            
-        
-        print 'Outputting SCL mask'
-    
-        # Write output cloud mask to disk for each resolution
-        ds_out = createGdalDataset(md_dest, data_out = scl_out,
-                                   filename = '%s/%s_SCL_R%sm.tif'%(output_dir, output_name, str(res)),
-                                   driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
-
-        # Write image number record to disk for each resolution
-        ds_out = createGdalDataset(md_dest, data_out = image_n,
-                                   filename = '%s/%s_IMG_R%sm.tif'%(output_dir, output_name, str(res)),
-                                   driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
-        
+        print 'Doing SCL mask at %s m resolution'%str(res)
+       
+        # Generate a classified mask
+        scl_out, image_n = generateSCLArray(source_files_tile, extent_dest, res, EPSG_dest, output_dir = output_dir, output_name = output_name)
+               
         # Process images for each band
         for band in band_list[res_list==res]:
             
-            # Create array to contain output array for this band
-            data_out = createOutputArray(md_dest, dtype = np.uint16)
-            
             print 'Doing band %s at %s m resolution'%(band, str(res))
-
-            for n, safe_file in enumerate(source_files):
-                
-                print '    Processing %s'%safe_file.split('/')[-1]
-                
-                # Skip processing the file if image not part of final output tile
-                if np.sum(image_n == n + 1) == 0:
-                    print '        Tile out of bounds, skipping...'
-                    continue
-                
-                print '        Getting pixels from tile...'
-                
-                # Get source file metadata
-                extent_source, EPSG_source = getSourceMetadata(safe_file, res)
             
-                # Define source file metadata dictionary
-                md_source = buildMetadataDictionary(extent_source, res, EPSG_source)
-    
-                # Load source data for the band
-                data = loadSourceFile(safe_file, res, band)
-                
-                # Write array to a gdal dataset
-                ds_source = createGdalDataset(md_source, data_out = data)                
-
-                # Create an empty gdal dataset for destination
-                ds_dest = createGdalDataset(md_dest, dtype = gdal.GDT_Byte)
-                
-                # Reproject source to destination projection and extent
-                data_resampled = reprojectImage(ds_source, ds_dest, md_source, md_dest)
-                
-                # Add reprojected data to band output array
-                data_out = updateBandArray(data_out, data_resampled, scl_resampled, image_n, n + 1)
-                
-                # Tidy up
-                ds_source = None
-                ds_dest = None
-
-            print 'Outputting band %s'%band
-
-            # Write output for this band to disk
-            ds_out = createGdalDataset(md_dest, data_out = data_out,
-                                   filename = '%s/%s_%s_R%sm.tif'%(output_dir, output_name, band, str(res)),
-                                   driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
+            # Using image_n, combine pixels into outputs images for each band
+            band_out = generateBandArray(source_files_tile, image_n, band, extent_dest, res, EPSG_dest, scl_out, output_dir = output_dir, output_name = output_name)
         
     # Build VRT output files for straightforward visualisation
     print 'Building .VRT images for visualisation'
@@ -447,26 +524,26 @@ def main(source_files, extent_dest, EPSG_dest,
 if __name__ == "__main__":
     
     # Set up command line parser
-    parser = argparse.ArgumentParser(description = "Process Sentinel-2 level 3A data to unofficial 'level 3B'. This mosaics L3A to a customisable grid, based on specified UTM coordinate bounds. Files are output as GeoTiffs, which are easier to work with than JPEG2000 files.")
+    parser = argparse.ArgumentParser(description = "Process Sentinel-2 level 3A data to unofficial 'level 3B'. This mosaics L3A into a customisable grid square, based on specified UTM coordinate bounds. Files are output as GeoTiffs, which are easier to work with than JPEG2000 files.")
+
+    parser._action_groups.pop()
+    required = parser.add_argument_group('required arguments')
+    optional = parser.add_argument_group('optional arguments')
 
     # Required arguments
-    parser.add_argument('infiles', metavar = 'N', type = str, nargs = '+', help = 'Sentinel 2 input files (L3A, .SAFE format). Specify a valid S2 input file or multiple files through wildcards.')
-    parser.add_argument('-te', '--target_extent', nargs = 4, type = float, help = "Extent of output image tile, in format <xmin, ymin, xmax, ymax>")
-    parser.add_argument('-e', '--epsg', type=int, help="EPSG code for output image tile.")
+    required.add_argument('infiles', metavar = 'L3A_FILES', type = str, nargs = '+', help = 'Sentinel-2 level 3A input files in .SAFE format. Specify a valid S2 input file or multiple files through wildcards (e.g. PATH/TO/*_MSIL3A_*.SAFE).')
+    required.add_argument('-te', '--target_extent', nargs = 4, metavar = ('XMIN', 'YMIN', 'XMAX', 'YMAX'), type = float, help = "Extent of output image tile, in format <xmin, ymin, xmax, ymax>.")
+    required.add_argument('-e', '--epsg', type=int, help="EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.")
 
     # Optional arguments
-    parser.add_argument('-o', '--output_dir', type=str, default = os.getcwd(), help="Optionally specify an output directory. If nothing specified, downloads will output to the present working directory, given a standard filename.")
-    parser.add_argument('-n', '--output_name', type=str, default = 'output', help="Optionally specify a string to precede output filename.")
+    optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Optionally specify an output directory. If nothing specified, downloads will output to the present working directory, given a standard filename.")
+    optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'L3B_output', help="Optionally specify a string to precede output filename.")
 
     # Get arguments
     args = parser.parse_args()
 
     # Get absolute path of input .safe files.
     args.infiles = [os.path.abspath(i) for i in args.infiles]
-    
-    # and sort them alphabetically by granule name to ensure that images are always layered in the same order.
-    # This assumes that files have not been renamed since being run through sen2three
-    args.infiles.sort(key = lambda x: x.split('/')[-1].split('_T')[1])
 
     main(args.infiles, args.target_extent, args.epsg, output_dir = args.output_dir, output_name = args.output_name)
     

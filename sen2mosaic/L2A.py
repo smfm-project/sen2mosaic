@@ -228,15 +228,19 @@ def main(infile, gipp = None, output_dir = None, remove = False):
 if __name__ == '__main__':
 
     # Set up command line parser
-    parser = argparse.ArgumentParser(description = 'Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to bottom of atmosphere reflectance, and generate a cloud mask. This script initiates sen2cor, then performs simple improvements to the cloud mask.')
+    parser = argparse.ArgumentParser(description = 'Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level 2A. This script initiates sen2cor, which performs atmospheric correction and generate a cloud mask. This script also performs simple improvements to the cloud mask.')
     
+    parser._action_groups.pop()
+    required = parser.add_argument_group('Required arguments')
+    optional = parser.add_argument_group('Optional arguments')
+
     # Required arguments
-    parser.add_argument('infiles', metavar = 'N', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (*). Input files will be atmospherically corrected.')
+    required.add_argument('infiles', metavar = 'L1C_FILES', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (e.g. PATH/TO/*_MSIL1C_*.SAFE). Input files will be atmospherically corrected.')
 
     # Optional arguments
-    parser.add_argument('-g', '--gipp', type = str, default = None, help = 'Optionally specify the L2A_Process settings file (default = L2A_GIPP.xml). Required if specifying output directory.')
-    parser.add_argument('-o', '--output_dir', type = str, default = None, help = "Optionally specify an output directory. If nothing specified, atmospherically corrected images will be written to the same directory as input files.")
-    parser.add_argument('-r', '--remove', action='store_true', default = False, help = "Optionally remove level 1C files after processing.")
+    optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml). Required if specifying output directory.')
+    optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = None, help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
+    optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
     
     # Get arguments
     args = parser.parse_args()
@@ -250,6 +254,7 @@ if __name__ == '__main__':
     # Get absolute path for output file
     if args.output_dir != None:
         args.output_dir = os.path.abspath(args.output_dir)
+        assert args.gipp != None, "If specifying an output directory, you must also specify the the location of a GIPP options file (-g or --gipp)."
         
     # Run the script for each input file
     for infile in infiles:
