@@ -1,0 +1,679 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>sen2mosaic package &mdash; sen2mosaic 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="sen2mosaic 1 documentation" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="index.html" class="icon icon-home"> sen2mosaic
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">sen2mosaic package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-sen2mosaic.L1C">sen2mosaic.L1C module</a></li>
+<li><a class="reference internal" href="#module-sen2mosaic.L2A">sen2mosaic.L2A module</a></li>
+<li><a class="reference internal" href="#module-sen2mosaic.L3A">sen2mosaic.L3A module</a></li>
+<li><a class="reference internal" href="#module-sen2mosaic.L3B">sen2mosaic.L3B module</a></li>
+<li><a class="reference internal" href="#module-sen2mosaic">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">sen2mosaic</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html">Docs</a> &raquo;</li>
+        
+      <li>sen2mosaic package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/sen2mosaic.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="sen2mosaic-package">
+<h1>sen2mosaic package<a class="headerlink" href="#sen2mosaic-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-sen2mosaic.L1C">
+<span id="sen2mosaic-l1c-module"></span><h2>sen2mosaic.L1C module<a class="headerlink" href="#module-sen2mosaic.L1C" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="sen2mosaic.L1C.connectToAPI">
+<code class="descclassname">sen2mosaic.L1C.</code><code class="descname">connectToAPI</code><span class="sig-paren">(</span><em>username</em>, <em>password</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L1C.html#connectToAPI"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L1C.connectToAPI" title="Permalink to this definition">¶</a></dt>
+<dd><p>Connect to the SciHub API with sentinelsat.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>username</strong> &#8211; Scihub username. Sign up at <a class="reference external" href="https://scihub.copernicus.eu/">https://scihub.copernicus.eu/</a>.</li>
+<li><strong>password</strong> &#8211; Scihub password.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L1C.decompress">
+<code class="descclassname">sen2mosaic.L1C.</code><code class="descname">decompress</code><span class="sig-paren">(</span><em>tile</em>, <em>dataloc = os.getcwd()</em>, <em>remove = False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L1C.html#decompress"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L1C.decompress" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decompresses .zip files downloaded from SciHub, and optionally removes original .zip file.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>tile</strong> &#8211; A string containing the name of the tile to to download.</li>
+<li><strong>dataloc</strong> &#8211; The directory of level 1C Sentinel-2 .SAFE files. Defaults to current working directory.</li>
+<li><strong>remove</strong> &#8211; Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L1C.download">
+<code class="descclassname">sen2mosaic.L1C.</code><code class="descname">download</code><span class="sig-paren">(</span><em>products_df</em>, <em>output_dir = os.getcwd()</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L1C.html#download"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L1C.download" title="Permalink to this definition">¶</a></dt>
+<dd><p>Downloads all images from a dataframe produced by sentinelsat.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>products_df</strong> &#8211; Pandas dataframe from search() function.</li>
+<li><strong>output_dir</strong> &#8211; Optionally specify an output directory. Defaults to the present working directory.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L1C.main">
+<code class="descclassname">sen2mosaic.L1C.</code><code class="descname">main</code><span class="sig-paren">(</span><em>username</em>, <em>password</em>, <em>tile</em>, <em>start = '20161206'</em>, <em>end = datetime.datetime.today().strftime('%Y%m%d')</em>, <em>maxcloud = 100</em>, <em>output_dir = os.getcwd()</em>, <em>remove = False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L1C.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L1C.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>username</strong> &#8211; Scihub username. Sign up at <a class="reference external" href="https://scihub.copernicus.eu/">https://scihub.copernicus.eu/</a>.</li>
+<li><strong>password</strong> &#8211; Scihub password.</li>
+<li><strong>tile</strong> &#8211; A string containing the name of the tile to to download.</li>
+<li><strong>start</strong> &#8211; Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.</li>
+<li><strong>end</strong> &#8211; End date for search in format YYYYMMDD. Defaults to today&#8217;s date.</li>
+<li><strong>maxcloud</strong> &#8211; An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).</li>
+<li><strong>output_dir</strong> &#8211; Optionally specify an output directory. Defaults to the present working directory.</li>
+<li><strong>remove</strong> &#8211; Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L1C.search">
+<code class="descclassname">sen2mosaic.L1C.</code><code class="descname">search</code><span class="sig-paren">(</span><em>tile</em>, <em>start = '20161206'</em>, <em>end = datetime.datetime.today().strftime('%Y%m%d')</em>, <em>maxcloud = 100</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L1C.html#search"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L1C.search" title="Permalink to this definition">¶</a></dt>
+<dd><p>Searches for images from a single Sentinel-2 Granule that meet conditions of date range and cloud cover.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>tile</strong> &#8211; A string containing the name of the tile to to download.</li>
+<li><strong>start</strong> &#8211; Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.</li>
+<li><strong>end</strong> &#8211; End date for search in format YYYYMMDD. Defaults to today&#8217;s date.</li>
+<li><strong>maxcloud</strong> &#8211; An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A pandas dataframe with details of scenes matching conditions.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-sen2mosaic.L2A">
+<span id="sen2mosaic-l2a-module"></span><h2>sen2mosaic.L2A module<a class="headerlink" href="#module-sen2mosaic.L2A" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="sen2mosaic.L2A.improveMask">
+<code class="descclassname">sen2mosaic.L2A.</code><code class="descname">improveMask</code><span class="sig-paren">(</span><em>jp2</em>, <em>res</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L2A.html#improveMask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L2A.improveMask" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>Tweaks the cloud mask output from sen2cor. Processes are:</dt>
+<dd><ol class="first last arabic simple">
+<li>Changing &#8216;dark features&#8217; to &#8216;cloud shadows.</li>
+<li>Dilating &#8216;cloud shadows&#8217;, &#8216;medium probability cloud&#8217; and &#8216;high probability cloud&#8217; by 180 m.</li>
+<li>Eroding outer 3 km of the tile to improve stitching of images by sen2Three.</li>
+</ol>
+</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>jp2</strong> &#8211; A glymur .jp2 file from loadMask().</li>
+<li><strong>res</strong> &#8211; Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A numpy array of the SCL mask with modifications.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L2A.loadMask">
+<code class="descclassname">sen2mosaic.L2A.</code><code class="descname">loadMask</code><span class="sig-paren">(</span><em>L2A_file</em>, <em>res</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L2A.html#loadMask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L2A.loadMask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load classification mask given .SAFE file and resolution.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>L2A_file</strong> &#8211; A level 2A Sentinel-2 .SAFE file, processed with sen2cor.</li>
+<li><strong>res</strong> &#8211; Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A glymur .jp2 file the path to the classified image.
+The directory location of the .jp2 mask file.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L2A.main">
+<code class="descclassname">sen2mosaic.L2A.</code><code class="descname">main</code><span class="sig-paren">(</span><em>infile</em>, <em>gipp=None</em>, <em>output_dir=None</em>, <em>remove=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L2A.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L2A.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>infile</strong> &#8211; A level 1C Sentinel-2 .SAFE file.</li>
+<li><strong>gipp</strong> &#8211; Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.</li>
+<li><strong>output_dir</strong> &#8211; Optionally specify an output directory. The option gipp must also be specified if you use this option.</li>
+<li><strong>remove</strong> &#8211; Boolean value, which when set to True deletes level 1C files after processing is complete. Defaults to False.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L2A.processToL2A">
+<code class="descclassname">sen2mosaic.L2A.</code><code class="descname">processToL2A</code><span class="sig-paren">(</span><em>infile</em>, <em>gipp=None</em>, <em>output_dir=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L2A.html#processToL2A"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L2A.processToL2A" title="Permalink to this definition">¶</a></dt>
+<dd><p>Processes Sentinel-2 level 1C files to level L2A with sen2cor.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>infile</strong> &#8211; A level 1C Sentinel-2 .SAFE file.</li>
+<li><strong>gipp</strong> &#8211; Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.</li>
+<li><strong>output_dir</strong> &#8211; Optionally specify an output directory. The option gipp must also be specified if you use this option.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">Absolute file path to the output file.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L2A.removeL1C">
+<code class="descclassname">sen2mosaic.L2A.</code><code class="descname">removeL1C</code><span class="sig-paren">(</span><em>L1C_file</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L2A.html#removeL1C"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L2A.removeL1C" title="Permalink to this definition">¶</a></dt>
+<dd><p>Deletes a Level 1C Sentinel-2 .SAFE file from disk.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>L1C_file</strong> &#8211; A Sentinel-2 level 1C file.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L2A.writeMask">
+<code class="descclassname">sen2mosaic.L2A.</code><code class="descname">writeMask</code><span class="sig-paren">(</span><em>jp2</em>, <em>data</em>, <em>image_path</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L2A.html#writeMask"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L2A.writeMask" title="Permalink to this definition">¶</a></dt>
+<dd><p>Overwrites the old SCL mask with a new one, preserving the metadata (including projection info) from the original .jp2 file.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>jp2</strong> &#8211; A glymur jp2 file of the original SCL mask.</li>
+<li><strong>data</strong> &#8211; A numpy array containing the new data to overwrite the old mask with.</li>
+<li><strong>image_path</strong> &#8211; The path to the original classified image.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-sen2mosaic.L3A">
+<span id="sen2mosaic-l3a-module"></span><h2>sen2mosaic.L3A module<a class="headerlink" href="#module-sen2mosaic.L3A" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="sen2mosaic.L3A.main">
+<code class="descclassname">sen2mosaic.L3A.</code><code class="descname">main</code><span class="sig-paren">(</span><em>input_dir = os.getcwd()</em>, <em>remove = False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3A.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3A.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script initiates sen2three from within Python.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>input_dir</strong> &#8211; Directory containing level 2A Sentinel-2 .SAFE files. Defaults to current working directory.</li>
+<li><strong>remove</strong> &#8211; Boolean value, which when set to True deletes level 2A files after processing is complete. Defaults to False.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3A.processToL3A">
+<code class="descclassname">sen2mosaic.L3A.</code><code class="descname">processToL3A</code><span class="sig-paren">(</span><em>input_dir</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3A.html#processToL3A"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3A.processToL3A" title="Permalink to this definition">¶</a></dt>
+<dd><p>Processes Sentinel-2 level 2A files to level 3A with sen2three.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>input_dir</strong> &#8211; Directory containing level 2A Sentinel-2 .SAFE files. Directory must contain files from only one single tile.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3A.remove2A">
+<code class="descclassname">sen2mosaic.L3A.</code><code class="descname">remove2A</code><span class="sig-paren">(</span><em>input_dir</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3A.html#remove2A"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3A.remove2A" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to remove all Sentinel-2 level 2A files from a directory. Directory must contain files from only one single tile.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>input_dir</strong> &#8211; Directory containing level 2A Sentinel-2 .SAFE files.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-sen2mosaic.L3B">
+<span id="sen2mosaic-l3b-module"></span><h2>sen2mosaic.L3B module<a class="headerlink" href="#module-sen2mosaic.L3B" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="sen2mosaic.L3B.buildMetadataDictionary">
+<code class="descclassname">sen2mosaic.L3B.</code><code class="descname">buildMetadataDictionary</code><span class="sig-paren">(</span><em>extent_dest</em>, <em>res</em>, <em>EPSG</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3B.html#buildMetadataDictionary"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3B.buildMetadataDictionary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Build a metadata dictionary to describe the destination georeference info</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>extent_dest</strong> &#8211; List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax]</li>
+<li><strong>res</strong> &#8211; Integer describing pixel size in m (10, 20, or 60)</li>
+<li><strong>EPSG</strong> &#8211; EPSG code of destination coordinate reference system. Must be a UTM projection. See: <a class="reference external" href="https://www.epsg-registry.org/">https://www.epsg-registry.org/</a> for codes.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A dictionary containg projection info.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3B.buildVRT">
+<code class="descclassname">sen2mosaic.L3B.</code><code class="descname">buildVRT</code><span class="sig-paren">(</span><em>red_band</em>, <em>green_band</em>, <em>blue_band</em>, <em>output_path</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3B.html#buildVRT"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3B.buildVRT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>red_band</strong> &#8211; Filename to add to red band</li>
+<li><strong>green_band</strong> &#8211; Filename to add to green band</li>
+<li><strong>blue_band</strong> &#8211; Filename to add to blue band</li>
+<li><strong>output_name</strong> &#8211; Path to output file</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3B.generateBandArray">
+<code class="descclassname">sen2mosaic.L3B.</code><code class="descname">generateBandArray</code><span class="sig-paren">(</span><em>source_files</em>, <em>image_n</em>, <em>band</em>, <em>scl_out</em>, <em>md_dest</em>, <em>output_dir=os.getcwd()</em>, <em>output_name='L3B_output'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3B.html#generateBandArray"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3B.generateBandArray" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>source_files</strong> &#8211; A list of level 3A input files.</li>
+<li><strong>image_n</strong> &#8211; An array of integers from generateSCLArray(), which describes the source_file that each pixel should come from. 0 = No data, 1 = first source_file, 2 = second source_file etc.</li>
+<li><strong>band</strong> &#8211; String describing bad to process. e.g. B02, B03, B8A....</li>
+<li><strong>scl_out</strong> &#8211; Numpy array with mask from generateSCLArray().</li>
+<li><strong>md_dest</strong> &#8211; Dictionary from buildMetaDataDictionary() containing output projection details.</li>
+<li><strong>output_dir</strong> &#8211; Optionally specify directory for output file. Defaults to current working directory.</li>
+<li><strong>output_name</strong> &#8211; Optionally specify a string to prepend to output files. Defaults to &#8216;L3B_output&#8217;.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A numpy array containing mosaic data for the input band.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3B.generateSCLArray">
+<code class="descclassname">sen2mosaic.L3B.</code><code class="descname">generateSCLArray</code><span class="sig-paren">(</span><em>source_files</em>, <em>md_dest</em>, <em>output_dir = os.getcwd()</em>, <em>output_name = 'L3B_output'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3B.html#generateSCLArray"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3B.generateSCLArray" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function which generates an mask GeoTiff file from list of level 3B source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>source_files</strong> &#8211; A list of level 3A input files.</li>
+<li><strong>md_dest</strong> &#8211; Dictionary from buildMetaDataDictionary() containing output projection details.</li>
+<li><strong>output_dir</strong> &#8211; Optionally specify directory for output file. Defaults to current working directory.</li>
+<li><strong>output_name</strong> &#8211; Optionally specify a string to prepend to output files. Defaults to &#8216;L3B_output&#8217;.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A numpy array containing mosaic data for the input band.
+A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first source_file, 2 = second source_file etc.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3B.getSafeFilesInTile">
+<code class="descclassname">sen2mosaic.L3B.</code><code class="descname">getSafeFilesInTile</code><span class="sig-paren">(</span><em>source_files</em>, <em>md_dest</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3B.html#getSafeFilesInTile"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3B.getSafeFilesInTile" title="Permalink to this definition">¶</a></dt>
+<dd><p>Takes a list of source files as input, and determines where each falls within extent of output tile.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>source_files</strong> &#8211; A list of level 3A input files.</li>
+<li><strong>md_dest</strong> &#8211; Dictionary from buildMetaDataDictionary() containing output projection details.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A reduced list of source_files containing only files that will contribute to each tile.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3B.getSourceMetadata">
+<code class="descclassname">sen2mosaic.L3B.</code><code class="descname">getSourceMetadata</code><span class="sig-paren">(</span><em>safe_file</em>, <em>res</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3B.html#getSourceMetadata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3B.getSourceMetadata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to extract georefence info from level 3 Sentinel 2 data in .SAFE format.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>safe_file</strong> &#8211; String with /path/to/the/MTD_TL.xml file bundled with a .SAFE file.</li>
+<li><strong>res</strong> &#8211; Integer describing pixel size in m (10, 20, or 60).</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">A list describing the extent of the .SAFE file, in the format [xmin, ymin, xmax, ymax].
+EPSG code of the coordinate reference system of the .SAFE file.</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="sen2mosaic.L3B.main">
+<code class="descclassname">sen2mosaic.L3B.</code><code class="descname">main</code><span class="sig-paren">(</span><em>source_files, extent_dest, EPSG_dest, res_list = [10, 10, 10, 10, 20, 20, 20, 20, 20, 20], band_list = ['B02','B03','B04','B08','B05','B06','B07','B8A','B11','B12'], output_dir = os.getcwd(), output_name = 'L3B_output'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sen2mosaic/L3B.html#main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#sen2mosaic.L3B.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to run through the entire chain for converting output of sen2Three into custom mosaics.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>source_files</strong> &#8211; A list of level 3A input files.</li>
+<li><strong>extent_dest</strong> &#8211; List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax].</li>
+<li><strong>EPSG_dest</strong> &#8211; EPSG code of destination coordinate reference system. Must be a UTM projection. See: <a class="reference external" href="https://www.epsg-registry.org/">https://www.epsg-registry.org/</a> for codes.</li>
+<li><strong>res_list</strong> &#8211; Optionally specify a list of integers describing pixel size in m (10, 20, or 60). Must be accompanied by a band_list of the same size. Defaults to native resolution of each band.</li>
+<li><strong>band_list</strong> &#8211; Optionally specify a list of output band names. Must be accompanied by a res_list of the same size. Defaults to processing all 10 and 20 m bands.</li>
+<li><strong>output_dir</strong> &#8211; Optionally specify an output directory.</li>
+<li><strong>output_name</strong> &#8211; Optionally specify a string to precede output file names.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-sen2mosaic">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-sen2mosaic" title="Permalink to this headline">¶</a></h2>
+</div>
+</div>
+
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, Samuel Bowers.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: ''
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

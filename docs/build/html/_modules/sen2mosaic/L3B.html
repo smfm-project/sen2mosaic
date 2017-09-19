@@ -1,0 +1,838 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>sen2mosaic.L3B &mdash; sen2mosaic 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="sen2mosaic 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> sen2mosaic
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">sen2mosaic</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>sen2mosaic.L3B</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for sen2mosaic.L3B</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">glymur</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">osgeo</span> <span class="k">import</span> <span class="n">gdal</span>
+<span class="kn">from</span> <span class="nn">osgeo</span> <span class="k">import</span> <span class="n">osr</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="k">import</span> <span class="n">ndimage</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">xml.etree.cElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
+
+
+<span class="k">def</span> <span class="nf">_createOutputArray</span><span class="p">(</span><span class="n">md</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Create an output array from metadata dictionary.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        md: A metadata dictionary created by buildMetadataDictionary().</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A numpy array sized to match the specification of the metadata dictionary.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="n">output_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;nrows&#39;</span><span class="p">],</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;ncols&#39;</span><span class="p">]),</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">output_array</span>
+
+
+<span class="k">def</span> <span class="nf">_sortSourceFiles</span><span class="p">(</span><span class="n">source_files</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    When building a large mosaic, it&#39;s necessary for input tiles to be in a consistent order to avoid strange overlap artefacts. This function sorts a list of safe files in alphabetical order by their tile reference.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        source_files: A list of level 3A Sentinel-2 .SAFE files.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A list of source_files alphabetised by tile name.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="n">source_files</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_T&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    
+    <span class="k">return</span> <span class="n">source_files</span>
+
+
+<span class="k">def</span> <span class="nf">_loadSourceFile</span><span class="p">(</span><span class="n">L3A_file</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">band</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Loads a Sentinel-2 level 3A .jp file for a given band and resolution into a numpy array.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        L3A_file: /path/to/a/ level 3A Sentinel-2 .SAFE file.</span>
+<span class="sd">        res: Resolution, an integer of 10, 20, or 60 meters.</span>
+<span class="sd">        band: A string indicating the image band name to load (e.g. &#39;B02&#39;, &#39;B04&#39;, &#39;SCL&#39;).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A numpy array.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Remove trailing slash from input filename, if it exists</span>
+    <span class="n">L3A_file</span> <span class="o">=</span> <span class="n">L3A_file</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Identify source file following the standardised file pattern</span>
+    <span class="n">image_path</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">L3A_file</span> <span class="o">+</span> <span class="s1">&#39;/GRANULE/*/IMG_DATA/R</span><span class="si">%s</span><span class="s1">m/L03*_</span><span class="si">%s</span><span class="s1">_</span><span class="si">%s</span><span class="s1">m.jp2&#39;</span><span class="o">%</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">),</span> <span class="n">band</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">)))[</span><span class="mi">0</span><span class="p">]</span>
+       
+    <span class="c1"># Load the image (.jp2 format)</span>
+    <span class="n">jp2</span> <span class="o">=</span> <span class="n">glymur</span><span class="o">.</span><span class="n">Jp2k</span><span class="p">(</span><span class="n">image_path</span><span class="p">)</span>
+    
+    <span class="c1"># Extract array data from .jp2 file</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">jp2</span><span class="p">[:]</span>
+
+    <span class="k">return</span> <span class="n">data</span>
+
+
+<span class="k">def</span> <span class="nf">_improveSCLMask</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    The median filter of sen2Three can mess up edges of image. This can be fixed by removing 60 m worth of pixels from the edge of the mask with this function.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        data: Input SCL mask as a numpy array.</span>
+<span class="sd">        res: Resolution of mask, an integer of 10, 20, or 60 meters.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A numpy array with a slightly modified mask.    </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="n">mask_dilate</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">morphology</span><span class="o">.</span><span class="n">binary_dilation</span><span class="p">((</span><span class="n">data</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">),</span> <span class="n">iterations</span> <span class="o">=</span> <span class="mi">120</span> <span class="o">/</span> <span class="n">res</span><span class="p">)</span>
+    <span class="n">data</span><span class="p">[</span><span class="n">mask_dilate</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">return</span> <span class="n">data</span>
+
+
+<span class="k">def</span> <span class="nf">_createGdalDataset</span><span class="p">(</span><span class="n">md</span><span class="p">,</span> <span class="n">data_out</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">driver</span> <span class="o">=</span> <span class="s1">&#39;MEM&#39;</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GDT_Int16</span><span class="p">,</span> <span class="n">options</span> <span class="o">=</span> <span class="p">[]):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Function to create an empty gdal dataset with georefence info from metadata dictionary.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        md: A metadata dictionary created by buildMetadataDictionary().</span>
+<span class="sd">        data_out: Optionally specify an array of data to include in the gdal dataset.</span>
+<span class="sd">        filename: Optionally specify an output filename, if image will be written to disk.</span>
+<span class="sd">        driver: GDAL driver type (e.g. &#39;MEM&#39;, &#39;GTiff&#39;). By default this function creates an array in memory, but set driver = &#39;GTiff&#39; to make a GeoTiff. If writing a file to disk, the argument filename must be specified.</span>
+<span class="sd">        dtype: Output data type. Default data type is a 16-bit unsigned integer, but this can be specified using GDAL standards.</span>
+<span class="sd">        options: A list containing other GDAL options (e.g. for compression, use [compress&#39;LZW&#39;].</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A GDAL dataset.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+       
+    <span class="n">gdal_driver</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GetDriverByName</span><span class="p">(</span><span class="n">driver</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">gdal_driver</span><span class="o">.</span><span class="n">Create</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;ncols&#39;</span><span class="p">],</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;nrows&#39;</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GDT_Int16</span><span class="p">,</span> <span class="n">options</span> <span class="o">=</span> <span class="n">options</span><span class="p">)</span>
+    <span class="n">ds</span><span class="o">.</span><span class="n">SetGeoTransform</span><span class="p">(</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;geo_t&#39;</span><span class="p">])</span>
+    <span class="n">ds</span><span class="o">.</span><span class="n">SetProjection</span><span class="p">(</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;proj&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">ExportToWkt</span><span class="p">())</span>
+    
+    <span class="c1"># If a data array specified, add it to the gdal dataset</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">data_out</span><span class="p">)</span><span class="o">.</span><span class="n">__module__</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">__name__</span><span class="p">:</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">GetRasterBand</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">WriteArray</span><span class="p">(</span><span class="n">data_out</span><span class="p">)</span>
+    
+    <span class="c1"># If a filename is specified, write the array to disk.</span>
+    <span class="k">if</span> <span class="n">filename</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="k">return</span> <span class="n">ds</span>
+
+
+<span class="k">def</span> <span class="nf">_reprojectImage</span><span class="p">(</span><span class="n">ds_source</span><span class="p">,</span> <span class="n">ds_dest</span><span class="p">,</span> <span class="n">md_source</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Reprojects a source image to match the coordinates of a destination GDAL dataset.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        ds_source: A gdal dataset from _createGdalDataset() containing data to be repojected.</span>
+<span class="sd">        ds_dest: A gdal dataset from _createGdalDataset(), with destination coordinate reference system and extent.</span>
+<span class="sd">        md_source: A metadata dictionary created by buildMetadataDictionary() representing the source image.</span>
+<span class="sd">        md_dest: A metadata dictionary created by buildMetadataDictionary() representing the destination image.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A GDAL array with resampled data</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="n">proj_source</span> <span class="o">=</span> <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;proj&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">ExportToWkt</span><span class="p">()</span>
+    <span class="n">proj_dest</span> <span class="o">=</span> <span class="n">md_dest</span><span class="p">[</span><span class="s1">&#39;proj&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">ExportToWkt</span><span class="p">()</span>
+    
+    <span class="c1"># Reproject source into dest project coordinates</span>
+    <span class="n">gdal</span><span class="o">.</span><span class="n">reprojectImage</span><span class="p">(</span><span class="n">ds_source</span><span class="p">,</span> <span class="n">ds_dest</span><span class="p">,</span> <span class="n">proj_source</span><span class="p">,</span> <span class="n">proj_dest</span><span class="p">,</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GRA_NearestNeighbour</span><span class="p">)</span>
+            
+    <span class="n">ds_resampled</span> <span class="o">=</span> <span class="n">ds_dest</span><span class="o">.</span><span class="n">GetRasterBand</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ReadAsArray</span><span class="p">()</span>
+    
+    <span class="k">return</span> <span class="n">ds_resampled</span>
+
+
+<span class="k">def</span> <span class="nf">_testOutsideTile</span><span class="p">(</span><span class="n">md_source</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Function that uses metadata dictionaries from buildMetadatadisctionary() metadata to test whether any part of a source data falls inside destination tile.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        md_source: A metadata dictionary created by buildMetadataDictionary() representing the source image.</span>
+<span class="sd">        md_dest: A metadata dictionary created by buildMetadataDictionary() representing the destination image.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A boolean (True/False) value.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+            
+    <span class="c1"># Set up function to translate coordinates from source to destination</span>
+    <span class="n">tx</span> <span class="o">=</span> <span class="n">osr</span><span class="o">.</span><span class="n">CoordinateTransformation</span><span class="p">(</span><span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;proj&#39;</span><span class="p">],</span> <span class="n">md_dest</span><span class="p">[</span><span class="s1">&#39;proj&#39;</span><span class="p">])</span>
+         
+    <span class="c1"># And translate the source coordinates</span>
+    <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;ulx&#39;</span><span class="p">],</span> <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;uly&#39;</span><span class="p">],</span> <span class="n">z</span> <span class="o">=</span> <span class="n">tx</span><span class="o">.</span><span class="n">TransformPoint</span><span class="p">(</span><span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;ulx&#39;</span><span class="p">],</span> <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;uly&#39;</span><span class="p">])</span>
+    <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;lrx&#39;</span><span class="p">],</span> <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;lry&#39;</span><span class="p">],</span> <span class="n">z</span> <span class="o">=</span> <span class="n">tx</span><span class="o">.</span><span class="n">TransformPoint</span><span class="p">(</span><span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;lrx&#39;</span><span class="p">],</span> <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;lry&#39;</span><span class="p">])</span>   
+    
+    <span class="n">out_of_tile</span> <span class="o">=</span>  <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;ulx&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">md_dest</span><span class="p">[</span><span class="s1">&#39;lrx&#39;</span><span class="p">]</span> <span class="ow">or</span> \
+                   <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;lrx&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">md_dest</span><span class="p">[</span><span class="s1">&#39;ulx&#39;</span><span class="p">]</span> <span class="ow">or</span> \
+                   <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;uly&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">md_dest</span><span class="p">[</span><span class="s1">&#39;lry&#39;</span><span class="p">]</span> <span class="ow">or</span> \
+                   <span class="n">md_source</span><span class="p">[</span><span class="s1">&#39;lry&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">md_dest</span><span class="p">[</span><span class="s1">&#39;uly&#39;</span><span class="p">]</span>
+    
+    <span class="k">return</span> <span class="n">out_of_tile</span>
+
+
+<span class="k">def</span> <span class="nf">_updateMaskArrays</span><span class="p">(</span><span class="n">scl_out</span><span class="p">,</span> <span class="n">scl_resampled</span><span class="p">,</span> <span class="n">image_n</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Function to update contents of scl and image_n arrays.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        scl_out: A numpy array representing the mask to be output.</span>
+<span class="sd">        scl_resampled: A numpy array containing resampled data to be added to the scl_out.</span>
+<span class="sd">        image_n: A numpy array to record the image number for each pixel.</span>
+<span class="sd">        n: An integer describing the image number (first image = 1, second image = 2 etc.)</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The scl_out array with pixels from scl_resampled added.</span>
+<span class="sd">        The image_n array describing which image each pixel is sources from.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Select only places which have new data, and have not already had data allocated</span>
+    <span class="n">selection</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">image_n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">scl_resampled</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+    
+    <span class="c1"># Update SCL code in each newly assigned pixel, and record the image that pixel has come from</span>
+    <span class="n">scl_out</span><span class="p">[</span><span class="n">selection</span><span class="p">]</span> <span class="o">=</span> <span class="n">scl_resampled</span><span class="p">[</span><span class="n">selection</span><span class="p">]</span>
+    <span class="n">image_n</span><span class="p">[</span><span class="n">selection</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
+    
+    <span class="k">return</span> <span class="n">scl_out</span><span class="p">,</span> <span class="n">image_n</span>
+
+
+<span class="k">def</span> <span class="nf">_updateBandArray</span><span class="p">(</span><span class="n">data_out</span><span class="p">,</span> <span class="n">data_resampled</span><span class="p">,</span> <span class="n">image_n</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">scl_out</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Function to update contents of output array based on image_n array.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        data_out: A numpy array representing the band data to be output.</span>
+<span class="sd">        data_resampled: A numpy array containing resampled band data to be added to data_out.</span>
+<span class="sd">        image_n: A numpy array representing the image number from _updateMaskArrays().</span>
+<span class="sd">        n: An integer describing the image number (first image = 1, second image = 2 etc.).</span>
+<span class="sd">        scl_out: A numpy array representing the SCL mask from _updateMaskArrays().</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The data_out array with pixels from data_resampled added.</span>
+<span class="sd">        </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Find pixels that need replacing in this image</span>
+    <span class="n">selection</span> <span class="o">=</span> <span class="n">image_n</span> <span class="o">==</span> <span class="n">n</span>
+               
+    <span class="c1"># Add good data to data_out array</span>
+    <span class="n">data_out</span><span class="p">[</span><span class="n">selection</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_resampled</span><span class="p">[</span><span class="n">selection</span><span class="p">]</span>
+               
+    <span class="c1"># Set bad values from scl mask to 0, to keep things tidy</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">]:</span>
+        <span class="n">data_out</span><span class="p">[</span><span class="n">selection</span><span class="p">][</span><span class="n">scl_out</span><span class="p">[</span><span class="n">selection</span><span class="p">]</span> <span class="o">==</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">return</span> <span class="n">data_out</span>
+
+
+<div class="viewcode-block" id="getSourceMetadata"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L3B.getSourceMetadata">[docs]</a><span class="k">def</span> <span class="nf">getSourceMetadata</span><span class="p">(</span><span class="n">safe_file</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Function to extract georefence info from level 3 Sentinel 2 data in .SAFE format.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        safe_file: String with /path/to/the/MTD_TL.xml file bundled with a .SAFE file.</span>
+<span class="sd">        res: Integer describing pixel size in m (10, 20, or 60).</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A list describing the extent of the .SAFE file, in the format [xmin, ymin, xmax, ymax].</span>
+<span class="sd">        EPSG code of the coordinate reference system of the .SAFE file.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="k">assert</span> <span class="n">safe_file</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:]</span> <span class="o">==</span> <span class="s1">&#39;.SAFE&#39;</span><span class="p">,</span> <span class="s2">&quot;The input to getSourceMetadata() must be a .safe file&quot;</span>
+    
+    <span class="c1"># Remove trailing / from safe files if present </span>
+    <span class="n">safe_file</span> <span class="o">=</span> <span class="n">safe_file</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Find the xml file that contains file metadata</span>
+    <span class="n">xml_file</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">safe_file</span> <span class="o">+</span> <span class="s1">&#39;/GRANULE/*/MTD_TL.xml&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        
+    <span class="c1"># Define xml namespace (specific to level 3 Sentinel 2 .SAFE files)</span>
+    <span class="n">ns</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;n1&#39;</span><span class="p">:</span><span class="s1">&#39;https://psd-12.sentinel2.eo.esa.int/PSD/S2_PDI_Level-3_Tile_Metadata.xsd&#39;</span><span class="p">}</span>
+    
+    <span class="c1"># Parse xml file</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">ElementTree</span><span class="p">(</span><span class="n">file</span> <span class="o">=</span> <span class="n">xml_file</span><span class="p">)</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+    
+    <span class="c1"># Get array size</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;n1:Geometric_Info/Tile_Geocoding/Size[@resolution=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span><span class="o">%</span><span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">),</span><span class="n">ns</span><span class="p">)</span>
+    <span class="n">nrows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;NROWS&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+    <span class="n">ncols</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;NCOLS&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+    
+    <span class="c1"># Get extent data</span>
+    <span class="n">geopos</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;n1:Geometric_Info/Tile_Geocoding/Geoposition[@resolution=&#39;</span><span class="si">%s</span><span class="s2">&#39;]&quot;</span><span class="o">%</span><span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">),</span><span class="n">ns</span><span class="p">)</span>
+    <span class="n">ulx</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">geopos</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;ULX&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+    <span class="n">uly</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">geopos</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;ULY&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+    <span class="n">xres</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">geopos</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;XDIM&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+    <span class="n">yres</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">geopos</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;YDIM&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+    <span class="n">lrx</span> <span class="o">=</span> <span class="n">ulx</span> <span class="o">+</span> <span class="p">(</span><span class="n">xres</span> <span class="o">*</span> <span class="n">ncols</span><span class="p">)</span>
+    <span class="n">lry</span> <span class="o">=</span> <span class="n">uly</span> <span class="o">+</span> <span class="p">(</span><span class="n">yres</span> <span class="o">*</span> <span class="n">nrows</span><span class="p">)</span>
+    
+    <span class="n">extent</span> <span class="o">=</span> <span class="p">[</span><span class="n">ulx</span><span class="p">,</span> <span class="n">lry</span><span class="p">,</span> <span class="n">lrx</span><span class="p">,</span> <span class="n">uly</span><span class="p">]</span>
+    
+    <span class="c1"># Find EPSG code to define projection</span>
+    <span class="n">EPSG</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;n1:Geometric_Info/Tile_Geocoding/HORIZONTAL_CS_CODE&#39;</span><span class="p">,</span><span class="n">ns</span><span class="p">)</span><span class="o">.</span><span class="n">text</span>
+    <span class="n">EPSG</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">EPSG</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+    
+    <span class="k">return</span> <span class="n">extent</span><span class="p">,</span> <span class="n">EPSG</span></div>
+
+
+<div class="viewcode-block" id="buildMetadataDictionary"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L3B.buildMetadataDictionary">[docs]</a><span class="k">def</span> <span class="nf">buildMetadataDictionary</span><span class="p">(</span><span class="n">extent_dest</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">EPSG</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Build a metadata dictionary to describe the destination georeference info</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        extent_dest: List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax]</span>
+<span class="sd">        res: Integer describing pixel size in m (10, 20, or 60)</span>
+<span class="sd">        EPSG: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A dictionary containg projection info.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Set up an empty dictionary</span>
+    <span class="n">md</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="c1"># Define projection from EPSG code</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;EPSG_code&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">EPSG</span>
+
+    <span class="c1"># Get GDAL projection string</span>
+    <span class="n">proj</span> <span class="o">=</span> <span class="n">osr</span><span class="o">.</span><span class="n">SpatialReference</span><span class="p">()</span>
+    <span class="n">proj</span><span class="o">.</span><span class="n">ImportFromEPSG</span><span class="p">(</span><span class="n">EPSG</span><span class="p">)</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;proj&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">proj</span>
+    
+    <span class="c1"># Get image extent data</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;ulx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">extent_dest</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;lry&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">extent_dest</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;lrx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">extent_dest</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;uly&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">extent_dest</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;xres&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;yres&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="o">-</span><span class="n">res</span><span class="p">)</span>
+    
+    <span class="c1"># Calculate array size</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;nrows&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;lry&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;uly&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;yres&#39;</span><span class="p">])</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;ncols&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;lrx&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;ulx&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;xres&#39;</span><span class="p">])</span>
+    
+    <span class="c1"># Define gdal geotransform (Affine)</span>
+    <span class="n">md</span><span class="p">[</span><span class="s1">&#39;geo_t&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">md</span><span class="p">[</span><span class="s1">&#39;ulx&#39;</span><span class="p">],</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;xres&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;uly&#39;</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="n">md</span><span class="p">[</span><span class="s1">&#39;yres&#39;</span><span class="p">])</span>
+    
+    <span class="k">return</span> <span class="n">md</span></div>
+
+
+<div class="viewcode-block" id="getSafeFilesInTile"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L3B.getSafeFilesInTile">[docs]</a><span class="k">def</span> <span class="nf">getSafeFilesInTile</span><span class="p">(</span><span class="n">source_files</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Takes a list of source files as input, and determines where each falls within extent of output tile.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        source_files: A list of level 3A input files.</span>
+<span class="sd">        md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        A reduced list of source_files containing only files that will contribute to each tile.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Sort source files alphabetically by tile reference.    </span>
+    <span class="n">source_files</span> <span class="o">=</span> <span class="n">_sortSourceFiles</span><span class="p">(</span><span class="n">source_files</span><span class="p">)</span>
+                
+    <span class="c1"># Determine which L3A images are within specified tile bounds</span>
+    <span class="nb">print</span> <span class="s1">&#39;Searching for source files within specified tile...&#39;</span>
+    
+    <span class="n">do_tile</span> <span class="o">=</span> <span class="p">[]</span>
+    
+    <span class="k">for</span> <span class="n">safe_file</span> <span class="ow">in</span> <span class="n">source_files</span><span class="p">:</span>
+                                           
+        <span class="c1"># Get source file metadata</span>
+        <span class="n">extent_source</span><span class="p">,</span> <span class="n">EPSG_source</span> <span class="o">=</span> <span class="n">getSourceMetadata</span><span class="p">(</span><span class="n">safe_file</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        
+        <span class="c1"># Define source file metadata dictionary</span>
+        <span class="n">md_source</span> <span class="o">=</span> <span class="n">buildMetadataDictionary</span><span class="p">(</span><span class="n">extent_source</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">EPSG_source</span><span class="p">)</span>
+
+        <span class="c1"># Skip processing the file if image falls outside of tile area</span>
+        <span class="k">if</span> <span class="n">_testOutsideTile</span><span class="p">(</span><span class="n">md_source</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">):</span>
+            <span class="n">do_tile</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+            <span class="k">continue</span>
+        
+        <span class="nb">print</span> <span class="s1">&#39;    Found one: </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">safe_file</span>
+        <span class="n">do_tile</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="c1"># Get subset of source_files in specified tile</span>
+    <span class="n">source_files_tile</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">source_files</span><span class="p">)[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">do_tile</span><span class="p">)])</span>
+    
+    <span class="k">return</span> <span class="n">source_files_tile</span></div>
+
+
+<div class="viewcode-block" id="generateSCLArray"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L3B.generateSCLArray">[docs]</a><span class="k">def</span> <span class="nf">generateSCLArray</span><span class="p">(</span><span class="n">source_files</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">output_name</span> <span class="o">=</span> <span class="s1">&#39;L3B_output&#39;</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_name = &#39;L3B_output&#39;)</span>
+<span class="sd">    </span>
+<span class="sd">    Function which generates an mask GeoTiff file from list of level 3B source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        source_files: A list of level 3A input files.</span>
+<span class="sd">        md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.</span>
+<span class="sd">        output_dir: Optionally specify directory for output file. Defaults to current working directory.</span>
+<span class="sd">        output_name: Optionally specify a string to prepend to output files. Defaults to &#39;L3B_output&#39;.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A numpy array containing mosaic data for the input band.</span>
+<span class="sd">        A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first source_file, 2 = second source_file etc.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    
+    <span class="c1"># Create array to contain output classified cloud mask array</span>
+    <span class="n">scl_out</span> <span class="o">=</span> <span class="n">_createOutputArray</span><span class="p">(</span><span class="n">md_dest</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+    
+    <span class="c1"># Create array to contain record of the number of source image</span>
+    <span class="n">image_n</span> <span class="o">=</span> <span class="n">_createOutputArray</span><span class="p">(</span><span class="n">md_dest</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span> 
+
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">safe_file</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">source_files</span><span class="p">):</span>
+        
+        <span class="nb">print</span> <span class="s1">&#39;    Getting pixels from </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">safe_file</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># Get source file metadata</span>
+        <span class="n">extent_source</span><span class="p">,</span> <span class="n">EPSG_source</span> <span class="o">=</span> <span class="n">getSourceMetadata</span><span class="p">(</span><span class="n">safe_file</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        
+        <span class="c1"># Define source file metadata dictionary</span>
+        <span class="n">md_source</span> <span class="o">=</span> <span class="n">buildMetadataDictionary</span><span class="p">(</span><span class="n">extent_source</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">EPSG_source</span><span class="p">)</span>
+        
+        <span class="c1"># Load source data</span>
+        <span class="n">scl</span> <span class="o">=</span> <span class="n">_loadSourceFile</span><span class="p">(</span><span class="n">safe_file</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="s1">&#39;SCL&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Tweak output mask to fix anomalies introduced by sen2Three median filter</span>
+        <span class="n">scl</span> <span class="o">=</span> <span class="n">_improveSCLMask</span><span class="p">(</span><span class="n">scl</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        
+        <span class="c1"># Write array to a gdal dataset</span>
+        <span class="n">ds_source</span> <span class="o">=</span> <span class="n">_createGdalDataset</span><span class="p">(</span><span class="n">md_source</span><span class="p">,</span> <span class="n">data_out</span> <span class="o">=</span> <span class="n">scl</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GDT_Byte</span><span class="p">)</span>
+         
+        <span class="c1"># Create an empty gdal dataset for destination</span>
+        <span class="n">ds_dest</span> <span class="o">=</span> <span class="n">_createGdalDataset</span><span class="p">(</span><span class="n">md_dest</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GDT_Byte</span><span class="p">)</span>
+        
+        <span class="c1"># Reproject source to destination projection and extent</span>
+        <span class="n">scl_resampled</span> <span class="o">=</span> <span class="n">_reprojectImage</span><span class="p">(</span><span class="n">ds_source</span><span class="p">,</span> <span class="n">ds_dest</span><span class="p">,</span> <span class="n">md_source</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">)</span>
+
+        <span class="c1"># Add reprojected data to SCL output array</span>
+        <span class="n">scl_out</span><span class="p">,</span> <span class="n">image_n</span> <span class="o">=</span> <span class="n">_updateMaskArrays</span><span class="p">(</span><span class="n">scl_out</span><span class="p">,</span> <span class="n">scl_resampled</span><span class="p">,</span> <span class="n">image_n</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        
+        <span class="c1"># Tidy up</span>
+        <span class="n">ds_source</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">ds_dest</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    
+    <span class="nb">print</span> <span class="s1">&#39;Outputting SCL mask&#39;</span>
+    
+    <span class="c1"># Write output cloud mask to disk for each resolution</span>
+    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">_createGdalDataset</span><span class="p">(</span><span class="n">md_dest</span><span class="p">,</span> <span class="n">data_out</span> <span class="o">=</span> <span class="n">scl_out</span><span class="p">,</span>
+                               <span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_SCL_R</span><span class="si">%s</span><span class="s1">m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">)),</span>
+                               <span class="n">driver</span><span class="o">=</span><span class="s1">&#39;GTiff&#39;</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GDT_Byte</span><span class="p">,</span> <span class="n">options</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;COMPRESS=LZW&#39;</span><span class="p">])</span>
+    
+    <span class="k">return</span> <span class="n">scl_out</span><span class="p">,</span> <span class="n">image_n</span></div>
+
+
+<div class="viewcode-block" id="generateBandArray"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L3B.generateBandArray">[docs]</a><span class="k">def</span> <span class="nf">generateBandArray</span><span class="p">(</span><span class="n">source_files</span><span class="p">,</span> <span class="n">image_n</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">scl_out</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">output_name</span> <span class="o">=</span> <span class="s1">&#39;L3B_output&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir=os.getcwd(), output_name=&#39;L3B_output&#39;)</span>
+<span class="sd">    </span>
+<span class="sd">    Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        source_files: A list of level 3A input files.</span>
+<span class="sd">        image_n: An array of integers from generateSCLArray(), which describes the source_file that each pixel should come from. 0 = No data, 1 = first source_file, 2 = second source_file etc.</span>
+<span class="sd">        band: String describing bad to process. e.g. B02, B03, B8A....</span>
+<span class="sd">        scl_out: Numpy array with mask from generateSCLArray().</span>
+<span class="sd">        md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.</span>
+<span class="sd">        output_dir: Optionally specify directory for output file. Defaults to current working directory.</span>
+<span class="sd">        output_name: Optionally specify a string to prepend to output files. Defaults to &#39;L3B_output&#39;.</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A numpy array containing mosaic data for the input band.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    
+    <span class="c1"># Create array to contain output array for this band</span>
+    <span class="n">data_out</span> <span class="o">=</span> <span class="n">_createOutputArray</span><span class="p">(</span><span class="n">md_dest</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+    
+    <span class="c1"># For each source file</span>
+    <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">safe_file</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">source_files</span><span class="p">):</span>
+        
+        <span class="nb">print</span> <span class="s1">&#39;    Getting pixels from </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">safe_file</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="c1"># Get source file metadata</span>
+        <span class="n">extent_source</span><span class="p">,</span> <span class="n">EPSG_source</span> <span class="o">=</span> <span class="n">getSourceMetadata</span><span class="p">(</span><span class="n">safe_file</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+     
+        <span class="c1"># Define source file metadata dictionary</span>
+        <span class="n">md_source</span> <span class="o">=</span> <span class="n">buildMetadataDictionary</span><span class="p">(</span><span class="n">extent_source</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">EPSG_source</span><span class="p">)</span>
+
+        <span class="c1"># Load source data for the band</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">_loadSourceFile</span><span class="p">(</span><span class="n">safe_file</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">band</span><span class="p">)</span>
+        
+        <span class="c1"># Write array to a gdal dataset</span>
+        <span class="n">ds_source</span> <span class="o">=</span> <span class="n">_createGdalDataset</span><span class="p">(</span><span class="n">md_source</span><span class="p">,</span> <span class="n">data_out</span> <span class="o">=</span> <span class="n">data</span><span class="p">)</span>                
+
+        <span class="c1"># Create an empty gdal dataset for destination</span>
+        <span class="n">ds_dest</span> <span class="o">=</span> <span class="n">_createGdalDataset</span><span class="p">(</span><span class="n">md_dest</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GDT_Byte</span><span class="p">)</span>
+                
+        <span class="c1"># Reproject source to destination projection and extent</span>
+        <span class="n">data_resampled</span> <span class="o">=</span> <span class="n">_reprojectImage</span><span class="p">(</span><span class="n">ds_source</span><span class="p">,</span> <span class="n">ds_dest</span><span class="p">,</span> <span class="n">md_source</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">)</span>
+                
+        <span class="c1"># Add reprojected data to band output array at appropriate image_n</span>
+        <span class="n">data_out</span> <span class="o">=</span> <span class="n">_updateBandArray</span><span class="p">(</span><span class="n">data_out</span><span class="p">,</span> <span class="n">data_resampled</span><span class="p">,</span> <span class="n">image_n</span><span class="p">,</span> <span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">scl_out</span><span class="p">)</span>
+                
+        <span class="c1"># Tidy up</span>
+        <span class="n">ds_source</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">ds_dest</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="nb">print</span> <span class="s1">&#39;Outputting band </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">band</span>
+
+    <span class="c1"># Write output for this band to disk</span>
+    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">_createGdalDataset</span><span class="p">(</span><span class="n">md_dest</span><span class="p">,</span> <span class="n">data_out</span> <span class="o">=</span> <span class="n">data_out</span><span class="p">,</span>
+                               <span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_</span><span class="si">%s</span><span class="s1">_R</span><span class="si">%s</span><span class="s1">m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">)),</span>
+                               <span class="n">driver</span><span class="o">=</span><span class="s1">&#39;GTiff&#39;</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">gdal</span><span class="o">.</span><span class="n">GDT_Byte</span><span class="p">,</span> <span class="n">options</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;COMPRESS=LZW&#39;</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">data_out</span></div>
+
+
+<div class="viewcode-block" id="buildVRT"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L3B.buildVRT">[docs]</a><span class="k">def</span> <span class="nf">buildVRT</span><span class="p">(</span><span class="n">red_band</span><span class="p">,</span> <span class="n">green_band</span><span class="p">,</span> <span class="n">blue_band</span><span class="p">,</span> <span class="n">output_path</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        red_band: Filename to add to red band</span>
+<span class="sd">        green_band: Filename to add to green band</span>
+<span class="sd">        blue_band: Filename to add to blue band</span>
+<span class="sd">        output_name: Path to output file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Remove trailing / from output directory name if present</span>
+    <span class="n">output_path</span> <span class="o">=</span> <span class="n">output_path</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Ensure output name is a VRT</span>
+    <span class="k">if</span> <span class="n">output_path</span><span class="p">[</span><span class="o">-</span><span class="mi">4</span><span class="p">:]</span> <span class="o">!=</span> <span class="s1">&#39;.vrt&#39;</span><span class="p">:</span>
+        <span class="n">output_path</span> <span class="o">+=</span> <span class="s1">&#39;.vrt&#39;</span>
+    
+    <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;gdalbuildvrt&#39;</span><span class="p">,</span> <span class="s1">&#39;-separate&#39;</span><span class="p">,</span> <span class="s1">&#39;-overwrite&#39;</span><span class="p">]</span>
+    <span class="n">command</span> <span class="o">+=</span> <span class="p">[</span><span class="n">output_path</span><span class="p">,</span> <span class="n">red_band</span><span class="p">,</span> <span class="n">green_band</span><span class="p">,</span> <span class="n">blue_band</span><span class="p">]</span>
+    
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">command</span><span class="p">)</span></div>
+
+
+    
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L3B.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">source_files</span><span class="p">,</span> <span class="n">extent_dest</span><span class="p">,</span> <span class="n">EPSG_dest</span><span class="p">,</span>
+    <span class="n">res_list</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">],</span>
+    <span class="n">band_list</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;B02&#39;</span><span class="p">,</span> <span class="s1">&#39;B03&#39;</span><span class="p">,</span> <span class="s1">&#39;B04&#39;</span><span class="p">,</span> <span class="s1">&#39;B08&#39;</span><span class="p">,</span> <span class="s1">&#39;B05&#39;</span><span class="p">,</span> <span class="s1">&#39;B06&#39;</span><span class="p">,</span> <span class="s1">&#39;B07&#39;</span><span class="p">,</span> <span class="s1">&#39;B8A&#39;</span><span class="p">,</span> <span class="s1">&#39;B11&#39;</span><span class="p">,</span> <span class="s1">&#39;B12&#39;</span><span class="p">],</span>
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">output_name</span> <span class="o">=</span> <span class="s1">&#39;L3B_output&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;main(source_files, extent_dest, EPSG_dest, res_list = [10, 10, 10, 10, 20, 20, 20, 20, 20, 20], band_list = [&#39;B02&#39;,&#39;B03&#39;,&#39;B04&#39;,&#39;B08&#39;,&#39;B05&#39;,&#39;B06&#39;,&#39;B07&#39;,&#39;B8A&#39;,&#39;B11&#39;,&#39;B12&#39;], output_dir = os.getcwd(), output_name = &#39;L3B_output&#39;)</span>
+<span class="sd">    </span>
+<span class="sd">    Function to run through the entire chain for converting output of sen2Three into custom mosaics.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        source_files: A list of level 3A input files.</span>
+<span class="sd">        extent_dest: List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax].</span>
+<span class="sd">        EPSG_dest: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.</span>
+<span class="sd">        res_list: Optionally specify a list of integers describing pixel size in m (10, 20, or 60). Must be accompanied by a band_list of the same size. Defaults to native resolution of each band.</span>
+<span class="sd">        band_list: Optionally specify a list of output band names. Must be accompanied by a res_list of the same size. Defaults to processing all 10 and 20 m bands.</span>
+<span class="sd">        output_dir: Optionally specify an output directory.</span>
+<span class="sd">        output_name: Optionally specify a string to precede output file names.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">extent_dest</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;Output extent must be specified in the format [xmin, ymin, xmax, ymax]&quot;</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">res_list</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">band_list</span><span class="p">),</span> <span class="s2">&quot;For each band to process you must specify a resolution&quot;</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_files</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;No source files in specified location.&quot;</span>
+    
+    <span class="c1"># Convert band and res list to numpy arrays for indexing</span>
+    <span class="n">res_lis</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">res_list</span><span class="p">)</span>
+    <span class="n">band_list</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">band_list</span><span class="p">)</span>
+    
+    
+    <span class="c1"># Remove trailing / from output directory if present </span>
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+       
+    <span class="c1"># For each of the input resolutions</span>
+    <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">res_list</span><span class="p">))):</span>
+        
+        <span class="c1"># Build a dictionary with output projection metadata</span>
+        <span class="n">md_dest</span> <span class="o">=</span> <span class="n">buildMetadataDictionary</span><span class="p">(</span><span class="n">extent_dest</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">EPSG_dest</span><span class="p">)</span>    
+        
+        <span class="c1"># Reduce the pool of source_files to only those that overlap with output tile</span>
+        <span class="n">source_files_tile</span> <span class="o">=</span> <span class="n">getSafeFilesInTile</span><span class="p">(</span><span class="n">source_files</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">)</span>
+        
+        <span class="c1"># It&#39;s only worth processing a tile if at least one input image is inside tile</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_files_tile</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;No data inside specified tile. Not processing this tile.&quot;</span>
+        
+        <span class="nb">print</span> <span class="s1">&#39;Doing SCL mask at </span><span class="si">%s</span><span class="s1"> m resolution&#39;</span><span class="o">%</span><span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+       
+        <span class="c1"># Generate a classified mask</span>
+        <span class="n">scl_out</span><span class="p">,</span> <span class="n">image_n</span> <span class="o">=</span> <span class="n">generateSCLArray</span><span class="p">(</span><span class="n">source_files_tile</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span> <span class="o">=</span> <span class="n">output_name</span><span class="p">)</span>
+               
+        <span class="c1"># Process images for each band</span>
+        <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">band_list</span><span class="p">[</span><span class="n">res_list</span><span class="o">==</span><span class="n">res</span><span class="p">]:</span>
+            
+            <span class="nb">print</span> <span class="s1">&#39;Doing band </span><span class="si">%s</span><span class="s1"> at </span><span class="si">%s</span><span class="s1"> m resolution&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">))</span>
+            
+            <span class="c1"># Using image_n, combine pixels into outputs images for each band</span>
+            <span class="n">band_out</span> <span class="o">=</span> <span class="n">generateBandArray</span><span class="p">(</span><span class="n">source_files_tile</span><span class="p">,</span> <span class="n">image_n</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">scl_out</span><span class="p">,</span> <span class="n">md_dest</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span> <span class="o">=</span> <span class="n">output_name</span><span class="p">)</span>
+    
+    <span class="c1"># Build VRT output files for straightforward visualisation</span>
+    <span class="nb">print</span> <span class="s1">&#39;Building .VRT images for visualisation&#39;</span>
+
+    <span class="c1"># Natural colour image (10 m)</span>
+    <span class="n">buildVRT</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_B04_R10m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">),</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_B03_R10m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">),</span>
+              <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_B02_R10m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">),</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_RGB.vrt&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">))</span>
+
+    <span class="c1"># Near infrared image (10 m )</span>
+    <span class="n">buildVRT</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_B08_R10m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">),</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_B04_R10m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">),</span>
+              <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_B03_R10m.tif&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">),</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/</span><span class="si">%s</span><span class="s1">_NIR.vrt&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span><span class="p">))</span>    
+  
+    <span class="nb">print</span> <span class="s1">&#39;Processing complete!&#39;</span></div>
+
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    
+    <span class="c1"># Set up command line parser</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;Process Sentinel-2 level 3A data to unofficial &#39;level 3B&#39;. This script mosaics L3A into a customisable grid square, based on specified UTM coordinate bounds. Files are output as GeoTiffs, which are easier to work with than JPEG2000 files.&quot;</span><span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">_action_groups</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+    <span class="n">required</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s1">&#39;required arguments&#39;</span><span class="p">)</span>
+    <span class="n">optional</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s1">&#39;optional arguments&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Required arguments</span>
+    <span class="n">required</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;infiles&#39;</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="s1">&#39;L3A_FILES&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">nargs</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s1">&#39;Sentinel-2 level 3A input files in .SAFE format. Specify a valid S2 input file or multiple files through wildcards (e.g. PATH/TO/*_MSIL3A_*.SAFE).&#39;</span><span class="p">)</span>
+    <span class="n">required</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-te&#39;</span><span class="p">,</span> <span class="s1">&#39;--target_extent&#39;</span><span class="p">,</span> <span class="n">nargs</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;XMIN&#39;</span><span class="p">,</span> <span class="s1">&#39;YMIN&#39;</span><span class="p">,</span> <span class="s1">&#39;XMAX&#39;</span><span class="p">,</span> <span class="s1">&#39;YMAX&#39;</span><span class="p">),</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">float</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Extent of output image tile, in format &lt;xmin, ymin, xmax, ymax&gt;.&quot;</span><span class="p">)</span>
+    <span class="n">required</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-e&#39;</span><span class="p">,</span> <span class="s1">&#39;--epsg&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Optional arguments</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="s1">&#39;--output_dir&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="s1">&#39;DIR&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Optionally specify an output directory. If nothing specified, downloads will output to the present working directory, given a standard filename.&quot;</span><span class="p">)</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-n&#39;</span><span class="p">,</span> <span class="s1">&#39;--output_name&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="s1">&#39;NAME&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="s1">&#39;L3B_output&#39;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Optionally specify a string to precede output filename.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get arguments</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="c1"># Get absolute path of input .safe files.</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">infiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">infiles</span><span class="p">]</span>
+
+    <span class="n">main</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">infiles</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">target_extent</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">epsg</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">output_name</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_name</span><span class="p">)</span>
+    
+    
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, Samuel Bowers.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: ''
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

@@ -1,0 +1,418 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>sen2mosaic.L1C &mdash; sen2mosaic 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="sen2mosaic 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> sen2mosaic
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">sen2mosaic</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>sen2mosaic.L1C</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for sen2mosaic.L1C</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pandas</span>
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">sentinelsat</span>
+<span class="kn">import</span> <span class="nn">zipfile</span>
+
+
+<span class="k">def</span> <span class="nf">_removeZip</span><span class="p">(</span><span class="n">zip_file</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Deletes Level 1C .zip file from disk.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        #A Sentinel-2 level 1C .zip file from Copernicus Open Access Data Hub.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">assert</span> <span class="s1">&#39;_MSIL1C_&#39;</span> <span class="ow">in</span> <span class="n">zip_file</span><span class="p">,</span> <span class="s2">&quot;removeZip function should only be used to delete Sentinel-2 level 1C compressed .SAFE files&quot;</span>
+    <span class="k">assert</span> <span class="n">zip_file</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">4</span><span class="p">:]</span> <span class="o">==</span> <span class="s1">&#39;.zip&#39;</span><span class="p">,</span> <span class="s2">&quot;removeL1C function should only be used to delete Sentinel-2 level 1C compressed .SAFE files&quot;</span>
+    
+    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">zip_file</span><span class="p">)</span>
+    
+
+<span class="k">def</span> <span class="nf">_validateTile</span><span class="p">(</span><span class="n">tile</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Validate the name structure of a Sentinel-2 tile. This tests whether the input tile format is correct.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        tile: A string containing the name of the tile to to download.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Tests whether string is in format ##XXX</span>
+    <span class="n">name_test</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="s2">&quot;[0-9]</span><span class="si">{2}</span><span class="s2">[A-Z]</span><span class="si">{3}</span><span class="s2">$&quot;</span><span class="p">,</span><span class="n">tile</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">name_test</span><span class="p">)</span>
+    
+
+<div class="viewcode-block" id="connectToAPI"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L1C.connectToAPI">[docs]</a><span class="k">def</span> <span class="nf">connectToAPI</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Connect to the SciHub API with sentinelsat.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        username: Scihub username. Sign up at https://scihub.copernicus.eu/.</span>
+<span class="sd">        password: Scihub password.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Let API be accessed by other functions</span>
+    <span class="k">global</span> <span class="n">scihub_api</span>
+    
+    <span class="c1"># Connect to Sentinel API</span>
+    <span class="n">scihub_api</span> <span class="o">=</span> <span class="n">sentinelsat</span><span class="o">.</span><span class="n">SentinelAPI</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="s1">&#39;https://scihub.copernicus.eu/dhus&#39;</span><span class="p">)</span></div>
+    
+
+<div class="viewcode-block" id="search"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L1C.search">[docs]</a><span class="k">def</span> <span class="nf">search</span><span class="p">(</span><span class="n">tile</span><span class="p">,</span> <span class="n">start</span> <span class="o">=</span> <span class="s1">&#39;20161206&#39;</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y%m</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">),</span>  <span class="n">maxcloud</span> <span class="o">=</span> <span class="mi">100</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;search(tile, start = &#39;20161206&#39;, end = datetime.datetime.today().strftime(&#39;%Y%m%d&#39;),  maxcloud = 100)</span>
+<span class="sd">    </span>
+<span class="sd">    Searches for images from a single Sentinel-2 Granule that meet conditions of date range and cloud cover.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        tile: A string containing the name of the tile to to download.</span>
+<span class="sd">        start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.</span>
+<span class="sd">        end: End date for search in format YYYYMMDD. Defaults to today&#39;s date.</span>
+<span class="sd">        maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A pandas dataframe with details of scenes matching conditions.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Test that we&#39;re connected to the </span>
+    <span class="k">assert</span> <span class="s1">&#39;scihub_api&#39;</span> <span class="ow">in</span> <span class="nb">globals</span><span class="p">(),</span> <span class="s2">&quot;The global variable scihub_api doesn&#39;t exist. You should run connectToAPI(username, password) before searching the data archive.&quot;</span>
+
+    <span class="c1"># Validate tile input format for search</span>
+    <span class="k">assert</span> <span class="n">_validateTile</span><span class="p">(</span><span class="n">tile</span><span class="p">),</span> <span class="s2">&quot;The tile name input (</span><span class="si">%s</span><span class="s2">) does not match the format ##XXX (e.g. 36KWA).&quot;</span><span class="o">%</span><span class="n">tile</span>
+
+    <span class="c1"># Set up start and end dates</span>
+    <span class="n">startdate</span> <span class="o">=</span> <span class="n">sentinelsat</span><span class="o">.</span><span class="n">format_query_date</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+    <span class="n">enddate</span> <span class="o">=</span> <span class="n">sentinelsat</span><span class="o">.</span><span class="n">format_query_date</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+
+    <span class="c1"># Search data, filtering by options.</span>
+    <span class="n">products</span> <span class="o">=</span> <span class="n">scihub_api</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">beginposition</span> <span class="o">=</span> <span class="p">(</span><span class="n">startdate</span><span class="p">,</span><span class="n">enddate</span><span class="p">),</span>
+                         <span class="n">platformname</span> <span class="o">=</span> <span class="s1">&#39;Sentinel-2&#39;</span><span class="p">,</span>
+                         <span class="n">cloudcoverpercentage</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">maxcloud</span><span class="p">),</span>
+                         <span class="n">filename</span> <span class="o">=</span> <span class="s1">&#39;*T</span><span class="si">%s</span><span class="s1">*&#39;</span><span class="o">%</span><span class="n">tile</span><span class="p">)</span>
+
+    <span class="c1"># convert to Pandas DataFrame, which can be searched modified before commiting to download()</span>
+    <span class="n">products_df</span> <span class="o">=</span> <span class="n">scihub_api</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">(</span><span class="n">products</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">products_df</span></div>
+
+
+<div class="viewcode-block" id="download"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L1C.download">[docs]</a><span class="k">def</span> <span class="nf">download</span><span class="p">(</span><span class="n">products_df</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()):</span>
+    <span class="sd">&#39;&#39;&#39; download(products_df, output_dir = os.getcwd())</span>
+<span class="sd">    </span>
+<span class="sd">    Downloads all images from a dataframe produced by sentinelsat.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        products_df: Pandas dataframe from search() function.</span>
+<span class="sd">        output_dir: Optionally specify an output directory. Defaults to the present working directory.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">output_dir</span><span class="p">),</span> <span class="s2">&quot;Output directory doesn&#39;t exist.&quot;</span>
+    
+    <span class="k">if</span> <span class="n">products_df</span><span class="o">.</span><span class="n">empty</span> <span class="o">==</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="nb">print</span> <span class="s1">&#39;WARNING: No products found to download. Check your search terms.&#39;</span>
+        
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Download selected products</span>
+        <span class="n">scihub_api</span><span class="o">.</span><span class="n">download_all</span><span class="p">(</span><span class="n">products_df</span><span class="p">[</span><span class="s1">&#39;uuid&#39;</span><span class="p">],</span> <span class="n">output_dir</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="decompress"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L1C.decompress">[docs]</a><span class="k">def</span> <span class="nf">decompress</span><span class="p">(</span><span class="n">tile</span><span class="p">,</span> <span class="n">dataloc</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">remove</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;decompress(tile, dataloc = os.getcwd(), remove = False)</span>
+<span class="sd">    </span>
+<span class="sd">    Decompresses .zip files downloaded from SciHub, and optionally removes original .zip file.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        tile: A string containing the name of the tile to to download.</span>
+<span class="sd">        dataloc: The directory of level 1C Sentinel-2 .SAFE files. Defaults to current working directory.</span>
+<span class="sd">        remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="c1"># Validate tile input format for file search</span>
+    <span class="k">assert</span> <span class="n">_validateTile</span><span class="p">(</span><span class="n">tile</span><span class="p">),</span> <span class="s2">&quot;The tile name input (</span><span class="si">%s</span><span class="s2">) does not match the format ##XXX (e.g. 36KWA).&quot;</span><span class="o">%</span><span class="n">tile</span>
+    
+    <span class="c1"># Remove trailing slash to directory name where included</span>
+    <span class="n">dataloc</span> <span class="o">=</span> <span class="n">dataloc</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Get a list of zip files matching the Level 1C file pattern</span>
+    <span class="n">zip_files</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/*_MSIL1C_*_T</span><span class="si">%s</span><span class="s1">_*.zip&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">dataloc</span><span class="p">,</span><span class="n">tile</span><span class="p">))</span>
+    
+    <span class="c1"># Decompress each zip file</span>
+    <span class="k">for</span> <span class="n">zip_file</span> <span class="ow">in</span> <span class="n">zip_files</span><span class="p">:</span>
+        
+        <span class="nb">print</span> <span class="s1">&#39;Extracting </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">zip_file</span>
+        <span class="k">with</span> <span class="n">zipfile</span><span class="o">.</span><span class="n">ZipFile</span><span class="p">(</span><span class="n">zip_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">obj</span><span class="p">:</span>
+            <span class="n">obj</span><span class="o">.</span><span class="n">extractall</span><span class="p">(</span><span class="n">dataloc</span><span class="p">)</span>
+        
+        <span class="c1"># Delete zip file</span>
+        <span class="k">if</span> <span class="n">remove</span><span class="p">:</span> <span class="n">_removeZip</span><span class="p">(</span><span class="n">zip_file</span><span class="p">)</span></div>
+    
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L1C.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">,</span> <span class="n">tile</span><span class="p">,</span> <span class="n">start</span> <span class="o">=</span> <span class="s1">&#39;20161206&#39;</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y%m</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">),</span> <span class="n">maxcloud</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">remove</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&#39;&#39;&#39;main(username, password, tile, start = &#39;20161206&#39;, end = datetime.datetime.today().strftime(&#39;%Y%m%d&#39;), maxcloud = 100, output_dir = os.getcwd(), remove = False)</span>
+<span class="sd">    </span>
+<span class="sd">    Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        username: Scihub username. Sign up at https://scihub.copernicus.eu/.</span>
+<span class="sd">        password: Scihub password.</span>
+<span class="sd">        tile: A string containing the name of the tile to to download.</span>
+<span class="sd">        start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.</span>
+<span class="sd">        end: End date for search in format YYYYMMDD. Defaults to today&#39;s date.</span>
+<span class="sd">        maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).</span>
+<span class="sd">        output_dir: Optionally specify an output directory. Defaults to the present working directory.</span>
+<span class="sd">        remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+    
+    <span class="c1"># Connect to API</span>
+    <span class="n">connectToAPI</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">)</span>
+        
+    <span class="c1"># Search for files, return a data frame containing details of matching Sentinel-2 images</span>
+    <span class="n">products</span> <span class="o">=</span> <span class="n">search</span><span class="p">(</span><span class="n">tile</span><span class="p">,</span> <span class="n">start</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="n">maxcloud</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">cloud</span><span class="p">)</span>
+
+    <span class="c1"># Download products</span>
+    <span class="n">download</span><span class="p">(</span><span class="n">products</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span><span class="p">)</span>
+    
+    <span class="c1"># Decompress data</span>
+    <span class="n">decompress</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">tile</span><span class="p">,</span> <span class="n">dataloc</span> <span class="o">=</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">remove</span> <span class="o">=</span> <span class="n">remove</span><span class="p">)</span></div>
+    
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+
+    <span class="c1"># Set up command line parser</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span> <span class="o">=</span> <span class="s1">&#39;Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover.&#39;</span><span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">_action_groups</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+    <span class="n">required</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s1">&#39;Required arguments&#39;</span><span class="p">)</span>
+    <span class="n">optional</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s1">&#39;Optional arguments&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Required arguments</span>
+    <span class="n">required</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-u&#39;</span><span class="p">,</span> <span class="s1">&#39;--user&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">required</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Scihub username&quot;</span><span class="p">)</span>
+    <span class="n">required</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-p&#39;</span><span class="p">,</span> <span class="s1">&#39;--password&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="s1">&#39;PASS&#39;</span><span class="p">,</span> <span class="n">required</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Scihub password&quot;</span><span class="p">)</span>
+    <span class="n">required</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-t&#39;</span><span class="p">,</span> <span class="s1">&#39;--tile&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">required</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Sentinel 2 tile name, in format ##XXX&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Optional arguments</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-s&#39;</span><span class="p">,</span> <span class="s1">&#39;--start&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="s1">&#39;20161206&#39;</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.&quot;</span><span class="p">)</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-e&#39;</span><span class="p">,</span> <span class="s1">&#39;--end&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">today</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y%m</span><span class="si">%d</span><span class="s1">&#39;</span><span class="p">),</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;End date for search in format YYYYMMDD. Defaults to today&#39;s date.&quot;</span><span class="p">)</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="s1">&#39;--cloud&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">int</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Maximum percentage of cloud cover to download. Defaults to 100 </span><span class="si">%%</span><span class="s2"> (download all images, regardless of cloud cover).&quot;</span><span class="p">)</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="s1">&#39;--output_dir&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="s1">&#39;PATH&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Specify an output directory. Defaults to the present working directory.&quot;</span><span class="p">)</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-r&#39;</span><span class="p">,</span> <span class="s1">&#39;--remove&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Optionally remove level 1C .zip files after decompression.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Get arguments from command line</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    
+    <span class="c1"># Run through entire processing sequence</span>
+    <span class="n">main</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">user</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">password</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">tile</span><span class="p">,</span> <span class="n">start</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="n">maxcloud</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">cloud</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">remove</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">remove</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, Samuel Bowers.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: ''
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

@@ -1,0 +1,509 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>sen2mosaic.L2A &mdash; sen2mosaic 1 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="sen2mosaic 1 documentation" href="../../index.html"/>
+        <link rel="up" title="Module code" href="../index.html"/> 
+
+  
+  <script src="../../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+   
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> sen2mosaic
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">sen2mosaic</a>
+        
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>sen2mosaic.L2A</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for sen2mosaic.L2A</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="k">import</span> <span class="n">contextmanager</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">glymur</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">scipy</span> <span class="k">import</span> <span class="n">ndimage</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">xml.etree.cElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">xml.etree.ElementTree</span> <span class="k">as</span> <span class="nn">ET</span>
+
+    
+
+<span class="k">def</span> <span class="nf">_setGipp</span><span class="p">(</span><span class="n">gipp</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that tweaks options in sen2cor&#39;s L2A_GIPP.xml file to specify an output directory.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        gipp: The path to a copy of the L2A_GIPP.xml file.</span>
+<span class="sd">        output_dir: The desired output directory.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        The directory location of a temporary .gipp file, for input to L2A_Process</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Test that GIPP and output directory exist</span>
+    <span class="k">assert</span> <span class="n">gipp</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;GIPP file must be specified if you&#39;re changing sen2cor options.&quot;</span>
+    <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">gipp</span><span class="p">),</span> <span class="s2">&quot;GIPP XML options file doesn&#39;t exist at the location </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="o">%</span><span class="n">gipp</span>
+    <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">output_dir</span><span class="p">),</span> <span class="s2">&quot;Output directory </span><span class="si">%s</span><span class="s2"> doesn&#39;t exist.&quot;</span><span class="o">%</span><span class="n">output_dir</span>
+    
+    <span class="c1"># Adds a trailing / to output_dir if not already specified</span>
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+   
+    <span class="c1"># Read GIPP file</span>
+    <span class="n">tree</span> <span class="o">=</span> <span class="n">ET</span><span class="o">.</span><span class="n">ElementTree</span><span class="p">(</span><span class="n">file</span> <span class="o">=</span> <span class="n">gipp</span><span class="p">)</span>
+    <span class="n">root</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">getroot</span><span class="p">()</span>
+
+    <span class="c1"># Change output directory    </span>
+    <span class="n">root</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;Common_Section/Target_Directory&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">output_dir</span>
+    
+    <span class="c1"># Generate a temporary output file</span>
+    <span class="n">temp_gipp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mktemp</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s1">&#39;.xml&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Ovewrite old GIPP file with new options</span>
+    <span class="n">tree</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">temp_gipp</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">temp_gipp</span>
+    
+
+<div class="viewcode-block" id="processToL2A"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L2A.processToL2A">[docs]</a><span class="k">def</span> <span class="nf">processToL2A</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">gipp</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Processes Sentinel-2 level 1C files to level L2A with sen2cor.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        infile: A level 1C Sentinel-2 .SAFE file.</span>
+<span class="sd">        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.</span>
+<span class="sd">        output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Absolute file path to the output file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Test that input file is in .SAFE format</span>
+    <span class="k">assert</span> <span class="n">infile</span><span class="p">[</span><span class="o">-</span><span class="mi">5</span><span class="p">:]</span> <span class="o">==</span> <span class="s1">&#39;.SAFE&#39;</span><span class="p">,</span> <span class="s2">&quot;Input files must be in .SAFE format. This file is </span><span class="si">%s</span><span class="s2">.&quot;</span><span class="o">%</span><span class="n">infile</span>
+    
+    <span class="c1"># Set options in L2A GIPP xml. Returns the modified .GIPP file</span>
+    <span class="k">if</span> <span class="n">gipp</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">temp_gipp</span> <span class="o">=</span> <span class="n">_setGipp</span><span class="p">(</span><span class="n">gipp</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
+    
+    <span class="c1"># Set up sen2cor command</span>
+    <span class="n">command</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;L2A_Process&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">gipp</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">command</span> <span class="o">+=</span> <span class="p">[</span><span class="s1">&#39;--GIP_L2A&#39;</span><span class="p">,</span> <span class="n">temp_gipp</span><span class="p">]</span>
+    <span class="n">command</span> <span class="o">+=</span> <span class="p">[</span><span class="n">infile</span><span class="p">]</span>
+    
+    <span class="c1"># Print command for user info</span>
+    <span class="nb">print</span> <span class="s1">&#39;</span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+    
+    <span class="c1"># Run sen2cor (L2A_Process)</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+
+    <span class="c1"># Determine output file name, replacing last instance only of substring _MSIL1C_ with _MSIL2A_</span>
+    <span class="n">outfile</span> <span class="o">=</span> <span class="n">infile</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_MSIL1C_&#39;</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="s1">&#39;_MSIL2A_&#39;</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span><span class="mi">1</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    
+    <span class="k">if</span> <span class="n">output_dir</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">outpath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">outfile</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">outpath</span> <span class="o">=</span> <span class="n">outfile</span>
+    
+    <span class="c1"># Test if AUX_DATA output directory exists. If not, create it, as it&#39;s absense crashes sen2Three.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/AUX_DATA&#39;</span><span class="o">%</span><span class="n">outpath</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/AUX_DATA&#39;</span><span class="o">%</span><span class="n">outpath</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">outpath</span></div>
+
+
+<div class="viewcode-block" id="loadMask"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L2A.loadMask">[docs]</a><span class="k">def</span> <span class="nf">loadMask</span><span class="p">(</span><span class="n">L2A_file</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load classification mask given .SAFE file and resolution.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        L2A_file: A level 2A Sentinel-2 .SAFE file, processed with sen2cor.</span>
+<span class="sd">        res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A glymur .jp2 file the path to the classified image.</span>
+<span class="sd">        The directory location of the .jp2 mask file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Remove trailing slash from input filename, if it exists</span>
+    <span class="n">L2A_file</span> <span class="o">=</span> <span class="n">L2A_file</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># Identify the cloud mask following the standardised file pattern</span>
+    <span class="n">image_path</span> <span class="o">=</span> <span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">%s</span><span class="s1">/GRANULE/*/IMG_DATA/R</span><span class="si">%s</span><span class="s1">m/*_SCL_*m.jp2&#39;</span><span class="o">%</span><span class="p">(</span><span class="n">L2A_file</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">)))[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="c1"># Load the cloud mask (.jp2 format)</span>
+    <span class="n">jp2</span> <span class="o">=</span> <span class="n">glymur</span><span class="o">.</span><span class="n">Jp2k</span><span class="p">(</span><span class="n">image_path</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">jp2</span><span class="p">,</span> <span class="n">image_path</span></div>
+
+
+<div class="viewcode-block" id="improveMask"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L2A.improveMask">[docs]</a><span class="k">def</span> <span class="nf">improveMask</span><span class="p">(</span><span class="n">jp2</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Tweaks the cloud mask output from sen2cor. Processes are:</span>
+<span class="sd">        1) Changing &#39;dark features&#39; to &#39;cloud shadows.</span>
+<span class="sd">        2) Dilating &#39;cloud shadows&#39;, &#39;medium probability cloud&#39; and &#39;high probability cloud&#39; by 180 m.</span>
+<span class="sd">        3) Eroding outer 3 km of the tile to improve stitching of images by sen2Three.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        jp2: A glymur .jp2 file from loadMask().</span>
+<span class="sd">        res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).</span>
+<span class="sd">    </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        A numpy array of the SCL mask with modifications.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Read file as numpy array</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">jp2</span><span class="p">[:]</span>
+    
+    <span class="c1"># Make a copy of the original classification mask</span>
+    <span class="n">data_orig</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="c1"># Change pixels labelled as &#39;dark features&#39; to cloud shadows</span>
+    <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">==</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">3</span>
+        
+    <span class="c1"># Dilate cloud shadows, med clouds and high clouds by 180 m.</span>
+    <span class="n">iterations</span> <span class="o">=</span> <span class="mi">180</span> <span class="o">/</span> <span class="n">res</span>
+    
+    <span class="c1"># Make a temporary dataset to prevent dilated masks overwriting each other</span>
+    <span class="n">data_temp</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">9</span><span class="p">]:</span>
+        <span class="c1"># Grow the area of each input class</span>
+        <span class="n">mask_dilate</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">morphology</span><span class="o">.</span><span class="n">binary_dilation</span><span class="p">((</span><span class="n">data</span><span class="o">==</span><span class="n">i</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">),</span> <span class="n">iterations</span> <span class="o">=</span> <span class="n">iterations</span><span class="p">)</span>
+        
+        <span class="c1"># Set dilated area to the same value as input class</span>
+        <span class="n">data_temp</span><span class="p">[</span><span class="n">mask_dilate</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+        
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data_temp</span>
+
+    <span class="c1"># Erode outer 3 km of image tile (should retain overlap)</span>
+    <span class="n">iterations</span> <span class="o">=</span> <span class="mi">3000</span><span class="o">/</span><span class="n">res</span> <span class="c1"># 3 km buffer around edge</span>
+    
+    <span class="c1"># Shrink the area of measured pixels (everything that is not equal to 0)</span>
+    <span class="n">mask_erode</span> <span class="o">=</span> <span class="n">ndimage</span><span class="o">.</span><span class="n">morphology</span><span class="o">.</span><span class="n">binary_erosion</span><span class="p">((</span><span class="n">data_orig</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int</span><span class="p">),</span> <span class="n">iterations</span><span class="o">=</span><span class="n">iterations</span><span class="p">)</span>
+    
+    <span class="c1"># Set these eroded areas to 0</span>
+    <span class="n">data</span><span class="p">[</span><span class="n">mask_erode</span> <span class="o">==</span> <span class="kc">False</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="writeMask"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L2A.writeMask">[docs]</a><span class="k">def</span> <span class="nf">writeMask</span><span class="p">(</span><span class="n">jp2</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">image_path</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Overwrites the old SCL mask with a new one, preserving the metadata (including projection info) from the original .jp2 file.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        jp2: A glymur jp2 file of the original SCL mask.</span>
+<span class="sd">        data: A numpy array containing the new data to overwrite the old mask with.</span>
+<span class="sd">        image_path: The path to the original classified image.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+          
+    <span class="c1"># Get metadata from original .jp2 file (including projection)</span>
+    <span class="n">boxes</span> <span class="o">=</span> <span class="n">jp2</span><span class="o">.</span><span class="n">box</span>
+
+    <span class="c1"># Generate a temporary output file</span>
+    <span class="n">temp_jp2</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mktemp</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s1">&#39;.jp2&#39;</span><span class="p">)</span>
+        
+    <span class="c1"># Important options for .jp2 file, required for sen2cor/sen2Three to understand image</span>
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;tilesize&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">640</span><span class="p">),</span> <span class="s2">&quot;prog&quot;</span><span class="p">:</span> <span class="s2">&quot;RPCL&quot;</span><span class="p">}</span>
+
+    <span class="c1"># Save temporary image to generate metadata (boxes)</span>
+    <span class="n">jp2_out</span> <span class="o">=</span> <span class="n">glymur</span><span class="o">.</span><span class="n">Jp2k</span><span class="p">(</span><span class="n">temp_jp2</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="c1"># Replace boxes in modified file with originals</span>
+    <span class="n">boxes_out</span> <span class="o">=</span> <span class="n">jp2_out</span><span class="o">.</span><span class="n">box</span>
+
+    <span class="n">boxes_out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">boxes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">boxes_out</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">boxes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">boxes_out</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">boxes</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">boxes_out</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="n">boxes</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span> <span class="c1"># This is the projection info</span>
+    
+    <span class="c1"># Make a copy of the original file</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">copy2</span><span class="p">(</span><span class="n">image_path</span><span class="p">,</span> <span class="n">image_path</span><span class="p">[:</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span><span class="o">+</span><span class="s1">&#39;_old.jp2&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Overwite original file</span>
+    <span class="n">jp2_out</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">image_path</span><span class="p">,</span> <span class="n">boxes</span> <span class="o">=</span> <span class="n">boxes_out</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="removeL1C"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L2A.removeL1C">[docs]</a><span class="k">def</span> <span class="nf">removeL1C</span><span class="p">(</span><span class="n">L1C_file</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Deletes a Level 1C Sentinel-2 .SAFE file from disk.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        L1C_file: A Sentinel-2 level 1C file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">assert</span> <span class="s1">&#39;_MSIL1C_&#39;</span> <span class="ow">in</span> <span class="n">L1C_file</span><span class="p">,</span> <span class="s2">&quot;removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files&quot;</span>
+    <span class="k">assert</span> <span class="n">L1C_file</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="o">-</span><span class="mi">5</span><span class="p">:]</span> <span class="o">==</span> <span class="s1">&#39;.SAFE&#39;</span><span class="p">,</span> <span class="s2">&quot;removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files&quot;</span>
+    
+    <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">L1C_file</span><span class="p">)</span></div>
+    
+
+
+<div class="viewcode-block" id="main"><a class="viewcode-back" href="../../sen2mosaic.html#sen2mosaic.L2A.main">[docs]</a><span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">gipp</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">remove</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        infile: A level 1C Sentinel-2 .SAFE file.</span>
+<span class="sd">        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.</span>
+<span class="sd">        output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.</span>
+<span class="sd">        remove: Boolean value, which when set to True deletes level 1C files after processing is complete. Defaults to False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nb">print</span> <span class="s1">&#39;Processing </span><span class="si">%s</span><span class="s1">&#39;</span><span class="o">%</span><span class="n">infile</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    
+    <span class="c1"># Run sen2cor</span>
+    <span class="n">L2A_file</span> <span class="o">=</span> <span class="n">processToL2A</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">gipp</span> <span class="o">=</span> <span class="n">gipp</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_dir</span><span class="p">)</span>
+    
+    <span class="c1"># Perform improvements to mask for each resolution</span>
+    <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">20</span><span class="p">,</span><span class="mi">60</span><span class="p">]:</span>
+        <span class="n">cloudmask_jp2</span><span class="p">,</span> <span class="n">image_path</span> <span class="o">=</span> <span class="n">loadMask</span><span class="p">(</span><span class="n">L2A_file</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="n">cloudmask_new</span> <span class="o">=</span> <span class="n">improveMask</span><span class="p">(</span><span class="n">cloudmask_jp2</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+        <span class="n">writeMask</span><span class="p">(</span><span class="n">cloudmask_jp2</span><span class="p">,</span> <span class="n">cloudmask_new</span><span class="p">,</span> <span class="n">image_path</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">remove</span><span class="p">:</span> <span class="n">removeL1C</span><span class="p">(</span><span class="n">infile</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>
+
+    <span class="c1"># Set up command line parser</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="n">description</span> <span class="o">=</span> <span class="s1">&#39;Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level 2A. This script initiates sen2cor, which performs atmospheric correction and generate a cloud mask. This script also performs simple improvements to the cloud mask.&#39;</span><span class="p">)</span>
+    
+    <span class="n">parser</span><span class="o">.</span><span class="n">_action_groups</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+    <span class="n">required</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s1">&#39;Required arguments&#39;</span><span class="p">)</span>
+    <span class="n">optional</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s1">&#39;Optional arguments&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Required arguments</span>
+    <span class="n">required</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;infiles&#39;</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="s1">&#39;L1C_FILES&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">nargs</span> <span class="o">=</span> <span class="s1">&#39;+&#39;</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s1">&#39;Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (e.g. PATH/TO/*_MSIL1C_*.SAFE). Input files will be atmospherically corrected.&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Optional arguments</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-g&#39;</span><span class="p">,</span> <span class="s1">&#39;--gipp&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s1">&#39;Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml). Required if specifying output directory.&#39;</span><span class="p">)</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-o&#39;</span><span class="p">,</span> <span class="s1">&#39;--output_dir&#39;</span><span class="p">,</span> <span class="nb">type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">,</span> <span class="n">metavar</span> <span class="o">=</span> <span class="s1">&#39;DIR&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.&quot;</span><span class="p">)</span>
+    <span class="n">optional</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-r&#39;</span><span class="p">,</span> <span class="s1">&#39;--remove&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">help</span> <span class="o">=</span> <span class="s2">&quot;Delete input level 1C files after processing.&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Get arguments</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    
+    <span class="c1"># Where only one file input, ensure its a list so that it behaves properly in loops</span>
+    <span class="n">infiles</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">infiles</span><span class="p">)</span>
+    
+    <span class="c1"># Get absolute path of input files.</span>
+    <span class="n">infiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">infiles</span><span class="p">]</span>
+    
+    <span class="c1"># Get absolute path for output file</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">args</span><span class="o">.</span><span class="n">gipp</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">,</span> <span class="s2">&quot;If specifying an output directory, you must also specify the the location of a GIPP options file (-g or --gipp).&quot;</span>
+        
+    <span class="c1"># Run the script for each input file</span>
+    <span class="k">for</span> <span class="n">infile</span> <span class="ow">in</span> <span class="n">infiles</span><span class="p">:</span>
+        <span class="n">main</span><span class="p">(</span><span class="n">infile</span><span class="p">,</span> <span class="n">gipp</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">gipp</span><span class="p">,</span> <span class="n">output_dir</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">remove</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">remove</span><span class="p">)</span>
+    
+</pre></div>
+
+           </div>
+           <div class="articleComments">
+            
+           </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2017, Samuel Bowers.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: ''
+        };
+    </script>
+      <script type="text/javascript" src="../../_static/jquery.js"></script>
+      <script type="text/javascript" src="../../_static/underscore.js"></script>
+      <script type="text/javascript" src="../../_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
