@@ -1,5 +1,4 @@
 glymur
 pandas
 sentinelsat
-six.moves
-
+Tkinter
