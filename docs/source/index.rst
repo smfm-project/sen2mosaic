@@ -46,7 +46,6 @@ Contents:
    command_line.rst
    worked_example.rst
    sen2mosaic.rst
-   modules.rst
 
 Indices and tables
 ==================
