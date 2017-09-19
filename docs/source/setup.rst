@@ -33,7 +33,7 @@ Once complete, you'll need to add this version of Python to your .bashrc file as
     exec -l $SHELL
 
 
-If this has functioned, on executing `python`_ in a terminal window, you should ssee the following:
+If this has functioned, on executing ``python`` in a terminal window, you should ssee the following:
 
 .. code-block:: console
 
@@ -113,9 +113,9 @@ For further details and up-to-date installation instructions, see the `sen2three
 
 .. note: This processing chain requires sen2three version 1.1.0 or later. At the time of writing this has not been formally released, but can be downloaded from GitHub.
 
-At the time of writing, sen2three can be installed as follows. sen2three must be installed after Anaconda Python. The first step is to download the the file `sen2three-1.1.0.tar.gz`_ from GitHub using an internet browser window from the URL https://github.com/senbox-org/sen2proc/blob/master/SEN2THREE/distributions/v1.1.0/sen2three-1.1.0.tar.gz. Save the file to the location that you'd like it to be installed.
+At the time of writing, sen2three can be installed as follows. sen2three must be installed after Anaconda Python. The first step is to download the the file ``sen2three-1.1.0.tar.gz`` from GitHub using an internet browser window from the URL https://github.com/senbox-org/sen2proc/blob/master/SEN2THREE/distributions/v1.1.0/sen2three-1.1.0.tar.gz. Save the file to the location that you'd like it to be installed.
 
-Open a terminal window, change directory to the location you saved `sen2three-1.0.0.tar.gz`_, and run the following commands:
+Open a terminal window, change directory to the location you saved ``sen2three-1.0.0.tar.gz``, and run the following commands:
 
 .. code-block:: console
 
@@ -124,7 +124,7 @@ Open a terminal window, change directory to the location you saved `sen2three-1.
     cd sen2three-1.1.0
     python setup.py install
 
-Once complete, you need to reference this software in your `.bashrc`_ file as follows:
+Once complete, you need to reference this software in your ``.bashrc`` file as follows:
 
 .. code-block:: console
 
@@ -132,7 +132,7 @@ Once complete, you need to reference this software in your `.bashrc`_ file as fo
     echo "source /home/user/sen2three/L3_Bashrc" >> /home/user/.bashrc
     exec -l $SHELL
 
-To test the installation, type `L3_Process --help`_ in a terminal window. You should see the following:
+To test the installation, type ``L3_Process --help`` in a terminal window. You should see the following:
 
 .. code-block:: console
 
