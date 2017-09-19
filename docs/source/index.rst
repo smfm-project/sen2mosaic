@@ -39,11 +39,12 @@ Written and maintained by Samuel Bowers (`sam.bowers@ed.ac.uk <mailto:sam.bowers
 Contents:
 
 .. toctree::
+   :numbered:
    :maxdepth: 2
 
-   readme.rst
    setup.rst
    command_line.rst
+   worked_example.rst
    sen2mosaic.rst
 
 

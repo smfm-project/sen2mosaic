@@ -1,8 +1,9 @@
-sen2mosaic package
-==================
+Using sen2mosaic in Python
+==========================
 
-Submodules
-----------
+This is harder than the command line, but you may be interested in importing the sen2mosaic functions into Python in order to customise the processing chain.
+
+Here each of the functions from the L1C, L2A, L3A and L3B modules are documented.
 
 sen2mosaic.L1C module
 ---------------------
@@ -37,10 +38,3 @@ sen2mosaic.L3B module
     :show-inheritance:
 
 
-Module contents
----------------
-
-.. automodule:: sen2mosaic
-    :members:
-    :undoc-members:
-    :show-inheritance:
