@@ -2,6 +2,7 @@
    sphinx-quickstart on Tue Sep 19 16:00:25 2017.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
+   Setup assisted by https://samnicholls.net/2016/06/15/how-to-sphinx-readthedocs/
 
 Welcome to sen2mosaic's documentation!
 ======================================
