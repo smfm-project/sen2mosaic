@@ -44,5 +44,6 @@ Contents:
    setup.rst
    command_line.rst
    python.rst
-
+   modules.rst
+   sen2mosaic.rst
 
