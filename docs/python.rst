@@ -6,6 +6,7 @@ This is more complicated, but may be useful if you want to customise the process
 
 These instructions will be completed at a later date.
 
-
+.. automodule:: sen2mosaic.L3B
+      :members:
 
 
