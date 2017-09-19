@@ -1,4 +1,4 @@
 glymur
 pandas
 sentinelsat
-GDAL
+pygdal
