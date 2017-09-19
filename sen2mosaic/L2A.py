@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-from contextlib import contextmanager
 import glob
 import glymur
 import matplotlib.pyplot as plt
