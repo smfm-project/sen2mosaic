@@ -24,9 +24,9 @@ def processToL3A(input_dir):
     # Test that input location contains appropriate files in .SAFE format
     infiles = glob.glob('%s/*_MSIL2A_*.SAFE'%input_dir)
     assert len(infiles) > 0, "Input directory must contain Sentinel-2 level 2A files in .SAFE format."
-    
+        
     # Test whether directory contains files from only one tile. Sen2three will process everything in a directory, so this is important
-    tiles = [i.split('_')[2] for i in infiles]
+    tiles = [i.split('_')[-2] for i in infiles]
     assert len(list(set(tiles)))==1, "The input directory contains level 2A files from multiple tiles. As sen2Three will process everything in a directory, each tile needs to be placed in its own directory."
     
     # Set up sen2three command
@@ -59,7 +59,8 @@ def remove2A(input_dir):
     assert len(infiles) > 0, "Input directory must contain level 2A files in .SAFE format."
 
     # Test whether directory contains files from only one tile. Sen2three will process everything in a directory, so this is important
-    tiles = [i.split('_')[2] for i in infiles]
+    tiles = [i.split('_')[-2] for i in infiles]
+
     assert len(list(set(tiles)))==1, "The input directory contains level 2A files from multiple tiles. L3A.py is hesitant to delete files indiscriminately, so please ensure files from only one tile are present in the directory."
     
     # Delete L2A files
