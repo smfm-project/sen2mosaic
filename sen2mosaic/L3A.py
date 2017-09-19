@@ -16,6 +16,9 @@ except ImportError:
 def processToL3A(input_dir):
     """
     Processes Sentinel-2 level 2A files to level 3A with sen2three.
+    
+    Args:
+        input_dir: Directory containing level 2A Sentinel-2 .SAFE files. Directory must contain files from only one single tile.
     """
     
     # Remove trailing / from input directory if present
@@ -47,8 +50,10 @@ def processToL3A(input_dir):
 
 def remove2A(input_dir):
     """
-    Function to remove all Sentinel-2 level 2A files from a directory.
-    Input is a directory containing level 2A .SAFE files.
+    Function to remove all Sentinel-2 level 2A files from a directory. Directory must contain files from only one single tile.
+    
+    Args:
+        input_dir: Directory containing level 2A Sentinel-2 .SAFE files.
     """
 
     # Remove trailing / from input directory if present
@@ -69,8 +74,12 @@ def remove2A(input_dir):
 
 
 def main(input_dir = os.getcwd(), remove = False):
-    """
+    """main(input_dir = os.getcwd(), remove = False)
     Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script initiates sen2three from within Python.
+    
+    Args:
+        input_dir: Directory containing level 2A Sentinel-2 .SAFE files. Defaults to current working directory.
+        remove: Boolean value, which when set to True deletes level 2A files after processing is complete. Defaults to False.
     """
 
     # Do the processing    

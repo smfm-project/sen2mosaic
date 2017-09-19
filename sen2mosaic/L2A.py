@@ -17,18 +17,18 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 
-
-"""
-A set of tools to assist in the processing Sentinel-2 data to bottom of atmosphere reflectance values.
-It also performs simple corrections to cloud masks, resulting in improved mosaic products.
-"""
-
     
 
 def setGipp(gipp, output_dir):
     """
-    Tweaks options in L2A_GIPP.xml file to set output directory correctly.
-    Returns the location of a temporary .gipp file, for input to L2A_Process
+    Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
+    
+    Args:
+        gipp: The path to a copy of the L2A_GIPP.xml file.
+        output_dir: The desired output directory.
+    
+    Returns:
+        The directory location of a temporary .gipp file, for input to L2A_Process
     """
     
     # Test that GIPP and output directory exist
@@ -58,8 +58,13 @@ def setGipp(gipp, output_dir):
 def processToL2A(infile, gipp = None, output_dir = None):
     """
     Processes Sentinel-2 level 1C files to level L2A with sen2cor.
-    Input a single .SAFE file.
-    Returns the output file name and its absolute directory location.
+    
+    Args:
+        infile: A level 1C Sentinel-2 .SAFE file.
+        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.
+        output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
+    Returns:
+        Absolute file path to the output file.
     """
     
     # Test that input file is in .SAFE format
@@ -99,7 +104,14 @@ def processToL2A(infile, gipp = None, output_dir = None):
 def loadMask(L2A_file, res):
     """
     Load classification mask given .SAFE file and resolution.
-    Returns a glymur .jp2 file the path to the classified image.
+    
+    Args:
+        L2A_file: A level 2A Sentinel-2 .SAFE file, processed with sen2cor.
+        res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).
+    
+    Returns:
+        A glymur .jp2 file the path to the classified image.
+        The directory location of the .jp2 mask file.
     """
     
     # Remove trailing slash from input filename, if it exists
@@ -116,11 +128,17 @@ def loadMask(L2A_file, res):
 
 def improveMask(jp2, res):
     """
-    Tweaks the cloud mask output from sen2cor.
-    Processes are:
-        1) Changing 'dark features' to 'cloud shadows
-        2) Dilating 'cloud shadows', 'medium probability cloud' and 'high probability cloud' by 120 m
+    Tweaks the cloud mask output from sen2cor. Processes are:
+        1) Changing 'dark features' to 'cloud shadows.
+        2) Dilating 'cloud shadows', 'medium probability cloud' and 'high probability cloud' by 180 m.
         3) Eroding outer 3 km of the tile to improve stitching of images by sen2Three.
+    
+    Args:
+        jp2: A glymur .jp2 file from loadMask().
+        res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).
+    
+    Returns:
+        A numpy array of the SCL mask with modifications.
     """
     
     # Read file as numpy array
@@ -161,8 +179,12 @@ def improveMask(jp2, res):
 
 def writeMask(jp2, data, image_path):
     """
-    Overwrites the old mask with a new one, preserving the metadata (including projection info) from the original .jp2 file.
-    Inputs are a glymur jp2 file, the new data to overwrite the old mask with, and the path to the original classified image.
+    Overwrites the old SCL mask with a new one, preserving the metadata (including projection info) from the original .jp2 file.
+    
+    Args:
+        jp2: A glymur jp2 file of the original SCL mask.
+        data: A numpy array containing the new data to overwrite the old mask with.
+        image_path: The path to the original classified image.
     """
           
     # Get metadata from original .jp2 file (including projection)
@@ -194,8 +216,10 @@ def writeMask(jp2, data, image_path):
 
 def removeL1C(L1C_file):
     """
-    Deletes Level 1C file from disk.
-    Input is a Sentinel-2 level 1C file
+    Deletes a Level 1C Sentinel-2 .SAFE file from disk.
+    
+    Args:
+        L1C_file: A Sentinel-2 level 1C file.
     """
     
     assert '_MSIL1C_' in L1C_file, "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
@@ -207,7 +231,13 @@ def removeL1C(L1C_file):
 
 def main(infile, gipp = None, output_dir = None, remove = False):
     """
-    Function to initiate L2A_Process on input files and improvements to cloud masking.
+    Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking.
+    
+    Args:
+        infile: A level 1C Sentinel-2 .SAFE file.
+        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.
+        output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
+        remove: Boolean value, which when set to True deletes level 1C files after processing is complete. Defaults to False.
     """
 
     print 'Processing %s'%infile.split('/')[-1]

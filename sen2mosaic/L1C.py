@@ -10,14 +10,42 @@ import time
 import sentinelsat
 import zipfile
 
-"""
-A set of tools to assist in the searching, downloading, and decompression of Sentinel-2 data that matches critera of acquisition date and cloud cover for a given Sentinel-2 tile.
-"""
 
+def _removeZip(zip_file):
+    """
+    Deletes Level 1C .zip file from disk.
+    
+    Args:
+        #A Sentinel-2 level 1C .zip file from Copernicus Open Access Data Hub.
+    """
+    
+    assert '_MSIL1C_' in zip_file, "removeZip function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
+    assert zip_file.split('/')[-1][-4:] == '.zip', "removeL1C function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
+    
+    os.remove(zip_file)
+    
+
+def _validateTile(tile):
+    '''
+    Validate the name structure of a Sentinel-2 tile. This tests whether the input tile format is correct.
+    
+    Args:
+        tile: A string containing the name of the tile to to download.
+    '''
+    
+    # Tests whether string is in format ##XXX
+    name_test = re.match("[0-9]{2}[A-Z]{3}$",tile)
+    
+    return bool(name_test)
+    
 
 def connectToAPI(username, password):
     '''
     Connect to the SciHub API with sentinelsat.
+    
+    Args:
+        username: Scihub username. Sign up at https://scihub.copernicus.eu/.
+        password: Scihub password.
     '''
     
     # Let API be accessed by other functions
@@ -27,28 +55,26 @@ def connectToAPI(username, password):
     scihub_api = sentinelsat.SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
     
 
-def validateTile(tile):
-    '''
-    Validates the name structure of a Sentinel-2 tile
-    '''
-    
-    # Tests whether string is in format ##XXX
-    name_test = re.match("[0-9]{2}[A-Z]{3}$",tile)
-    
-    return bool(name_test)
-    
-
 def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100):
-    '''
+    '''search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100)
+    
     Searches for images from a single Sentinel-2 Granule that meet conditions of date range and cloud cover.
-    Returns a dataframe with details of scenes matching conditions.
+    
+    Args:
+        tile: A string containing the name of the tile to to download.
+        start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.
+        end: End date for search in format YYYYMMDD. Defaults to today's date.
+        maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
+    
+    Returns:
+        A pandas dataframe with details of scenes matching conditions.
     '''
 
     # Test that we're connected to the 
     assert 'scihub_api' in globals(), "The global variable scihub_api doesn't exist. You should run connectToAPI(username, password) before searching the data archive."
 
     # Validate tile input format for search
-    assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
+    assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
 
     # Set up start and end dates
     startdate = sentinelsat.format_query_date(start)
@@ -67,8 +93,13 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
 
 
 def download(products_df, output_dir = os.getcwd()):
-    '''
+    ''' download(products_df, output_dir = os.getcwd())
+    
     Downloads all images from a dataframe produced by sentinelsat.
+    
+    Args:
+        products_df: Pandas dataframe from search() function.
+        output_dir: Optionally specify an output directory. Defaults to the present working directory.
     '''
     
     assert os.path.isdir(output_dir), "Output directory doesn't exist."
@@ -82,12 +113,18 @@ def download(products_df, output_dir = os.getcwd()):
 
 
 def decompress(tile, dataloc = os.getcwd(), remove = False):
-    '''
-    Unzips .zip files downloaded from SciHub, and removes original
+    '''decompress(tile, dataloc = os.getcwd(), remove = False)
+    
+    Decompresses .zip files downloaded from SciHub, and optionally removes original .zip file.
+    
+    Args:
+        tile: A string containing the name of the tile to to download.
+        dataloc: The directory of level 1C Sentinel-2 .SAFE files. Defaults to current working directory.
+        remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.
     '''
 
     # Validate tile input format for file search
-    assert validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
+    assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
     
     # Remove trailing slash to directory name where included
     dataloc = dataloc.rstrip('/')
@@ -95,29 +132,31 @@ def decompress(tile, dataloc = os.getcwd(), remove = False):
     # Get a list of zip files matching the Level 1C file pattern
     zip_files = glob.glob('%s/*_MSIL1C_*_T%s_*.zip'%(dataloc,tile))
     
-    # Unzip each one using the system command
+    # Decompress each zip file
     for zip_file in zip_files:
+        
         print 'Extracting %s'%zip_file
         with zipfile.ZipFile(zip_file) as obj:
             obj.extractall(dataloc)
-        if remove: removeZip(zip_file)
-
-
-def removeZip(zip_file):
-    """
-    Deletes Level 1C .zip file from disk.
-    Input is a Sentinel-2 level 1C file from Copernicus Open Access Data Hub
-    """
-    
-    assert '_MSIL1C_' in zip_file, "removeZip function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
-    assert zip_file.split('/')[-1][-4:] == '.zip', "removeL1C function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
-    
-    os.remove(zip_file)
+        
+        # Delete zip file
+        if remove: _removeZip(zip_file)
     
 
 def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False):
-    '''
-    Function to initiate entire data preparation sequence.
+    '''main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False)
+    
+    Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover.
+    
+    Args:
+        username: Scihub username. Sign up at https://scihub.copernicus.eu/.
+        password: Scihub password.
+        tile: A string containing the name of the tile to to download.
+        start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.
+        end: End date for search in format YYYYMMDD. Defaults to today's date.
+        maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
+        output_dir: Optionally specify an output directory. Defaults to the present working directory.
+        remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.
     '''
     
     # Connect to API

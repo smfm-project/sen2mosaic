@@ -369,7 +369,8 @@ def getSafeFilesInTile(source_files, md_dest):
 
 
 def generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_name = 'L3B_output'):
-    '''
+    '''generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_name = 'L3B_output')
+    
     Function which generates an mask GeoTiff file from list of level 3B source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from
 
     Args:
@@ -434,7 +435,8 @@ def generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_nam
 
 
 def generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'L3B_output'):
-    """
+    """generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir=os.getcwd(), output_name='L3B_output')
+    
     Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
 
     Args:
@@ -495,7 +497,7 @@ def generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir 
 
 
 def buildVRT(red_band, green_band, blue_band, output_path):
-    '''
+    """
     Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.
     
     Args:
@@ -503,7 +505,7 @@ def buildVRT(red_band, green_band, blue_band, output_path):
         green_band: Filename to add to green band
         blue_band: Filename to add to blue band
         output_name: Path to output file
-    '''
+    """
     
     # Remove trailing / from output directory name if present
     output_path = output_path.rstrip('/')
@@ -521,16 +523,31 @@ def buildVRT(red_band, green_band, blue_band, output_path):
     
 
 def main(source_files, extent_dest, EPSG_dest,
-    res_list = np.array([10, 10, 10, 10, 20, 20, 20, 20, 20, 20]),
-    band_list = np.array(['B02', 'B03', 'B04', 'B08', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12']),
+    res_list = [10, 10, 10, 10, 20, 20, 20, 20, 20, 20],
+    band_list = ['B02', 'B03', 'B04', 'B08', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12'],
     output_dir = os.getcwd(), output_name = 'L3B_output'):
-    '''
-    Convert outputs of sen2Three to a customisable grid, based on specified UTM coordinate bounds.
-    '''
+    """main(source_files, extent_dest, EPSG_dest, res_list = [10, 10, 10, 10, 20, 20, 20, 20, 20, 20], band_list = ['B02','B03','B04','B08','B05','B06','B07','B8A','B11','B12'], output_dir = os.getcwd(), output_name = 'L3B_output')
+    
+    Function to run through the entire chain for converting output of sen2Three into custom mosaics.
+    
+    Args:
+        source_files: A list of level 3A input files.
+        extent_dest: List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax].
+        EPSG_dest: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.
+        res_list: Optionally specify a list of integers describing pixel size in m (10, 20, or 60). Must be accompanied by a band_list of the same size. Defaults to native resolution of each band.
+        band_list: Optionally specify a list of output band names. Must be accompanied by a res_list of the same size. Defaults to processing all 10 and 20 m bands.
+        output_dir: Optionally specify an output directory.
+        output_name: Optionally specify a string to precede output file names.
+    """
 
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(res_list) == len(band_list), "For each band to process you must specify a resolution"
     assert len(source_files) > 1, "No source files in specified location."
+    
+    # Convert band and res list to numpy arrays for indexing
+    res_lis = np.array(res_list)
+    band_list = np.array(band_list)
+    
     
     # Remove trailing / from output directory if present 
     output_dir = output_dir.rstrip('/')
