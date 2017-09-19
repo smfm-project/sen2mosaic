@@ -5,8 +5,6 @@ import glob
 import glymur
 import numpy as np
 import os
-from osgeo import gdal
-from osgeo import osr
 from scipy import ndimage
 import subprocess
 
@@ -109,7 +107,8 @@ def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype
     Returns:
         A GDAL dataset.
     '''
-       
+    from osgeo import gdal
+    
     gdal_driver = gdal.GetDriverByName(driver)
     ds = gdal_driver.Create(filename, md['ncols'], md['nrows'], 1, gdal.GDT_Int16, options = options)
     ds.SetGeoTransform(md['geo_t'])
@@ -140,6 +139,8 @@ def _reprojectImage(ds_source, ds_dest, md_source, md_dest):
         A GDAL array with resampled data
     '''
     
+    from osgeo import gdal
+    
     proj_source = md_source['proj'].ExportToWkt()
     proj_dest = md_dest['proj'].ExportToWkt()
     
@@ -162,6 +163,8 @@ def _testOutsideTile(md_source, md_dest):
     Returns:
         A boolean (True/False) value.
     '''
+    
+    import osr
             
     # Set up function to translate coordinates from source to destination
     tx = osr.CoordinateTransformation(md_source['proj'], md_dest['proj'])
@@ -296,6 +299,8 @@ def buildMetadataDictionary(extent_dest, res, EPSG):
         A dictionary containg projection info.
     '''
     
+    from osgeo import osr
+    
     # Set up an empty dictionary
     md = {}
     
@@ -382,7 +387,7 @@ def generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_nam
         A numpy array containing mosaic data for the input band.
         A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first source_file, 2 = second source_file etc.
     '''
-
+    from osgeo import gdal
     
     # Create array to contain output classified cloud mask array
     scl_out = _createOutputArray(md_dest, dtype = np.uint8)
@@ -450,6 +455,7 @@ def generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir 
     Returns:
         A numpy array containing mosaic data for the input band.
     """
+    from osgeo import gdal
 
     
     # Create array to contain output array for this band
