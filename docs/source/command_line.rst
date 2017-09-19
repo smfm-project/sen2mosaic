@@ -15,7 +15,7 @@ The alternative is to download data using the `API Hub <https://scihub.copernicu
 
 ``L1C.py`` is a program to interface with Sentinelsat to download Sentinel-2 files, specifying a particular tile, date ranges and degrees of cloud cover. It will also decompress and tidy up .zip files, ready for use with ``L2A.py``.
 
-Help for ``L1C.py`` can be viewed by typing `python /path/to/sen2mosaic/L1C.py --help`_:
+Help for ``L1C.py`` can be viewed by typing ``python /path/to/sen2mosaic/L1C.py --help``:
 
 .. code-block:: console
     
@@ -62,15 +62,9 @@ Processing to L2A
 
 Once you have Sentinel-2 (Level 1C) data, the next step is to perform atmospheric correction and identify clouds and cloud shadows. This step is based on `sen2cor <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_.
 
-`L2A.py` takes a list of level 1C .SAFE files as input, initiates sen2cor, and performs simple modifications to improve the quality of it's cloud and cloud shadow mask.
+``L2A.py`` takes a list of level 1C .SAFE files as input, initiates sen2cor, and performs simple modifications to improve the quality of it's cloud and cloud shadow mask.
 
-Help for ``L2A.py`` can be viewed by typing `python /path/to/sen2mosaic/L2A.py --help`_:
-
-usage: L2A.py [-h] [-g GIPP] [-o OUTPUT_DIR] [-r] N [N ...]
-
-Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to bottom
-of atmosphere reflectance, and generate a cloud mask. This script initiates
-sen2cor, then performs simple improvements to the cloud mask.
+Help for ``L2A.py`` can be viewed by typing ``python /path/to/sen2mosaic/L2A.py --help``:
 
 .. code-block:: console
     
@@ -139,7 +133,7 @@ Help for ``L3A.py`` can be viewed by typing ``python /path/to/sen2mosaic/L3A.py 
                     input directory. Be careful.
 
 
-For example, to run L3A.py on the directory ``/path/to/36KWA_data/`` which contains L2A data for the tile 36KWA and output the level 3A product to the same directory, use the following command:
+For example, to run ``L3A.py`` on the directory ``/path/to/36KWA_data/`` which contains L2A data for the tile 36KWA and output the level 3A product to the same directory, use the following command:
 
 .. code-block:: console
     
