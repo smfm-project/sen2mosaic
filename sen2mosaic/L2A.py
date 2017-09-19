@@ -19,7 +19,7 @@ except ImportError:
 
     
 
-def setGipp(gipp, output_dir):
+def _setGipp(gipp, output_dir):
     """
     Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
     
@@ -72,7 +72,7 @@ def processToL2A(infile, gipp = None, output_dir = None):
     
     # Set options in L2A GIPP xml. Returns the modified .GIPP file
     if gipp != None:
-        temp_gipp = setGipp(gipp, output_dir)
+        temp_gipp = _setGipp(gipp, output_dir)
     
     # Set up sen2cor command
     command = ['L2A_Process']
