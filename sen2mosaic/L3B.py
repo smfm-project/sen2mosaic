@@ -92,7 +92,7 @@ def _improveSCLMask(data, res):
     return data
 
 
-def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = gdal.GDT_Int16, options = []):
+def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, options = []):
     '''
     Function to create an empty gdal dataset with georefence info from metadata dictionary.
 
@@ -101,7 +101,7 @@ def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype
         data_out: Optionally specify an array of data to include in the gdal dataset.
         filename: Optionally specify an output filename, if image will be written to disk.
         driver: GDAL driver type (e.g. 'MEM', 'GTiff'). By default this function creates an array in memory, but set driver = 'GTiff' to make a GeoTiff. If writing a file to disk, the argument filename must be specified.
-        dtype: Output data type. Default data type is a 16-bit unsigned integer, but this can be specified using GDAL standards.
+        dtype: Output data type. Default data type is a 16-bit unsigned integer (gdal.GDT_Int16, 3), but this can be specified using GDAL standards.
         options: A list containing other GDAL options (e.g. for compression, use [compress'LZW'].
 
     Returns:
@@ -387,7 +387,6 @@ def generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_nam
         A numpy array containing mosaic data for the input band.
         A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first source_file, 2 = second source_file etc.
     '''
-    from osgeo import gdal
     
     # Create array to contain output classified cloud mask array
     scl_out = _createOutputArray(md_dest, dtype = np.uint8)
@@ -412,10 +411,10 @@ def generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_nam
         scl = _improveSCLMask(scl, res)
         
         # Write array to a gdal dataset
-        ds_source = _createGdalDataset(md_source, data_out = scl, dtype = gdal.GDT_Byte)
+        ds_source = _createGdalDataset(md_source, data_out = scl, dtype = 3)
          
         # Create an empty gdal dataset for destination
-        ds_dest = _createGdalDataset(md_dest, dtype = gdal.GDT_Byte)
+        ds_dest = _createGdalDataset(md_dest, dtype = 1)
         
         # Reproject source to destination projection and extent
         scl_resampled = _reprojectImage(ds_source, ds_dest, md_source, md_dest)
@@ -433,7 +432,7 @@ def generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_nam
     # Write output cloud mask to disk for each resolution
     ds_out = _createGdalDataset(md_dest, data_out = scl_out,
                                filename = '%s/%s_SCL_R%sm.tif'%(output_dir, output_name, str(res)),
-                               driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
+                               driver='GTiff', dtype = 1, options = ['COMPRESS=LZW'])
     
     return scl_out, image_n
 
@@ -455,8 +454,6 @@ def generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir 
     Returns:
         A numpy array containing mosaic data for the input band.
     """
-    from osgeo import gdal
-
     
     # Create array to contain output array for this band
     data_out = _createOutputArray(md_dest, dtype = np.uint16)
@@ -479,7 +476,7 @@ def generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir 
         ds_source = _createGdalDataset(md_source, data_out = data)                
 
         # Create an empty gdal dataset for destination
-        ds_dest = _createGdalDataset(md_dest, dtype = gdal.GDT_Byte)
+        ds_dest = _createGdalDataset(md_dest, dtype = 1)
                 
         # Reproject source to destination projection and extent
         data_resampled = _reprojectImage(ds_source, ds_dest, md_source, md_dest)
@@ -496,7 +493,7 @@ def generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir 
     # Write output for this band to disk
     ds_out = _createGdalDataset(md_dest, data_out = data_out,
                                filename = '%s/%s_%s_R%sm.tif'%(output_dir, output_name, band, str(res)),
-                               driver='GTiff', dtype = gdal.GDT_Byte, options = ['COMPRESS=LZW'])
+                               driver='GTiff', dtype = 1, options = ['COMPRESS=LZW'])
 
     return data_out
 
