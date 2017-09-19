@@ -3,7 +3,6 @@
 import argparse
 import glob
 import glymur
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 from scipy import ndimage
