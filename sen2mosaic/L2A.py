@@ -126,10 +126,7 @@ def loadMask(L2A_file, res):
 
 def improveMask(jp2, res):
     """
-    Tweaks the cloud mask output from sen2cor. Processes are:
-        1) Changing 'dark features' to 'cloud shadows.
-        2) Dilating 'cloud shadows', 'medium probability cloud' and 'high probability cloud' by 180 m.
-        3) Eroding outer 3 km of the tile to improve stitching of images by sen2Three.
+    Tweaks the cloud mask output from sen2cor. Processes are: (1) Changing 'dark features' to 'cloud shadows, (2) Dilating 'cloud shadows', 'medium probability cloud' and 'high probability cloud' by 180 m. (3) Eroding outer 3 km of the tile to improve stitching of images by sen2Three.
     
     Args:
         jp2: A glymur .jp2 file from loadMask().
@@ -229,7 +226,7 @@ def removeL1C(L1C_file):
 
 def main(infile, gipp = None, output_dir = None, remove = False):
     """
-    Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking.
+    Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
     Args:
         infile: A level 1C Sentinel-2 .SAFE file.

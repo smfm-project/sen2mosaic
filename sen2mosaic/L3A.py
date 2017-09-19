@@ -75,7 +75,7 @@ def remove2A(input_dir):
 
 def main(input_dir = os.getcwd(), remove = False):
     """main(input_dir = os.getcwd(), remove = False)
-    Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script initiates sen2three from within Python.
+    Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with sen2three. This script calls sen2three from within Python. This is the function that is initiated from the command line.
     
     Args:
         input_dir: Directory containing level 2A Sentinel-2 .SAFE files. Defaults to current working directory.

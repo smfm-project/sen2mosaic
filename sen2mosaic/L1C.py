@@ -144,9 +144,9 @@ def decompress(tile, dataloc = os.getcwd(), remove = False):
     
 
 def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False):
-    '''main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False)
+    """main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False)
     
-    Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover.
+    Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover. This is the function that is initiated from the command line.
     
     Args:
         username: Scihub username. Sign up at https://scihub.copernicus.eu/.
@@ -157,7 +157,7 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
         output_dir: Optionally specify an output directory. Defaults to the present working directory.
         remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.
-    '''
+    """
     
     # Connect to API
     connectToAPI(username, password)

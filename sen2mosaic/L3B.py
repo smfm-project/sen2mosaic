@@ -530,7 +530,7 @@ def main(source_files, extent_dest, EPSG_dest,
     output_dir = os.getcwd(), output_name = 'L3B_output'):
     """main(source_files, extent_dest, EPSG_dest, res_list = [10, 10, 10, 10, 20, 20, 20, 20, 20, 20], band_list = ['B02','B03','B04','B08','B05','B06','B07','B8A','B11','B12'], output_dir = os.getcwd(), output_name = 'L3B_output')
     
-    Function to run through the entire chain for converting output of sen2Three into custom mosaics.
+    Function to run through the entire chain for converting output of sen2Three into custom mosaics. This is the function that is initiated from the command line.
     
     Args:
         source_files: A list of level 3A input files.
