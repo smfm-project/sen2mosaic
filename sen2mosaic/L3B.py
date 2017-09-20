@@ -145,7 +145,7 @@ def _reprojectImage(ds_source, ds_dest, md_source, md_dest):
     proj_dest = md_dest['proj'].ExportToWkt()
     
     # Reproject source into dest project coordinates
-    gdal.reprojectImage(ds_source, ds_dest, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
+    gdal.ReprojectImage(ds_source, ds_dest, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
             
     ds_resampled = ds_dest.GetRasterBand(1).ReadAsArray()
     
