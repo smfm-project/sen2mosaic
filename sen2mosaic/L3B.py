@@ -248,7 +248,7 @@ def getSourceMetadata(safe_file, res):
         EPSG code of the coordinate reference system of the .SAFE file.
     '''
     
-    assert safe_file[-5:] == '.SAFE', "The input to getSourceMetadata() must be a .safe file"
+    assert safe_file[-5:] == '.SAFE', "The input to getSourceMetadata() must be a .SAFE file"
     
     # Remove trailing / from safe files if present 
     safe_file = safe_file.rstrip('/')
@@ -319,6 +319,9 @@ def buildMetadataDictionary(extent_dest, res, EPSG):
     md['uly'] = float(extent_dest[3])
     md['xres'] = float(res)
     md['yres'] = float(-res)
+
+    # Save current resolution for future reference
+    md['res'] = res
     
     # Calculate array size
     md['nrows'] = int((md['lry'] - md['uly']) / md['yres'])
@@ -330,14 +333,13 @@ def buildMetadataDictionary(extent_dest, res, EPSG):
     return md
 
 
-def getSafeFilesInTile(source_files, md_dest, res):
+def getSafeFilesInTile(source_files, md_dest):
     '''
     Takes a list of source files as input, and determines where each falls within extent of output tile.
     
     Args:
         source_files: A list of level 3A input files.
         md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.
-        res: Resolution, an integer of 10, 20, or 60 meters.
 
     Returns:
         A reduced list of source_files containing only files that will contribute to each tile.
@@ -345,6 +347,9 @@ def getSafeFilesInTile(source_files, md_dest, res):
     
     # Sort source files alphabetically by tile reference.    
     source_files = _sortSourceFiles(source_files)
+    
+    # Extract this image's resolution from md_dest
+    res = md_dest['res']
                 
     # Determine which L3A images are within specified tile bounds
     print 'Searching for source files within specified tile...'
@@ -373,7 +378,7 @@ def getSafeFilesInTile(source_files, md_dest, res):
     return source_files_tile
 
 
-def generateSCLArray(source_files, md_dest, res, output_dir = os.getcwd(), output_name = 'L3B_output'):
+def generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_name = 'L3B_output'):
     '''generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_name = 'L3B_output')
     
     Function which generates an mask GeoTiff file from list of level 3B source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from
@@ -381,7 +386,6 @@ def generateSCLArray(source_files, md_dest, res, output_dir = os.getcwd(), outpu
     Args:
         source_files: A list of level 3A input files.
         md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.
-        res: Resolution, an integer of 10, 20, or 60 meters.
         output_dir: Optionally specify directory for output file. Defaults to current working directory.
         output_name: Optionally specify a string to prepend to output files. Defaults to 'L3B_output'.
         
@@ -389,7 +393,10 @@ def generateSCLArray(source_files, md_dest, res, output_dir = os.getcwd(), outpu
         A numpy array containing mosaic data for the input band.
         A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first source_file, 2 = second source_file etc.
     '''
-    
+
+    # Extract this image's resolution from md_dest
+    res = md_dest['res']
+                
     # Create array to contain output classified cloud mask array
     scl_out = _createOutputArray(md_dest, dtype = np.uint8)
     
@@ -439,7 +446,7 @@ def generateSCLArray(source_files, md_dest, res, output_dir = os.getcwd(), outpu
     return scl_out, image_n
 
 
-def generateBandArray(source_files, image_n, band, scl_out, md_dest, res, output_dir = os.getcwd(), output_name = 'L3B_output'):
+def generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'L3B_output'):
     """generateBandArray(source_files, image_n, band, scl_out, md_dest, output_dir=os.getcwd(), output_name='L3B_output')
     
     Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
@@ -450,7 +457,6 @@ def generateBandArray(source_files, image_n, band, scl_out, md_dest, res, output
         band: String describing bad to process. e.g. B02, B03, B8A....
         scl_out: Numpy array with mask from generateSCLArray().
         md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.
-        res: Resolution, an integer of 10, 20, or 60 meters.
         output_dir: Optionally specify directory for output file. Defaults to current working directory.
         output_name: Optionally specify a string to prepend to output files. Defaults to 'L3B_output'.
         
@@ -460,6 +466,9 @@ def generateBandArray(source_files, image_n, band, scl_out, md_dest, res, output
     
     # Create array to contain output array for this band
     data_out = _createOutputArray(md_dest, dtype = np.uint16)
+
+    # Extract this image's resolution from md_dest
+    res = md_dest['res']
     
     # For each source file
     for n, safe_file in enumerate(source_files):
@@ -564,7 +573,7 @@ def main(source_files, extent_dest, EPSG_dest,
         md_dest = buildMetadataDictionary(extent_dest, res, EPSG_dest)    
         
         # Reduce the pool of source_files to only those that overlap with output tile
-        source_files_tile = getSafeFilesInTile(source_files, md_dest, res)
+        source_files_tile = getSafeFilesInTile(source_files, md_dest)
         
         # It's only worth processing a tile if at least one input image is inside tile
         assert len(source_files_tile) > 1, "No data inside specified tile. Not processing this tile."
@@ -572,7 +581,7 @@ def main(source_files, extent_dest, EPSG_dest,
         print 'Doing SCL mask at %s m resolution'%str(res)
        
         # Generate a classified mask
-        scl_out, image_n = generateSCLArray(source_files_tile, md_dest, res, output_dir = output_dir, output_name = output_name)
+        scl_out, image_n = generateSCLArray(source_files_tile, md_dest, output_dir = output_dir, output_name = output_name)
                
         # Process images for each band
         for band in band_list[res_list==res]:
@@ -580,7 +589,7 @@ def main(source_files, extent_dest, EPSG_dest,
             print 'Doing band %s at %s m resolution'%(band, str(res))
             
             # Using image_n, combine pixels into outputs images for each band
-            band_out = generateBandArray(source_files_tile, image_n, band, scl_out, md_dest, res, output_dir = output_dir, output_name = output_name)
+            band_out = generateBandArray(source_files_tile, image_n, band, scl_out, md_dest, output_dir = output_dir, output_name = output_name)
     
     # Build VRT output files for straightforward visualisation
     print 'Building .VRT images for visualisation'
