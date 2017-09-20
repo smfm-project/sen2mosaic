@@ -173,11 +173,11 @@ At the time of writing, the installation process is as follows:
 Installing sen2mosaic
 ---------------------
 
-sen2mosaic can be downloaded to a machine from its repository. To do this, open a terminal window and input:
+sen2mosaic can be downloaded to a machine from its `repository<https://bitbucket.org/sambowers/sen2mosaic>`_ . To do this, open a terminal window and input:
 
 .. code-block:: console
 
-    git clone git@bitbucket.org:sambowers/sen2mosaic.git
+    git clone https://sambowers@bitbucket.org/sambowers/sen2mosaic.git
 
 
 Where do I get help?
