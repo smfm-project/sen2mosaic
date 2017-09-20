@@ -111,14 +111,13 @@ sen2three is an ESA program to combine multiple level 2A images from Sentinel-2 
 
 For further details and up-to-date installation instructions, see the `sen2three website <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_.
 
-.. note: This processing chain requires sen2three version 1.1.0 or later. At the time of writing this has not been formally released, but can be downloaded from GitHub.
+.. note: This processing chain requires sen2three version 1.1.0 or later.
 
-At the time of writing, sen2three can be installed as follows. sen2three must be installed after Anaconda Python. The first step is to download the the file ``sen2three-1.1.0.tar.gz`` from GitHub using an internet browser window from the URL ``https://github.com/senbox-org/sen2proc/blob/master/SEN2THREE/distributions/v1.1.0/sen2three-1.1.0.tar.gz``. Save the file to the location that you'd like it to be installed.
-
-Open a terminal window, change directory to the location you saved ``sen2three-1.0.0.tar.gz``, and run the following commands:
+At the time of writing, sen2three can be installed as follows. sen2three must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2three to be installed, and run the following commands:
 
 .. code-block:: console
-
+    
+    wget http://step.esa.int/thirdparties/sen2three/1.1.0/sen2three-1.1.0.tar.gz
     tar -xvzf sen2three-1.1.0.tar.gz
     rm sen2three-1.1.0.tar.gz
     cd sen2three-1.1.0
