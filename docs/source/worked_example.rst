@@ -1,7 +1,7 @@
 A worked example on the command line
 ====================================
 
-Here we'll show you by example how the sen2mosaic processing chain works in practice. We will focus on an example from southern Mozambique, with the aim of creating a cloud-free composite GeoTiff product for the area **500,000 - 600,000 m E** and **7,550,000 - 7,650,000 m N** ( **UTM 36S** ). This area is covered by Sentinel-2 tiles **36KWA** and **36KWB**. We'll limit this mosaic to the early dry season ( **May and June** ), in anticipation of multiple seasonally-specific mosaics improving classification accuracy. We'll download data from the year **2017**.
+Here we'll show you by example how the sen2mosaic processing chain works in practice. We will focus on an example from southern Mozambique, with the aim of creating a cloud-free composite GeoTiff product for the area **500,000 - 600,000** m Eastings and **7,550,000 - 7,650,000** m Northings (**UTM 36S**). This area is covered by Sentinel-2 tiles **36KWA** and **36KWB**. We'll limit this mosaic to the early dry season (**May and June**) of **2017**, in anticipation of multiple seasonally-specific mosaics improving classification accuracy.
 
 Preparation
 -----------
@@ -49,6 +49,7 @@ As we didn't specify the option ``-o`` (``--output``), data will output to the c
 Wait for all files to finish downloading before proceeding to the next step. By the time the processing is complete, your ``36KWA/`` directory should contain the following files (show files in the currenty working directory with the command ``ls``).
 
 .. code-block:: console
+    
     ls
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.zip
@@ -87,6 +88,7 @@ Here we didn't specify the options ``-o`` (``--output_dir``) and ``--g`` (``--gi
 Wait for all files to be processed to level 2A before proceeding. If you run ``ls`` again, your ``36KWA/`` directory should now contain a new set of files:
 
 .. code-block:: console
+    
     ls
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.zip
