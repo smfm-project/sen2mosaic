@@ -33,7 +33,7 @@ def processToL3A(input_dir):
     assert len(list(set(tiles)))==1, "The input directory contains level 2A files from multiple tiles. As sen2Three will process everything in a directory, each tile needs to be placed in its own directory."
     
     # Set up sen2three command
-    command = ['L3_Process', '--clean', input_dir]
+    command = ['L3_Process', input_dir]
     
     # Run sen2three (L3_Process)
     subprocess.call(command)
@@ -60,7 +60,7 @@ def remove2A(input_dir):
     input_dir = input_dir.rstrip('/')
         
     # Test that input location contains appropriate files in .SAFE format
-    infiles = glob.glob('%s/*_MSIL2A_*T%s_*.SAFE'%input_dir)
+    infiles = glob.glob('%s/*_MSIL2A_*.SAFE'%input_dir)
     assert len(infiles) > 0, "Input directory must contain level 2A files in .SAFE format."
 
     # Test whether directory contains files from only one tile. Sen2three will process everything in a directory, so this is important
@@ -86,7 +86,7 @@ def main(input_dir = os.getcwd(), remove = False):
     processToL3A(input_dir)
     
     # Remove level 2A files
-    remove2A(input_dir)
+    if remove: remove2A(input_dir)
 
 
 if __name__ == '__main__':
