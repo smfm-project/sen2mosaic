@@ -50,7 +50,6 @@ Wait for all files to finish downloading before proceeding to the next step. By 
 
 .. code-block:: console
     
-    ls
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.zip
     S2A_MSIL1C_20170516T072621_N0205_R049_T36KWA_20170516T075513.SAFE
@@ -73,13 +72,13 @@ Atmopsheric correction and cloud masking
 
 The next step is to perform atmospheric correction (removes the effects of the atmosphere on refectance values of images) and cloud masking (identififies clouds in images.) to generate Sentinel-2 level 2A data. We do this with the ESA program ``sen2cor``.
 
-To perform atmospheric correction and cloud masking we call the tool ``L2A.py``. We need to specify the input files (all follow the format ``*_MSIL1C_*.SAFE``).
+To perform atmospheric correction and cloud masking we call the tool ``L2A.py``. We need to specify Sentinel-2 level 1C input files (all follow the format ``*_MSIL1C_*.SAFE``).
 
 To run the process, we need to submit the following line:
 
 .. code-block:: console
 
-    python ~/DATA/sen2mosaic/sen2mosaic/L2A.py /home/sbowers3/DATA/worked_example/36KWA/*_MSIL1C_*.SAFE
+    python ~/path/to/sen2mosaic/L2A.py /home/user/DATA/worked_example/36KWA/*_MSIL1C_*.SAFE
 
 This command will loop through each Sentinel-2 level 1C file and process them one at a time. You might alternatively want to specify a single level 1C .SAFE file, and run several commands similtaneously. Bear in mind that this will require access to a large quanity of memory.
 
@@ -89,7 +88,6 @@ Wait for all files to be processed to level 2A before proceeding. If you run ``l
 
 .. code-block:: console
     
-    ls
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
     S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.zip
     S2A_MSIL1C_20170516T072621_N0205_R049_T36KWA_20170516T075513.SAFE
@@ -106,11 +104,82 @@ Wait for all files to be processed to level 2A before proceeding. If you run ``l
     S2A_MSIL1C_20170608T075211_N0205_R092_T36KWA_20170608T080546.zip
     S2A_MSIL1C_20170628T075211_N0205_R092_T36KWA_20170628T080542.SAFE
     S2A_MSIL1C_20170628T075211_N0205_R092_T36KWA_20170628T080542.zip
-    ...
+    S2A_MSIL2A_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
+    S2A_MSIL2A_20170516T072621_N0205_R049_T36KWA_20170516T075513.SAFE
+    S2A_MSIL2A_20170519T075221_N0205_R092_T36KWA_20170519T080547.SAFE
+    S2A_MSIL2A_20170526T074241_N0205_R049_T36KWA_20170526T074901.SAFE
+    S2A_MSIL2A_20170529T073611_N0205_R092_T36KWA_20170529T075550.SAFE
+    S2A_MSIL2A_20170605T072621_N0205_R049_T36KWA_20170605T075534.SAFE
+    S2A_MSIL2A_20170608T075211_N0205_R092_T36KWA_20170608T080546.SAFE
+    S2A_MSIL2A_20170628T075211_N0205_R092_T36KWA_20170628T080542.SAFE
 
-Generating cloud-free composite images
---------------------------------------
 
+Generating a cloud-free composite image
+---------------------------------------
 
+Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image. We do this with the ESA program ``sen2three``.
+
+To perform this step we call the tool ``L3A.py``. We need to specify Sentinel-2 level 2A input files (all follow the format ``*_MSIL2A_*.SAFE``).
+
+To run the process, we need to submit the following line:
+
+.. code-block:: console
+
+    python ~/path/to/sen2mosaic/L3A.py /home/user/DATA/worked_example/36KWA/*_MSIL2A_*.SAFE
+
+Here we didn't specify the ``-r`` (``--remove``) option, which would delete Sentinel-2 level 2A data once data is finished processing.
+
+.. warning: sen2three requires access to a lot of memory. If this is an issue, consider inputting a smaller number of level 2A fies.
+
+Wait for sen2three to finish processing (which may take several hours). If you run ``ls`` again, your ``36KWA/`` directory should now contain a new level-3 file:
+
+.. code-block:: console
+    
+    S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
+    S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.zip
+    S2A_MSIL1C_20170516T072621_N0205_R049_T36KWA_20170516T075513.SAFE
+    S2A_MSIL1C_20170516T072621_N0205_R049_T36KWA_20170516T075513.zip
+    S2A_MSIL1C_20170519T075221_N0205_R092_T36KWA_20170519T080547.SAFE
+    S2A_MSIL1C_20170519T075221_N0205_R092_T36KWA_20170519T080547.zip
+    S2A_MSIL1C_20170526T074241_N0205_R049_T36KWA_20170526T074901.SAFE
+    S2A_MSIL1C_20170526T074241_N0205_R049_T36KWA_20170526T074901.zip
+    S2A_MSIL1C_20170529T073611_N0205_R092_T36KWA_20170529T075550.SAFE
+    S2A_MSIL1C_20170529T073611_N0205_R092_T36KWA_20170529T075550.zip
+    S2A_MSIL1C_20170605T072621_N0205_R049_T36KWA_20170605T075534.SAFE
+    S2A_MSIL1C_20170605T072621_N0205_R049_T36KWA_20170605T075534.zip
+    S2A_MSIL1C_20170608T075211_N0205_R092_T36KWA_20170608T080546.SAFE
+    S2A_MSIL1C_20170608T075211_N0205_R092_T36KWA_20170608T080546.zip
+    S2A_MSIL1C_20170628T075211_N0205_R092_T36KWA_20170628T080542.SAFE
+    S2A_MSIL1C_20170628T075211_N0205_R092_T36KWA_20170628T080542.zip
+    S2A_MSIL2A_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
+    S2A_MSIL2A_20170516T072621_N0205_R049_T36KWA_20170516T075513.SAFE
+    S2A_MSIL2A_20170519T075221_N0205_R092_T36KWA_20170519T080547.SAFE
+    S2A_MSIL2A_20170526T074241_N0205_R049_T36KWA_20170526T074901.SAFE
+    S2A_MSIL2A_20170529T073611_N0205_R092_T36KWA_20170529T075550.SAFE
+    S2A_MSIL2A_20170605T072621_N0205_R049_T36KWA_20170605T075534.SAFE
+    S2A_MSIL2A_20170608T075211_N0205_R092_T36KWA_20170608T080546.SAFE
+    S2A_MSIL2A_20170628T075211_N0205_R092_T36KWA_20170628T080542.SAFE
 
     
+Repeat for other tiles
+----------------------
+
+The download, atmospheric correction and compositing stages need to be repeated for each tile of interest.
+
+Now it's your turn! ``cd`` to the 36KWB folder, and generate a Sentinel-2 level-3 image using the methods we've just employed for tile 36KWA.
+
+Generating a mosaic for classification
+--------------------------------------
+
+Once you have multiple level 3A files, the final step is to mosaic these into a larger tiling system in preparation for image classification. Whilst it is possible to classify the level 3A tiles directly, the .SAFE file format is difficult to work with, and tiles might be smaller than you might prefer to work with. We recommend a grid of tiles that's approximately equal to the area of four Sentinel-2 tiles (~200,000 x 200,000 m). We call this the (unofficial) level 3B product, which is output in the widely-used and easy to work with GeoTiff format.
+
+Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration.
+
+Viewing data
+------------
+
+In addition to a GeoTiff file for each Sentinel-2 band, ``L3B.py`` outputs two 3-band GDAL virtual dataset files (``.vrt``). These are labelled ``_RGB.vrt`` and ``_NIR.vrt``, and can be opened in QGIS to show a true colour and false colour composite (NIR, Red, Green) image.
+
+[INSERT IMAGE]
+
+To perform this step we call the tool ``L3B.py``
