@@ -78,13 +78,13 @@ Let's say that we wanted to generate a mosaic product which did not use the clou
             os.mkdir(output_dir)
         
         # Download data from Copernicus Open Access Data Hub
-        sen2mosaic.L1C.main('user.name', 'supersecret', tile, start = '20170501', end = '20170630', maxcloud = 30, output_dir = output_dir)
+        sen2mosaic.L1C.main('user.name', 'supersecret', tile, start = '20170501', end = '20170630', maxcloud = 30, output_dir = output_dir, remove = True)
         
         # For each level 1C Sentinel-2 file...
         for L1C_file in glob.glob(output_dir + '/*_MSIL1C_*.SAFE'):
             
             # Perform atmospheric correction only
-            sen2mosaic.L2A.processToL2A(L1C_file)
+            sen2mosaic.L2A.processToL2A(L1C_file, remove = True)
         
         # Generate a cloud free composite product
         sen2mosaic.L3A.main(output_dir)
