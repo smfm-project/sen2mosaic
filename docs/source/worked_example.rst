@@ -150,7 +150,7 @@ To run ``L3B.py``,
     
 .. code-block:: console
     
-    python /path/to/sen2mosaic/L3B.py -te 500000 7550000 600000 7650000 -e 32736 36KW*/*_MSIL03_*.SAFE
+    python /path/to/sen2mosaic/L3B.py -te 500000 7550000 600000 7650000 -e 32736 -n worked_example 36KW*/*_MSIL03_*.SAFE
 
 Here we didn't specify the ``-o`` (``--output_dir``) option, meaning that results will be output to the current working directory. Once processing is complte, you can use ``ls`` to view the newly created output files:
 
