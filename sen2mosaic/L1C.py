@@ -163,7 +163,7 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
     connectToAPI(username, password)
         
     # Search for files, return a data frame containing details of matching Sentinel-2 images
-    products = search(tile, start = args.start, end = args.end, maxcloud = args.cloud)
+    products = search(tile, start = start, end = end, maxcloud = maxcloud)
 
     # Download products
     download(products, output_dir = output_dir)
