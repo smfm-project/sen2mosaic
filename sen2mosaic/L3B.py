@@ -555,7 +555,7 @@ def main(source_files, extent_dest, EPSG_dest,
     """
 
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
-    assert len(res_list) == len(band_list), "For each band to process you must specify a resolution"
+    assert len(res_list) == len(band_list), "For each band to process you must specify a resolution."
     assert len(source_files) > 1, "No source files in specified location."
     
     # Convert band and res list to numpy arrays for indexing
