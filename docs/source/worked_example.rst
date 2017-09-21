@@ -1,5 +1,7 @@
-A worked example on the command line
-====================================
+.. _worked_example_commandline:
+
+Worked example on the command line
+==================================
 
 Here we'll show you by example how the sen2mosaic processing chain works in practice. We will focus on an example from southern Mozambique, with the aim of creating a cloud-free composite GeoTiff product for the area **500,000 - 600,000** m Eastings and **7,550,000 - 7,650,000** m Northings (**UTM 36S**). This area is covered by Sentinel-2 tiles **36KWA** and **36KWB**. We'll limit this mosaic to the early dry season (**May and June**) of **2017**, in anticipation of multiple seasonally-specific mosaics improving classification accuracy.
 
@@ -175,6 +177,10 @@ Once you have multiple level 3A files, the final step is to mosaic these into a 
 
 Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration.
 
+To perform this step we call the tool ``L3B.py``
+
+
+
 Viewing data
 ------------
 
@@ -182,4 +188,8 @@ In addition to a GeoTiff file for each Sentinel-2 band, ``L3B.py`` outputs two 3
 
 [INSERT IMAGE]
 
-To perform this step we call the tool ``L3B.py``
+See also
+--------
+
+This example required a lot of manual typing. We can achieve further automation through Python. To see an example of how to run achieve the same results in Python, see the scripts in the sectiomn :ref:`worked_example_python`.
+
