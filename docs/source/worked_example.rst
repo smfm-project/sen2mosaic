@@ -80,7 +80,7 @@ To run the process, we need to submit the following line:
 
 .. code-block:: console
 
-    python ~/path/to/sen2mosaic/L2A.py /home/user/DATA/worked_example/36KWA/*_MSIL1C_*.SAFE
+    python /path/to/sen2mosaic/L2A.py /home/user/DATA/worked_example/36KWA/*_MSIL1C_*.SAFE
 
 This command will loop through each Sentinel-2 level 1C file and process them one at a time. You might alternatively want to specify a single level 1C .SAFE file, and run several commands similtaneously. Bear in mind that this will require access to a large quanity of memory.
 
@@ -127,7 +127,7 @@ To run the process, we need to submit the following line:
 
 .. code-block:: console
 
-    python ~/path/to/sen2mosaic/L3A.py /home/user/DATA/worked_example/36KWA/*_MSIL2A_*.SAFE
+    python /path/to/sen2mosaic/L3A.py /home/user/DATA/worked_example/36KWA/*_MSIL2A_*.SAFE
 
 Here we didn't specify the ``-r`` (``--remove``) option, which would delete Sentinel-2 level 2A data once data is finished processing.
 
@@ -173,14 +173,54 @@ Now it's your turn! ``cd`` to the 36KWB folder, and generate a Sentinel-2 level-
 Generating a mosaic for classification
 --------------------------------------
 
-Once you have multiple level 3A files, the final step is to mosaic these into a larger tiling system in preparation for image classification. Whilst it is possible to classify the level 3A tiles directly, the .SAFE file format is difficult to work with, and tiles might be smaller than you might prefer to work with. We recommend a grid of tiles that's approximately equal to the area of four Sentinel-2 tiles (~200,000 x 200,000 m). We call this the (unofficial) level 3B product, which is output in the widely-used and easy to work with GeoTiff format.
+Once you have multiple level 3A files, the final step is to mosaic these into a larger tiling system in preparation for image classification. Whilst it is possible to classify the level 3A tiles directly, the .SAFE file format is difficult to work with, and tiles might not be the size you might prefer to work with. We recommend a grid of tiles that's approximately equal to the area of four Sentinel-2 tiles (~200,000 x 200,000 m). We call this the (unofficial) level 3B product, which is output in the easy to work with GeoTiff format.
 
-Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration.
+Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration, generating an output with the limits **500,000 - 600,000** m Eastings and **7,550,000 - 7,650,000** m Northings (**UTM 36S**).
 
-To perform this step we call the tool ``L3B.py``
+To perform this step we call the tool ``L3B.py``. We need to specify the location of all input files (with wildcards), the exent of the output image and the EPSG code describing the output coordinate reference system. We'll also give output data a name to identfy this tile.
 
+First cd to the directory containing all Sentinel-2 level 3 data.
 
+.. code-block:: console
+    
+    cd /home/user/DATA/worked_example/
 
+To run ``L3B.py``, 
+    
+.. code-block:: console
+    
+    python /path/to/sen2mosaic/L3B.py -te 500000 7550000 600000 7650000 -e 32736 36KW*/*_MSIL03_*.SAFE
+
+Here we didn't specify the ``-o`` (``--output_dir``) option, meaning that results will be output to the current working directory. Once processing is complte, you can use ``ls`` to view the newly created output files:
+
+.. code-block:: console
+    
+    S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
+    S2A_MSIL1C_20170506T074241_N0205_R049_T36KWA_20170506T075325.zip
+    S2A_MSIL1C_20170516T072621_N0205_R049_T36KWA_20170516T075513.SAFE
+    S2A_MSIL1C_20170516T072621_N0205_R049_T36KWA_20170516T075513.zip
+    S2A_MSIL1C_20170519T075221_N0205_R092_T36KWA_20170519T080547.SAFE
+    S2A_MSIL1C_20170519T075221_N0205_R092_T36KWA_20170519T080547.zip
+    S2A_MSIL1C_20170526T074241_N0205_R049_T36KWA_20170526T074901.SAFE
+    S2A_MSIL1C_20170526T074241_N0205_R049_T36KWA_20170526T074901.zip
+    S2A_MSIL1C_20170529T073611_N0205_R092_T36KWA_20170529T075550.SAFE
+    S2A_MSIL1C_20170529T073611_N0205_R092_T36KWA_20170529T075550.zip
+    S2A_MSIL1C_20170605T072621_N0205_R049_T36KWA_20170605T075534.SAFE
+    S2A_MSIL1C_20170605T072621_N0205_R049_T36KWA_20170605T075534.zip
+    S2A_MSIL1C_20170608T075211_N0205_R092_T36KWA_20170608T080546.SAFE
+    S2A_MSIL1C_20170608T075211_N0205_R092_T36KWA_20170608T080546.zip
+    S2A_MSIL1C_20170628T075211_N0205_R092_T36KWA_20170628T080542.SAFE
+    S2A_MSIL1C_20170628T075211_N0205_R092_T36KWA_20170628T080542.zip
+    S2A_MSIL2A_20170506T074241_N0205_R049_T36KWA_20170506T075325.SAFE
+    S2A_MSIL2A_20170516T072621_N0205_R049_T36KWA_20170516T075513.SAFE
+    S2A_MSIL2A_20170519T075221_N0205_R092_T36KWA_20170519T080547.SAFE
+    S2A_MSIL2A_20170526T074241_N0205_R049_T36KWA_20170526T074901.SAFE
+    S2A_MSIL2A_20170529T073611_N0205_R092_T36KWA_20170529T075550.SAFE
+    S2A_MSIL2A_20170605T072621_N0205_R049_T36KWA_20170605T075534.SAFE
+    S2A_MSIL2A_20170608T075211_N0205_R092_T36KWA_20170608T080546.SAFE
+    S2A_MSIL2A_20170628T075211_N0205_R092_T36KWA_20170628T080542.SAFE
+
+    
 Viewing data
 ------------
 

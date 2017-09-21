@@ -20,7 +20,7 @@ As an example, here's a Python script that can be run to reproduce the results f
     tiles = ['36KWA', '36KWB']
     
     # Set a directory to work in
-    data_dir = '/path/to/output/'
+    data_dir = '/home/user/DATA/worked_example_python/'
     
     for tile in tiles:
         
@@ -43,7 +43,7 @@ As an example, here's a Python script that can be run to reproduce the results f
     # Combine the L3A files into an output GeoTiff mosaic tile
     sen2mosaic.L3B.main()
         
-Let's say that you wanted to generate a mosaic product which did not use the cloud mask improvements implemented in ``sen2mosaic``. In this case you could modify the processing chain as follows:
+Let's say that we wanted to generate a mosaic product which did not use the cloud mask improvements implemented in ``sen2mosaic``. In this case you could modify the processing chain as follows:
 
 .. code-block:: python
     
@@ -59,7 +59,7 @@ Let's say that you wanted to generate a mosaic product which did not use the clo
     tiles = ['36KWA', '36KWB']
     
     # Set a directory to work in
-    data_dir = '/path/to/output/'
+    data_dir = '/home/user/DATA/worked_example_python/'
     
     for tile in tiles:
         
