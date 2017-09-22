@@ -169,7 +169,7 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
     download(products, output_dir = output_dir)
     
     # Decompress data
-    decompress(args.tile, dataloc = output_dir, remove = remove)
+    decompress(tile, dataloc = output_dir, remove = remove)
     
 
 
