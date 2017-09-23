@@ -68,7 +68,10 @@ Help for ``L2A.py`` can be viewed by typing ``python /path/to/sen2mosaic/L2A.py 
 
 .. code-block:: console
     
-    usage: L2A.py [-h] [-g GIPP] [-o DIR] [-r] L1C_FILES [L1C_FILES ...]
+    usage: L2A.py [-h] [-g GIPP] [-o DIR] [-r] .. code-block:: console
+    
+    mkdir 36KWA
+    mkdir 36KWBL1C_FILES [L1C_FILES ...]
 
     Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level
     2A. This script initiates sen2cor, which performs atmospheric correction and

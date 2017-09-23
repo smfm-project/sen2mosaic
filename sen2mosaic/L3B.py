@@ -555,11 +555,11 @@ def main(source_files, extent_dest, EPSG_dest,
     """
 
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
-    assert len(res_list) == len(band_list), "For each band to process you must specify a resolution"
+    assert len(res_list) == len(band_list), "For each band to process you must specify a resolution."
     assert len(source_files) > 1, "No source files in specified location."
     
     # Convert band and res list to numpy arrays for indexing
-    res_lis = np.array(res_list)
+    res_list = np.array(res_list)
     band_list = np.array(band_list)
     
     
@@ -567,7 +567,7 @@ def main(source_files, extent_dest, EPSG_dest,
     output_dir = output_dir.rstrip('/')
        
     # For each of the input resolutions
-    for res in sorted(list(set(res_list))):
+    for res in np.sort(np.unique(res_list)):
         
         # Build a dictionary with output projection metadata
         md_dest = buildMetadataDictionary(extent_dest, res, EPSG_dest)    
@@ -582,7 +582,7 @@ def main(source_files, extent_dest, EPSG_dest,
        
         # Generate a classified mask
         scl_out, image_n = generateSCLArray(source_files_tile, md_dest, output_dir = output_dir, output_name = output_name)
-               
+
         # Process images for each band
         for band in band_list[res_list==res]:
             
