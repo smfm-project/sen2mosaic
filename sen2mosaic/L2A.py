@@ -149,9 +149,9 @@ def improveMask(jp2, res):
     iterations = 1800/res
     
     # Identify pixels proximal to any measure of cloud cover
-    cloud_dilated = ndimage.morphology.binary_dilation((np.logical_and(data>=7, data<=9)).astype(np.int), iterations = iterations)
+    cloud_dilated = ndimage.morphology.binary_dilation((np.logical_or(data==8, data==9)).astype(np.int), iterations = iterations)
     
-    data[np.logical_and(data == 3, cloud_dilated == 1] = 6
+    data[np.logical_and(data == 3, cloud_dilated == 1)] = 6
         
     # Dilate cloud shadows, med clouds and high clouds by 180 m.
     iterations = 180 / res
