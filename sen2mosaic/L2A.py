@@ -96,6 +96,12 @@ def processToL2A(infile, gipp = None, output_dir = None):
     if not os.path.exists('%s/AUX_DATA'%outpath):
         os.makedirs('%s/AUX_DATA'%outpath)
     
+    # Occasioanlly sen2cor outputs a _null directory. This needs to be removed, or sen2Three will crashe.
+    bad_directories = glob.glob('%s/GRANULE/*_null/'%outpath)
+    
+    if bad_directories:
+        [shutil.rmtree(bd) for bd in bad_directories]
+    
     return outpath
 
 
