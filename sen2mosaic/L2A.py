@@ -96,6 +96,12 @@ def processToL2A(infile, gipp = None, output_dir = None):
     if not os.path.exists('%s/AUX_DATA'%outpath):
         os.makedirs('%s/AUX_DATA'%outpath)
     
+    # Occasioanlly sen2cor outputs a _null directory. This needs to be removed, or sen2Three will crashe.
+    bad_directories = glob.glob('%s/GRANULE/*_null/'%outpath)
+    
+    if bad_directories:
+        [shutil.rmtree(bd) for bd in bad_directories]
+    
     return outpath
 
 
@@ -151,7 +157,7 @@ def improveMask(jp2, res):
     # Identify pixels proximal to any measure of cloud cover
     cloud_dilated = ndimage.morphology.binary_dilation((np.logical_or(data==8, data==9)).astype(np.int), iterations = iterations)
     
-    data[np.logical_and(data == 3, cloud_dilated == 1)] = 6
+    data[np.logical_and(data == 3, cloud_dilated == 0)] = 6
         
     # Dilate cloud shadows, med clouds and high clouds by 180 m.
     iterations = 180 / res
