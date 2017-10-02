@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import glob
+import numpy as np
 import os
 import pandas
 import re
@@ -45,7 +46,7 @@ def connectToAPI(username, password):
     
     Args:
         username: Scihub username. Sign up at https://scihub.copernicus.eu/.
-        password: Scihub password.
+        password: Scihub password.        
     '''
     
     # Let API be accessed by other functions
@@ -55,8 +56,36 @@ def connectToAPI(username, password):
     scihub_api = sentinelsat.SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
     
 
-def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100):
-    '''search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100)
+def _get_filesize(products_df):
+    """
+    Extracts file size in MB from a Sentinel products pandas dataframe.
+    
+    Args:
+        products_df: A pandas dataframe from search().
+    Returns:
+        A numpy array with file sizes in MB.
+    """
+    
+    size = [int(float(str(i).split(' ')[0])) for  i in products_df['size'].values]
+    suffix = [str(i).split(' ')[1].lower() for  i in products_df['size'].values]
+    
+    size_mb = []
+    
+    for this_size, this_suffix in zip(size, suffix):
+        if this_suffix == 'kb' or this_suffix == 'kib':
+            size_mb.append(this_size * 0.001)
+        elif this_suffix == 'mb' or this_suffix == 'mib':
+            size_mb.append(this_size * 1.)
+        elif this_suffix == 'gb' or this_suffix == 'gib':
+            size_mb.append(this_size * 1000.)
+        else:
+            size_mb.append(this_size * 0.000001)
+
+    return np.array(size_mb)
+    
+
+def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize = 25.):
+    """search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize_mb = 25.)
     
     Searches for images from a single Sentinel-2 Granule that meet conditions of date range and cloud cover.
     
@@ -65,10 +94,11 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
         start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.
         end: End date for search in format YYYYMMDD. Defaults to today's date.
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
+        minsize: A float with the minimum filesize to download in MB. Defaults to 25 MB.  Be aware, file sizes smaller than this can result sen2three crashing.
     
     Returns:
         A pandas dataframe with details of scenes matching conditions.
-    '''
+    """
 
     # Test that we're connected to the 
     assert 'scihub_api' in globals(), "The global variable scihub_api doesn't exist. You should run connectToAPI(username, password) before searching the data archive."
@@ -88,7 +118,11 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
 
     # convert to Pandas DataFrame, which can be searched modified before commiting to download()
     products_df = scihub_api.to_dataframe(products)
+        
+    products_df['filesize_mb'] = _get_filesize(products_df)
     
+    products_df = products_df[products_df['filesize_mb'] >= float(minsize)]
+
     return products_df
 
 
@@ -143,7 +177,7 @@ def decompress(tile, dataloc = os.getcwd(), remove = False):
         if remove: _removeZip(zip_file)
     
 
-def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False):
+def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
     """main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False)
     
     Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover. This is the function that is initiated from the command line.
@@ -155,6 +189,7 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
         start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.
         end: End date for search in format YYYYMMDD. Defaults to today's date.
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
+        minsize: A float with the minimum filesize to download in MB. Defaults to 25 MB.  Be aware, file sizes smaller than this can result sen2three crashing.
         output_dir: Optionally specify an output directory. Defaults to the present working directory.
         remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.
     """
@@ -163,7 +198,7 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
     connectToAPI(username, password)
         
     # Search for files, return a data frame containing details of matching Sentinel-2 images
-    products = search(tile, start = start, end = end, maxcloud = maxcloud)
+    products = search(tile, start = start, end = end, maxcloud = maxcloud, minsize = minsize)
 
     # Download products
     download(products, output_dir = output_dir)
@@ -191,6 +226,7 @@ if __name__ == '__main__':
     optional.add_argument('-s', '--start', type = str, default = '20161206', help = "Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.")
     optional.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
     optional.add_argument('-c', '--cloud', type = int, default = 100, help = "Maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).")
+    optional.add_argument('-m', '--minsize', type = int, default = 25., help = "Minimum file size to download in MB. Defaults to 25 MB. Be aware, file sizes smaller than this can result sen2three crashing.")
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'PATH', default = os.getcwd(), help = "Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Optionally remove level 1C .zip files after decompression.")
 
@@ -198,4 +234,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Run through entire processing sequence
-    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, output_dir = args.output_dir, remove = args.remove)
+    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, minsize = args.minsize, output_dir = args.output_dir, remove = args.remove)
