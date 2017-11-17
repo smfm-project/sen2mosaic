@@ -8,7 +8,7 @@ Welcome to sen2mosaic's documentation!
 ======================================
 
 This is a set of tools to aid in the production of large-scale cloud-free seasonal mosaic products from Sentinel-2 data. For example:
- For example For example::
+
 .. image:: _static/zambia_mosaic.png
 
 Building cloud-free mosaics of Sentinel-2 data for land cover mapping is difficult, with existing tools still under-development and hard to use. The goal of these tools to streamline this processing chain with a set of straightforward command line tools.
@@ -36,7 +36,13 @@ Who do I talk to?
 
 Written and maintained by Samuel Bowers (`sam.bowers@ed.ac.uk <mailto:sam.bowers@ed.ac.uk>`_).
 
+See also
+--------
+
+We have also developed a very similar tool to produce mosaics of Sentinel-1 C-band radar backscatter data. See `sen1mosaic <https://bitbucket.org/sambowers/sen1mosaic>`_.
+
 Contents:
+---------
 
 .. toctree::
    :numbered:
