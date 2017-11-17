@@ -7,9 +7,9 @@
 Welcome to sen2mosaic's documentation!
 ======================================
 
-This is a set of tools to aid in the production of large-scale cloud-free seasonal mosaic products from Sentinel-2 data. For example:
-
 .. image:: _static/zambia_mosaic.png
+
+This is a set of tools to aid in the production of large-scale cloud-free seasonal mosaic products from Sentinel-2 data.
 
 Building cloud-free mosaics of Sentinel-2 data for land cover mapping is difficult, with existing tools still under-development and hard to use. The goal of these tools to streamline this processing chain with a set of straightforward command line tools.
 
