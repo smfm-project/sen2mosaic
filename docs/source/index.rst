@@ -7,15 +7,15 @@
 Welcome to sen2mosaic's documentation!
 ======================================
 
-
-This is a set of tools to aid in the production of large-scale cloud-free seasonal mosaic products from Sentinel-2 data.
+This is a set of tools to aid in the production of large-scale cloud-free seasonal mosaic products from Sentinel-2 data. For example:
+ For example For example::
+.. image:: _static/zambia_mosaic.png
 
 Building cloud-free mosaics of Sentinel-2 data for land cover mapping is difficult, with existing tools still under-development and hard to use. The goal of these tools to streamline this processing chain with a set of straightforward command line tools.
 
 This repository contains four command-line based scripts to perform the following tasks:
 
 * Downloading Sentinel-2 data from the `Copernicus Open Access Hub <https://scihub.copernicus.eu/>`_ for a particular tile, specifying date ranges and degrees of cloud cover. This is based on the `Sentinelsat <https://github.com/sentinelsat/sentinelsat/>`_ utility.
-
 * Executing the `sen2cor <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_ tool to perform atmospheric correction, and performing simple improvements to its cloud mask.
 * Building a mosaic of cloud-free outputs with `sen2three <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_.
 * Mosaicking cloud-free Sentinel-2 .SAFE files into larger GeoTIFF files that are suitable for image classification.
