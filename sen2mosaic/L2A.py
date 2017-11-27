@@ -28,6 +28,7 @@ def _validateTile(tile):
     return bool(name_test)
 
 
+
 def _setGipp(gipp, output_dir = 'DEFAULT', n_processes = '1'):
     """
     Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
@@ -68,7 +69,8 @@ def _setGipp(gipp, output_dir = 'DEFAULT', n_processes = '1'):
     tree.write(temp_gipp)
     
     return temp_gipp
-    
+
+
 
 def processToL2A(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes = '1'):
     """
@@ -97,10 +99,13 @@ def processToL2A(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes 
     assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
         
     # Add it to the input file string
-    infile = glob.glob('%s/GRANULE/*T%s*'%(infile, tile))[0]
-        
+    infile = glob.glob('%s/GRANULE/*T%s*'%(infile, tile))
+    
+    # Test whether the tile is part of input file.
+    assert len(infile) > 0, "The tile specified (%s) is not represented in the file %s."%(tile,infile)
+       
     # Set up sen2cor command
-    command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
+    command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile[0]]
     
     # Print command for user info
     print '%s'%' '.join(command)
@@ -109,7 +114,7 @@ def processToL2A(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes 
     subprocess.call(command)
       
     # Determine output file name, replacing two instances only of substring L1C_ with L2A_
-    outfile = infile[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
+    outfile = infile[0][::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
         
     # Replace _OPER_ with _USER_ for case of old file format (in final 2 cases)
     outfile = outfile[::-1].replace('_OPER_'[::-1],'_USER_'[::-1],2)[::-1]
@@ -222,6 +227,7 @@ def improveMask(jp2, res):
     return data
 
 
+
 def writeMask(jp2, data, image_path):
     """
     Overwrites the old SCL mask with a new one, preserving the metadata (including projection info) from the original .jp2 file.
@@ -259,6 +265,7 @@ def writeMask(jp2, data, image_path):
     jp2_out.wrap(image_path, boxes = boxes_out)
 
 
+
 def removeL1C(L1C_file):
     """
     Deletes a Level 1C Sentinel-2 .SAFE file from disk.
@@ -271,7 +278,7 @@ def removeL1C(L1C_file):
     assert L1C_file.split('/')[-1][-5:] == '.SAFE', "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
     
     shutil.rmtree(L1C_file)
-    
+
 
 
 def main(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes = '1', remove = False):
