@@ -5,25 +5,37 @@ import glob
 import glymur
 import numpy as np
 import os
+import re
 from scipy import ndimage
 import shutil
 import subprocess
 import tempfile
+import xml.etree.ElementTree as ET
 
-try:
-    import xml.etree.cElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
 
+
+def _validateTile(tile):
+    '''
+    Validate the name structure of a Sentinel-2 tile. This tests whether the input tile format is correct.
     
+    Args:
+        tile: A string containing the name of the tile to to download.
+    '''
+    
+    # Tests whether string is in format ##XXX
+    name_test = re.match("[0-9]{2}[A-Z]{3}$",tile)
+    
+    return bool(name_test)
 
-def _setGipp(gipp, output_dir):
+
+def _setGipp(gipp, output_dir = 'DEFAULT', n_processes = '1'):
     """
     Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
     
     Args:
         gipp: The path to a copy of the L2A_GIPP.xml file.
-        output_dir: The desired output directory.
+        output_dir: The desired output directory. Defaults to the same directory as input files.
+        n_processes: The number of processes to use for sen2cor. Defaults to 1.
     
     Returns:
         The directory location of a temporary .gipp file, for input to L2A_Process
@@ -32,10 +44,12 @@ def _setGipp(gipp, output_dir):
     # Test that GIPP and output directory exist
     assert gipp != None, "GIPP file must be specified if you're changing sen2cor options."
     assert os.path.isfile(gipp), "GIPP XML options file doesn't exist at the location %s."%gipp
-    assert os.path.isdir(output_dir), "Output directory %s doesn't exist."%output_dir
+    if output_dir != 'DEFAULT':
+        assert os.path.isdir(output_dir), "Output directory %s doesn't exist."%output_dir
     
     # Adds a trailing / to output_dir if not already specified
-    output_dir = os.path.join(output_dir, '')
+    if output_dir != 'DEFAULT':
+        output_dir = os.path.join(output_dir, '')
    
     # Read GIPP file
     tree = ET.ElementTree(file = gipp)
@@ -43,6 +57,9 @@ def _setGipp(gipp, output_dir):
 
     # Change output directory    
     root.find('Common_Section/Target_Directory').text = output_dir
+    
+    # Change number of processes
+    root.find('Common_Section/Nr_Processes').text = str(n_processes)
     
     # Generate a temporary output file
     temp_gipp = tempfile.mktemp(suffix='.xml')
@@ -53,12 +70,13 @@ def _setGipp(gipp, output_dir):
     return temp_gipp
     
 
-def processToL2A(infile, gipp = None, output_dir = None):
+def processToL2A(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes = '1'):
     """
     Processes Sentinel-2 level 1C files to level L2A with sen2cor.
     
     Args:
         infile: A level 1C Sentinel-2 .SAFE file.
+        tile: A string containing the name of the tile to to process.
         gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.
         output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
     Returns:
@@ -68,41 +86,54 @@ def processToL2A(infile, gipp = None, output_dir = None):
     # Test that input file is in .SAFE format
     assert infile[-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
     
+    # Get location of exemplar gipp file for modification
+    if gipp == None:
+        gipp = '/'.join(os.path.abspath(__file__).split('/')[:-2] + ['cfg','L2A_GIPP.xml'])
+        
     # Set options in L2A GIPP xml. Returns the modified .GIPP file
-    if gipp != None:
-        temp_gipp = _setGipp(gipp, output_dir)
-    
+    temp_gipp = _setGipp(gipp, output_dir = output_dir, n_processes = n_processes)
+             
+    # Validate tile input format for search
+    assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
+        
+    # Add it to the input file string
+    infile = glob.glob('%s/GRANULE/*T%s*'%(infile, tile))[0]
+        
     # Set up sen2cor command
-    command = ['L2A_Process']
-    if gipp != None:
-        command += ['--GIP_L2A', temp_gipp]
-    command += [infile]
+    command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
     
     # Print command for user info
     print '%s'%' '.join(command)
     
     # Run sen2cor (L2A_Process)
     subprocess.call(command)
-
-    # Determine output file name, replacing last instance only of substring _MSIL1C_ with _MSIL2A_
-    outfile = infile[::-1].replace('_MSIL1C_'[::-1],'_MSIL2A_'[::-1],1)[::-1]
+      
+    # Determine output file name, replacing two instances only of substring L1C_ with L2A_
+    outfile = infile[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
+        
+    # Replace _OPER_ with _USER_ for case of old file format (in final 2 cases)
+    outfile = outfile[::-1].replace('_OPER_'[::-1],'_USER_'[::-1],2)[::-1]
     
-    if output_dir != None:
+    if output_dir != 'DEFAULT':
         outpath = os.path.join(output_dir, outfile)
     else:
         outpath = outfile
     
-    # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2Three.
-    if not os.path.exists('%s/AUX_DATA'%outpath):
-        os.makedirs('%s/AUX_DATA'%outpath)
+    # Get outpath of base .SAFE file
+    outpath_SAFE = '/'.join(outpath.split('/')[:-2])
     
-    # Occasioanlly sen2cor outputs a _null directory. This needs to be removed, or sen2Three will crashe.
-    bad_directories = glob.glob('%s/GRANULE/*_null/'%outpath)
+    # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2Three.
+    if not os.path.exists('%s/AUX_DATA'%outpath_SAFE):
+        os.makedirs('%s/AUX_DATA'%outpath_SAFE)
+    
+    # Occasioanlly sen2cor outputs a _null directory. This needs to be removed, or sen2Three will crash.
+    bad_directories = glob.glob('%s/GRANULE/*_null/'%outpath_SAFE)
     
     if bad_directories:
         [shutil.rmtree(bd) for bd in bad_directories]
     
     return outpath
+
 
 
 def loadMask(L2A_file, res):
@@ -117,17 +148,22 @@ def loadMask(L2A_file, res):
         A glymur .jp2 file the path to the classified image.
         The directory location of the .jp2 mask file.
     """
-    
+        
     # Remove trailing slash from input filename, if it exists
     L2A_file = L2A_file.rstrip('/')
     
     # Identify the cloud mask following the standardised file pattern
-    image_path = glob.glob('%s/GRANULE/*/IMG_DATA/R%sm/*_SCL_*m.jp2'%(L2A_file,str(res)))[0]
+    image_path = glob.glob('%s/IMG_DATA/R%sm/*_SCL_*m.jp2'%(L2A_file,str(res)))
+    
+    # In case of old file format structure, the SCL file is stored elsewhere
+    if len(image_path) == 0:
+        image_path = glob.glob('%s/IMG_DATA/*_SCL_*%sm.jp2'%(L2A_file,str(res)))
     
     # Load the cloud mask (.jp2 format)
-    jp2 = glymur.Jp2k(image_path)
+    jp2 = glymur.Jp2k(image_path[0])
 
-    return jp2, image_path
+    return jp2, image_path[0]
+
 
 
 def improveMask(jp2, res):
@@ -215,7 +251,7 @@ def writeMask(jp2, data, image_path):
     boxes_out[1] = boxes[1]
     boxes_out[2] = boxes[2]
     boxes_out.insert(3,boxes[3]) # This is the projection info
-    
+            
     # Make a copy of the original file
     shutil.copy2(image_path, image_path[:-4]+'_old.jp2')
 
@@ -238,7 +274,7 @@ def removeL1C(L1C_file):
     
 
 
-def main(infile, gipp = None, output_dir = None, remove = False):
+def main(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes = '1', remove = False):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
@@ -252,7 +288,7 @@ def main(infile, gipp = None, output_dir = None, remove = False):
     print 'Processing %s'%infile.split('/')[-1]
     
     # Run sen2cor
-    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir)
+    L2A_file = processToL2A(infile, tile, gipp = gipp, output_dir = output_dir, n_processes = n_processes)
     
     # Perform improvements to mask for each resolution
     for res in [20,60]:
@@ -275,10 +311,12 @@ if __name__ == '__main__':
 
     # Required arguments
     required.add_argument('infiles', metavar = 'L1C_FILES', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (e.g. PATH/TO/*_MSIL1C_*.SAFE). Input files will be atmospherically corrected.')
-
+    required.add_argument('-t', '--tile', type = str, help = 'Specify a tile to process with sen2cor.')
+    
     # Optional arguments
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml). Required if specifying output directory.')
-    optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = None, help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
+    optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = 'DEFAULT', help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
+    optional.add_argument('-p', '--n_processes', type = str, metavar = 'N', default = '1', help = "Specify a number of processes to use with sen2cor.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
     
     # Get arguments
@@ -291,11 +329,10 @@ if __name__ == '__main__':
     infiles = [os.path.abspath(i) for i in infiles]
     
     # Get absolute path for output file
-    if args.output_dir != None:
+    if args.output_dir != 'DEFAULT':
         args.output_dir = os.path.abspath(args.output_dir)
-        assert args.gipp != None, "If specifying an output directory, you must also specify the the location of a GIPP options file (-g or --gipp)."
         
     # Run the script for each input file
     for infile in infiles:
-        main(infile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
+        main(infile, args.tile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
     
