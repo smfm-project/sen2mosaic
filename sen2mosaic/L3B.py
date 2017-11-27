@@ -556,7 +556,7 @@ def main(source_files, extent_dest, EPSG_dest,
 
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(res_list) == len(band_list), "For each band to process you must specify a resolution."
-    assert len(source_files) > 1, "No source files in specified location."
+    assert len(source_files) >= 1, "No source files in specified location."
     
     # Convert band and res list to numpy arrays for indexing
     res_list = np.array(res_list)
@@ -576,7 +576,7 @@ def main(source_files, extent_dest, EPSG_dest,
         source_files_tile = getSafeFilesInTile(source_files, md_dest)
         
         # It's only worth processing a tile if at least one input image is inside tile
-        assert len(source_files_tile) > 1, "No data inside specified tile. Not processing this tile."
+        assert len(source_files_tile) >= 1, "No data inside specified tile. Not processing this tile."
         
         print 'Doing SCL mask at %s m resolution'%str(res)
        
