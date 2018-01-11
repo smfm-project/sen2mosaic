@@ -11,6 +11,8 @@ Getting L1C data
 
 Data from Sentinel-2 are available from the `Copernicus Open Access Data Hub <https://scihub.copernicus.eu/>`_, which has a graphical interface to download scenes from selected areas. Whilst useful for smaller areas, generating mosaics at national scales requires a volume of data which makes this extremely labour intensive.
 
+.. note:: If you already have access to Sentinel-2 data, you can skip straight to L2A.py. This may be the case if you're using a cloud platform where Sentinel-2 data archives are stored at the same location as servers.
+
 The alternative is to download data using the `API Hub <https://scihub.copernicus.eu/twiki/do/view/SciHubWebPortal/APIHubDescription>`_. This system allows users to search for files using conditions on the command line, and automatically download files. To interface with the API hub, we use an excellent open source utility called `Sentinelsat <https://sentinelsat.readthedocs.io/en/v0.12/>`_. This operates both as a command line tool, and as a Python API, which we use here. You will need to sign up for an account at `Scihub <https://scihub.copernicus.eu/>`_.
 
 ``L1C.py`` is a program to interface with Sentinelsat to download Sentinel-2 files, specifying a particular tile, date ranges and degrees of cloud cover. It will also decompress and tidy up .zip files, ready for use with ``L2A.py``.
@@ -55,7 +57,15 @@ For example, to download all data for tile 36KWA between for May and June 2017, 
     
     python /path/to/sen2mosaic/L1C.py -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30 -r -o ~/path/to/36KWA_data/
 
-.. note:: If you already have access to Sentinel-2 data, you can skip straight to L2A.py. This may be the case if you're using a cloud platform where Sentinel-2 data archives are stored at the same location as servers.
+.. note:: **What if I want data before 6th December 2016?**. 
+   
+    The format in which Sentinel-2 data is distributed was modified in December 2016, and at present this tool does not support the earlier format. As there is a limited volume of data from before this date, we recommend downloading the data from `Scihub <https://scihub.copernicus.eu/>`_.
+    
+    A nice tool to help out with this is `aria2 <https://aria2.github.io/>`_. After adding products to your basket at Sentinelhub, you'll download a metadata file called ``products.meta4``. Use aria2 to download the file's contents as follows:
+    
+    .. code-block:: console
+        
+        aria2c --http-user=username --http-passwd=supersecret --check-certificate=false --max-concurrent-downloads=2 -M products.meta4
 
 Processing to L2A
 -----------------
@@ -69,9 +79,7 @@ Help for ``L2A.py`` can be viewed by typing ``python /path/to/sen2mosaic/L2A.py 
 .. code-block:: console
     
     usage: L2A.py [-h] [-g GIPP] [-o DIR] [-r] .. code-block:: console
-    
-    mkdir 36KWA
-    mkdir 36KWBL1C_FILES [L1C_FILES ...]
+    L1C_FILES [L1C_FILES ...]
 
     Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level
     2A. This script initiates sen2cor, which performs atmospheric correction and
