@@ -105,7 +105,7 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
 
     # Validate tile input format for search
     assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
-
+    
     # Set up start and end dates
     startdate = sentinelsat.format_query_date(start)
     enddate = sentinelsat.format_query_date(end)
@@ -142,8 +142,21 @@ def download(products_df, output_dir = os.getcwd()):
         print 'WARNING: No products found to download. Check your search terms.'
         
     else:
-        # Download selected products
-        scihub_api.download_all(products_df['uuid'], output_dir)
+        
+        for uuid, filename in zip(products_df['uuid'], products_df['filename']):
+            
+            if os.path.exists('%s/%s'%(output_dir, filename)):
+                print 'Skipping file %s, as it has already been downloaded in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir)
+            
+            elif os.path.exists('%s/%s'%(output_dir, filename[:-5] + '.zip')):
+                
+                print 'Skipping file %s, as it has already been downloaded and extracted in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir)
+
+            else:
+                
+                # Download selected product
+                print 'Downloading %s...'%filename
+                scihub_api.download(uuid, output_dir)
 
 
 def decompress(tile, dataloc = os.getcwd(), remove = False):
@@ -165,16 +178,21 @@ def decompress(tile, dataloc = os.getcwd(), remove = False):
     
     # Get a list of zip files matching the Level 1C file pattern
     zip_files = glob.glob('%s/*_MSIL1C_*_T%s_*.zip'%(dataloc,tile))
-    
+        
     # Decompress each zip file
     for zip_file in zip_files:
         
-        print 'Extracting %s'%zip_file
-        with zipfile.ZipFile(zip_file) as obj:
-            obj.extractall(dataloc)
+        # Skip those files that have already been extracted
+        if os.path.exists('%s/%s'%(dataloc, zip_file[:-4]+'.SAFE')):
+            print 'Skipping extraction of %s, as it has already been extracted in directory %s. If you want to re-extract it, delete the .SAFE file.'%(zip_file, dataloc)
         
-        # Delete zip file
-        if remove: _removeZip(zip_file)
+        else:     
+            print 'Extracting %s'%zip_file
+            with zipfile.ZipFile(zip_file) as obj:
+                obj.extractall(dataloc)
+            
+            # Delete zip file
+            if remove: _removeZip(zip_file)
     
 
 def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
