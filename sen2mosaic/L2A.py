@@ -12,7 +12,7 @@ import subprocess
 import tempfile
 import xml.etree.ElementTree as ET
 
-
+import pdb
 
 def _validateTile(tile):
     '''
@@ -29,7 +29,7 @@ def _validateTile(tile):
 
 
 
-def _setGipp(gipp, output_dir = 'DEFAULT', n_processes = '1'):
+def _setGipp(gipp, output_dir = os.getcwd(), n_processes = '1'):
     """
     Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
     
@@ -44,13 +44,11 @@ def _setGipp(gipp, output_dir = 'DEFAULT', n_processes = '1'):
     
     # Test that GIPP and output directory exist
     assert gipp != None, "GIPP file must be specified if you're changing sen2cor options."
-    assert os.path.isfile(gipp), "GIPP XML options file doesn't exist at the location %s."%gipp
-    if output_dir != 'DEFAULT':
-        assert os.path.isdir(output_dir), "Output directory %s doesn't exist."%output_dir
+    assert os.path.isfile(gipp), "GIPP XML options file doesn't exist at the location %s."%gipp  
+    assert os.path.isdir(output_dir), "Output directory %s doesn't exist."%output_dir
     
     # Adds a trailing / to output_dir if not already specified
-    if output_dir != 'DEFAULT':
-        output_dir = os.path.join(output_dir, '')
+    output_dir = os.path.join(output_dir, '')
    
     # Read GIPP file
     tree = ET.ElementTree(file = gipp)
@@ -72,21 +70,20 @@ def _setGipp(gipp, output_dir = 'DEFAULT', n_processes = '1'):
 
 
 
-def processToL2A(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes = '1'):
+def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = '1'):
     """
     Processes Sentinel-2 level 1C files to level L2A with sen2cor.
     
     Args:
         infile: A level 1C Sentinel-2 .SAFE file.
-        tile: A string containing the name of the tile to to process.
-        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.
-        output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
+        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to tweak options.
+        output_dir: Optionally specify an output directory. Defaults to current working directory.
     Returns:
         Absolute file path to the output file.
     """
     
     # Test that input file is in .SAFE format
-    assert infile[-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
+    assert infile.split('/')[-3][-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
     
     # Get location of exemplar gipp file for modification
     if gipp == None:
@@ -95,34 +92,22 @@ def processToL2A(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes 
     # Set options in L2A GIPP xml. Returns the modified .GIPP file
     temp_gipp = _setGipp(gipp, output_dir = output_dir, n_processes = n_processes)
              
-    # Validate tile input format for search
-    assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
-        
-    # Add it to the input file string
-    infile = glob.glob('%s/GRANULE/*T%s*'%(infile, tile))
-    
-    # Test whether the tile is part of input file.
-    assert len(infile) > 0, "The tile specified (%s) is not represented in the file %s."%(tile,infile)
-       
     # Set up sen2cor command
-    command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile[0]]
+    command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
     
     # Print command for user info
     print '%s'%' '.join(command)
-    
+    pdb.set_trace() 
     # Run sen2cor (L2A_Process)
     subprocess.call(command)
       
     # Determine output file name, replacing two instances only of substring L1C_ with L2A_
-    outfile = infile[0][::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
+    outfile = infile[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
         
     # Replace _OPER_ with _USER_ for case of old file format (in final 2 cases)
     outfile = outfile[::-1].replace('_OPER_'[::-1],'_USER_'[::-1],2)[::-1]
     
-    if output_dir != 'DEFAULT':
-        outpath = os.path.join(output_dir, outfile)
-    else:
-        outpath = outfile
+    outpath = os.path.join(output_dir, outfile)
     
     # Get outpath of base .SAFE file
     outpath_SAFE = '/'.join(outpath.split('/')[:-2])
@@ -281,13 +266,13 @@ def removeL1C(L1C_file):
 
 
 
-def main(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes = '1', remove = False):
+def main(infile, gipp = None, output_dir = os.getcwd(), n_processes = '1', remove = False):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
     Args:
-        infile: A level 1C Sentinel-2 .SAFE file.
-        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to specify the output location.
+        infile: A Level 1C Sentinel-2 .SAFE file.
+        gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to tweak options.
         output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
         remove: Boolean value, which when set to True deletes level 1C files after processing is complete. Defaults to False.
     """
@@ -295,7 +280,7 @@ def main(infile, tile, gipp = None, output_dir = 'DEFAULT', n_processes = '1', r
     print 'Processing %s'%infile.split('/')[-1]
     
     # Run sen2cor
-    L2A_file = processToL2A(infile, tile, gipp = gipp, output_dir = output_dir, n_processes = n_processes)
+    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, n_processes = n_processes)
     
     # Perform improvements to mask for each resolution
     for res in [20,60]:
@@ -317,12 +302,11 @@ if __name__ == '__main__':
     optional = parser.add_argument_group('Optional arguments')
 
     # Required arguments
-    required.add_argument('infiles', metavar = 'L1C_FILES', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 input files, or multiple files through wildcards (e.g. PATH/TO/*_MSIL1C_*.SAFE). Input files will be atmospherically corrected.')
-    required.add_argument('-t', '--tile', type = str, help = 'Specify a tile to process with sen2cor.')
+    required.add_argument('infiles', metavar = 'L1C_FILES', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 granules, or multiple granules through wildcards (e.g. PATH/TO/*_MSIL1C_*.SAFE/GRANULE/*). Input granules will be atmospherically corrected.')
     
     # Optional arguments
-    optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml). Required if specifying output directory.')
-    optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = 'DEFAULT', help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
+    optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
+    optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
     optional.add_argument('-p', '--n_processes', type = str, metavar = 'N', default = '1', help = "Specify a number of processes to use with sen2cor.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
     
@@ -341,5 +325,5 @@ if __name__ == '__main__':
         
     # Run the script for each input file
     for infile in infiles:
-        main(infile, args.tile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
+        main(infile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
     
