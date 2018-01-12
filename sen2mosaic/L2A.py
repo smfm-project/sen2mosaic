@@ -97,12 +97,12 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1)
     
     # Print command for user info
     print '%s'%' '.join(command)
-    pdb.set_trace() 
+    
     # Run sen2cor (L2A_Process)
-    subprocess.call(command)
-      
+    #subprocess.call(command)
+    
     # Determine output file name, replacing two instances only of substring L1C_ with L2A_
-    outfile = infile[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
+    outfile = '/'.join(infile.split('/')[-3:])[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
         
     # Replace _OPER_ with _USER_ for case of old file format (in final 2 cases)
     outfile = outfile[::-1].replace('_OPER_'[::-1],'_USER_'[::-1],2)[::-1]
@@ -121,7 +121,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1)
     
     if bad_directories:
         [shutil.rmtree(bd) for bd in bad_directories]
-    
+     
     return outpath
 
 
@@ -320,8 +320,7 @@ if __name__ == '__main__':
     infiles = [os.path.abspath(i) for i in infiles]
     
     # Get absolute path for output file
-    if args.output_dir != 'DEFAULT':
-        args.output_dir = os.path.abspath(args.output_dir)
+    args.output_dir = os.path.abspath(args.output_dir)
         
     # Run the script for each input file
     for infile in infiles:
