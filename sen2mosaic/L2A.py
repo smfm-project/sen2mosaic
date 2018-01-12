@@ -29,7 +29,7 @@ def _validateTile(tile):
 
 
 
-def _setGipp(gipp, output_dir = os.getcwd(), n_processes = '1'):
+def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     """
     Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
     
@@ -70,7 +70,7 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = '1'):
 
 
 
-def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = '1'):
+def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1):
     """
     Processes Sentinel-2 level 1C files to level L2A with sen2cor.
     
@@ -266,7 +266,7 @@ def removeL1C(L1C_file):
 
 
 
-def main(infile, gipp = None, output_dir = os.getcwd(), n_processes = '1', remove = False):
+def main(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, remove = False):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
@@ -307,7 +307,7 @@ if __name__ == '__main__':
     # Optional arguments
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
-    optional.add_argument('-p', '--n_processes', type = str, metavar = 'N', default = '1', help = "Specify a number of processes to use with sen2cor.")
+    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a number of processes to use with sen2cor.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
     
     # Get arguments
@@ -325,5 +325,5 @@ if __name__ == '__main__':
         
     # Run the script for each input file
     for infile in infiles:
-        main(infile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
+        main(infile, gipp = args.gipp, output_dir = args.output_dir, n_processes = args.n_processes, remove = args.remove)
     
