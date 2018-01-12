@@ -99,7 +99,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1)
     print '%s'%' '.join(command)
     
     # Run sen2cor (L2A_Process)
-    #subprocess.call(command)
+    subprocess.call(command)
     
     # Determine output file name, replacing two instances only of substring L1C_ with L2A_
     outfile = '/'.join(infile.split('/')[-3:])[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
