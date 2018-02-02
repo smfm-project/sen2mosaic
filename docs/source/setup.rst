@@ -65,9 +65,8 @@ At the time of writing, sen2cor can be installed using the following commands. s
 Once complete, you need to reference this software in your .bashrc file as follows:
 
 .. code-block:: console
-
-    # Substitute /home/user for the path to your system's installation and .bashrc file.
-    echo "source /home/user/sen2cor/L2A_Bashrc" >> /home/user/.bashrc
+    
+    echo "source ~/L2A_Bashrc" >> ~/.bashrc
     exec -l $SHELL
 
 
@@ -126,9 +125,8 @@ At the time of writing, sen2three can be installed as follows. sen2three must be
 Once complete, you need to reference this software in your ``.bashrc`` file as follows:
 
 .. code-block:: console
-
-    # Substitute /home/user for the path to your system's installation and .bashrc file.
-    echo "source /home/user/sen2three/L3_Bashrc" >> /home/user/.bashrc
+    
+    echo "source ~/sen2three/L3_Bashrc" >> ~/.bashrc
     exec -l $SHELL
 
 To test the installation, type ``L3_Process --help`` in a terminal window. You should see the following:
@@ -177,7 +175,13 @@ sen2mosaic can be downloaded to a machine from its `repository<https://bitbucket
 .. code-block:: console
 
     git clone https://sambowers@bitbucket.org/sambowers/sen2mosaic.git
+    
+To avoid having to reference the full path of the Python scripts in sen2mosaic, it's a good idea add the following line to your ``.bashrc`` file:
 
+.. code-block:: console
+
+    echo "alias s2m='_s2m() { python ~/sen2mosaic/sen2mosaic/\"\$1\".py \$(shift; echo \"\$@\") ;}; _s2m'" >> ~/.bashrc
+   
 
 Where do I get help?
 --------------------

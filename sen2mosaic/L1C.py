@@ -247,7 +247,8 @@ if __name__ == '__main__':
     optional.add_argument('-m', '--minsize', type = int, default = 25., help = "Minimum file size to download in MB. Defaults to 25 MB. Be aware, file sizes smaller than this can result sen2three crashing.")
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'PATH', default = os.getcwd(), help = "Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Optionally remove level 1C .zip files after decompression.")
-
+    
+    
     # Get arguments from command line
     args = parser.parse_args()
     

@@ -266,7 +266,7 @@ def removeL1C(L1C_file):
 
 
 
-def main(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, remove = False):
+def main(infile, gipp = None, output_dir = os.getcwd(), remove = False):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
@@ -280,7 +280,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, remove 
     print 'Processing %s'%infile.split('/')[-1]
     
     # Run sen2cor
-    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, n_processes = n_processes)
+    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir)
     
     # Perform improvements to mask for each resolution
     for res in [20,60]:
@@ -291,9 +291,51 @@ def main(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, remove 
     if remove: removeL1C(infile)
 
 
+def _prepInfiles(infiles, tile = ''):
+    """
+    Args:
+        infiles: A list of input files, directories, or tiles for Sentinel-2 inputs
+        tile: Optionally filter infiles to return only those matching a particular tile
+    Returns:
+        A list of all Sentinel-2 tiles in infiles, 
+    """
+    
+    # Get absolute path, stripped of symbolic links
+    infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
+    
+    # List to collate 
+    infiles_reduced = []
+    
+    for infile in infiles:
+         
+        # Where infile is a directory:
+        infiles_reduced.extend(glob.glob('%s/*.SAFE/GRANULE/*'%infile))
+        
+        # Where infile is a .SAFE file
+        if infile.split('/')[-1].split('.')[-1] == 'SAFE': infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
+        
+        # Where infile is a specific granule 
+        if infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
+    
+    # Strip repeats (in case)
+    infiles_reduced = list(set(infiles_reduced))
+    
+    # Reduce input to infiles that match the tile (where specified)
+    infiles_reduced = [infile for infile in infiles_reduced if ('_T%s'%tile in infile.split('/')[-1])]
+    
+    # Reduce input files to only L1C files
+    infiles_reduced = [infile for infile in infiles_reduced if ('_MSIL1C_' in infile.split('/')[-3])]
+    
+    return infiles_reduced
 
+ 
 if __name__ == '__main__':
-
+    '''
+    '''
+    
+    from multiprocessing import Pool
+    from functools import partial
+     
     # Set up command line parser
     parser = argparse.ArgumentParser(description = 'Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level 2A. This script initiates sen2cor, which performs atmospheric correction and generate a cloud mask. This script also performs simple improvements to the cloud mask.')
     
@@ -302,27 +344,31 @@ if __name__ == '__main__':
     optional = parser.add_argument_group('Optional arguments')
 
     # Required arguments
-    required.add_argument('infiles', metavar = 'L1C_FILES', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 granules, or multiple granules through wildcards (e.g. PATH/TO/*_MSIL1C_*.SAFE/GRANULE/*). Input granules will be atmospherically corrected.')
+    required.add_argument('infiles', metavar = 'L1C_FILES', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple tiles through wildcards (e.g. *.SAFE/GRANULE/*). All tiles that match input conditions will be atmospherically corrected.')
     
     # Optional arguments
+    optional.add_argument('-t', '--tile', type = str, default = '', help = 'Specify a specific Sentinel-2 tile to process. If omitted, all tiles in L1C_FILES will be processed.')
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
-    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a number of processes to use with sen2cor.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
+    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to processi n paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     
     # Get arguments
     args = parser.parse_args()
-    
-    # Where only one file input, ensure its a list so that it behaves properly in loops
-    infiles = list(args.infiles)
-    
-    # Get absolute path of input files.
-    infiles = [os.path.abspath(i) for i in infiles]
-    
-    # Get absolute path for output file
-    args.output_dir = os.path.abspath(args.output_dir)
         
+    # Get all infiles that match tile and file pattern
+    infiles = _prepInfiles(args.infiles, tile = args.tile)
+    
+    # Get absolute path for output directory
+    args.output_dir = os.path.abspath(args.output_dir)
+    
+    # Set up number of parallel processes
+    pool = Pool(processes=args.n_processes)
+    
+    # Set up function with multiple arguments
+    main_partial = partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
+    
     # Run the script for each input file
-    for infile in infiles:
-        main(infile, gipp = args.gipp, output_dir = args.output_dir, n_processes = args.n_processes, remove = args.remove)
+    pool.map(main_partial, infiles)
+    
     

@@ -44,7 +44,7 @@ These options can be encoded as follows:
 
 .. code-block:: console
     
-    python /path/to/sen2mosaic/L1C.py -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30
+    s2m L2C -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30
 
 As we didn't specify the option ``-o`` (``--output``), data will output to the current working directory. We also didn't include the ``-r`` (``--remove``) flag, meaning that intermediate .zip files downloaded from the internet won't be deleted. This can quickly result in large volumes of data building up, so if you're limited by disk space use the ``-r`` flag.
 
@@ -72,15 +72,15 @@ Wait for all files to finish downloading before proceeding to the next step. By 
 Atmopsheric correction and cloud masking
 ----------------------------------------
 
-The next step is to perform atmospheric correction (removes the effects of the atmosphere on refectance values of images) and cloud masking (identififies clouds in images.) to generate Sentinel-2 level 2A data. We do this with the ESA program ``sen2cor``.
+The next step is to perform atmospheric correction (removes the effects of the atmosphere on refectance values of images) and cloud masking (identifies clouds in images.) to generate Sentinel-2 level 2A data. We do this with the ESA program ``sen2cor``.
 
-To perform atmospheric correction and cloud masking we call the tool ``L2A.py``. We need to specify Sentinel-2 level 1C input files (all follow the format ``*_MSIL1C_*.SAFE``).
+To perform atmospheric correction and cloud masking we call the tool ``L2A.py``. We need to specify Sentinel-2 level 1C input files, a directory containing level 1C files, or a single tile within a .SAFE file ``*.SAFE/GRANULE/*``).
 
-To run the process, we need to submit the following line:
+To process all .SAFE files, we can submit the following line:
 
 .. code-block:: console
 
-    python /path/to/sen2mosaic/L2A.py /home/user/DATA/worked_example/36KWA/*_MSIL1C_*.SAFE
+    s2m L2A -t 36KWA *.SAFE
 
 This command will loop through each Sentinel-2 level 1C file and process them one at a time. You might alternatively want to specify a single level 1C .SAFE file, and run several commands similtaneously. Bear in mind that this will require access to a large quanity of memory.
 
