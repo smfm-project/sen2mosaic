@@ -93,14 +93,13 @@ def _runCommand(cmd):
             if p:
                 p.send_signal(signal.SIGINT)
             else:
-                p.kill()
                 raise KeyboardInterrupt
                 
         signal.signal(signal.SIGINT, handler)
         
-        p = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-        
-        text = p.communicate()[0]
+        p = subprocess.Popen(cmd)
+        #p = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        #text = p.communicate()[0]
         
         if p.wait():
             raise Exception('Command failed: %s'%' '.join(cmd))
@@ -109,15 +108,17 @@ def _runCommand(cmd):
         # Reset handler
         signal.signal(signal.SIGINT, signal.SIG_DFL)
     
-    return text.decode('utf-8'),split('/n')
+    #return text.decode('utf-8'),split('/n')
 
 
-def getOutfile(infile, output_dir = os.getcwd()):
+def getOutfile(infile, output_dir = os.getcwd(), SAFE = False):
     """
     Determine the level 2A tile path name from an input file (level 1C) tile.
     
     Args:
         infile: Input .SAFE file tile (e.g. '/PATH/TO/*.SAFE/GRANULE/*').
+        output_dir:
+        SAFE: Return path of base .SAFE file
     Returns:
         The name and directory of the output file
     """
@@ -131,7 +132,7 @@ def getOutfile(infile, output_dir = os.getcwd()):
     outpath = os.path.join(output_dir, outfile)
     
     # Get outpath of base .SAFE file
-    #outpath_SAFE = '/'.join(outpath.split('/')[:-2])
+    if SAFE: outpath = '/'.join(outpath.split('/')[:-2])
     
     return outpath
 
@@ -171,18 +172,22 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     temp_gipp = _setGipp(gipp, output_dir = output_dir, n_processes = n_processes)
              
     # Set up sen2cor command
-    if resolution != 'all':
-        command = ['L2A_Process', '--GIP_L2A', '--resolution', str(resolution), temp_gipp, infile]
+    if resolution != 0:
+        command = ['L2A_Process', '--GIP_L2A', temp_gipp, '--resolution', str(resolution), infile]
     else:
         command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
     
     # Print command for user info
     print ' '.join(command)
-    
+       
+    # Do the processing, and capture exceptions
     try:
         output_text = _runCommand(command)
     except Exception as e:
         raise
+    
+    # Get path of .SAFE file.
+    outpath_SAFE = getOutfile(infile, output_dir = output_dir, SAFE = True)
     
     # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2three.
     if not os.path.exists('%s/AUX_DATA'%outpath_SAFE):
@@ -325,7 +330,7 @@ def writeMask(jp2, data, image_path):
 
 def testCompletion(L1C_file):
     """
-    Test for successful completion of sen2cor processing.
+    Test for successful completion of sen2cor processing. Not yet functional.
     
     Args:
         L1C_file: Path to level 1C granule file (e.g. /PATH/TO/*_L1C_*.SAFE/GRANULE/*)
@@ -352,7 +357,7 @@ def removeL1C(L1C_file):
 
 
 
-def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resolution = 'all'):
+def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resolution = 0):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
@@ -365,12 +370,18 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
 
     print 'Processing %s'%infile.split('/')[-1]
     
+    
+    try:
+        L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution)
+    except Exception as e:
+        raise
+    
     # Run sen2cor
-    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution)
+    # L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution)
 
     # Perform improvements to mask for each resolution   
     if resolution != 10:
-        for res in [20, 60] if resolution == 'all' else [resolution]:
+        for res in [20, 60] if resolution == 0 else [resolution]:
             cloudmask_jp2, image_path = loadMask(L2A_file, res)
             cloudmask_new = improveMask(cloudmask_jp2, res)
             writeMask(cloudmask_jp2, cloudmask_new, image_path)
