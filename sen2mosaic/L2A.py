@@ -8,11 +8,15 @@ import os
 import re
 from scipy import ndimage
 import shutil
+import signal
 import subprocess
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 
 import pdb
+
+
 
 def _validateTile(tile):
     '''
@@ -20,6 +24,9 @@ def _validateTile(tile):
     
     Args:
         tile: A string containing the name of the tile to to download.
+    
+    Returns:
+        A boolean, True if correct, False if not.
     '''
     
     # Tests whether string is in format ##XXX
@@ -69,8 +76,67 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     return temp_gipp
 
 
+def _runCommand(cmd):
+    """
+    Function to capture KeyboardInterrupt.
+    Idea from: https://stackoverflow.com/questions/38487972/target-keyboardinterrupt-to-subprocess
 
-def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1):
+    Args:
+        cmd: A list containing a command for subprocess.Popen().
+    """
+    
+    try:
+        p = None
+
+        # Register handler to pass keyboard interrupt to the subprocess
+        def handler(sig, frame):
+            if p:
+                p.send_signal(signal.SIGINT)
+            else:
+                p.kill()
+                raise KeyboardInterrupt
+                
+        signal.signal(signal.SIGINT, handler)
+        
+        p = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+        
+        text = p.communicate()[0]
+        
+        if p.wait():
+            raise Exception('Command failed: %s'%' '.join(cmd))
+        
+    finally:
+        # Reset handler
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+    
+    return text.decode('utf-8'),split('/n')
+
+
+def getOutfile(infile, output_dir = os.getcwd()):
+    """
+    Determine the level 2A tile path name from an input file (level 1C) tile.
+    
+    Args:
+        infile: Input .SAFE file tile (e.g. '/PATH/TO/*.SAFE/GRANULE/*').
+    Returns:
+        The name and directory of the output file
+    """
+    
+    # Determine output file name, replacing two instances only of substring L1C_ with L2A_
+    outfile = '/'.join(infile.split('/')[-3:])[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
+    
+    # Replace _OPER_ with _USER_ for case of old file format (in final 2 cases)
+    outfile = outfile[::-1].replace('_OPER_'[::-1],'_USER_'[::-1],2)[::-1]
+    
+    outpath = os.path.join(output_dir, outfile)
+    
+    # Get outpath of base .SAFE file
+    #outpath_SAFE = '/'.join(outpath.split('/')[:-2])
+    
+    return outpath
+
+
+def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, resolution = 0):
     """
     Processes Sentinel-2 level 1C files to level L2A with sen2cor.
     
@@ -78,6 +144,8 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1)
         infile: A level 1C Sentinel-2 .SAFE file.
         gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to tweak options.
         output_dir: Optionally specify an output directory. Defaults to current working directory.
+        n_processes: Number of processes to allocate to sen2cor. We don't use this, as we implement our own paralellisation via multiprocessing.
+        resolution: Optionally specify a resolution (10, 20 or 60) meters. Defaults to 0, which processes all three
     Returns:
         Absolute file path to the output file.
     """
@@ -85,38 +153,42 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1)
     # Test that input file is in .SAFE format
     assert infile.split('/')[-3][-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
     
+    # Test that resolution is reasonable
+    assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for 10, 20 and 60). The input resolution was %s"%str(resolution)
+    
+    # Determine output filename
+    outpath = getOutfile(infile, output_dir = output_dir)
+      
+    # Check if output file already exists
+    if os.path.exists(outpath):
+        raise ValueError('The output file %s already exists! Delete it to run L2_Process.'%outpath)
+    
     # Get location of exemplar gipp file for modification
     if gipp == None:
         gipp = '/'.join(os.path.abspath(__file__).split('/')[:-2] + ['cfg','L2A_GIPP.xml'])
         
-    # Set options in L2A GIPP xml. Returns the modified .GIPP file
+    # Set options in L2A GIPP xml. Returns the modified .GIPP file. This prevents concurrency issues in multiprocessing.
     temp_gipp = _setGipp(gipp, output_dir = output_dir, n_processes = n_processes)
              
     # Set up sen2cor command
-    command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
+    if resolution != 'all':
+        command = ['L2A_Process', '--GIP_L2A', '--resolution', str(resolution), temp_gipp, infile]
+    else:
+        command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
     
     # Print command for user info
-    print '%s'%' '.join(command)
+    print ' '.join(command)
     
-    # Run sen2cor (L2A_Process)
-    subprocess.call(command)
+    try:
+        output_text = _runCommand(command)
+    except Exception as e:
+        raise
     
-    # Determine output file name, replacing two instances only of substring L1C_ with L2A_
-    outfile = '/'.join(infile.split('/')[-3:])[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
-        
-    # Replace _OPER_ with _USER_ for case of old file format (in final 2 cases)
-    outfile = outfile[::-1].replace('_OPER_'[::-1],'_USER_'[::-1],2)[::-1]
-    
-    outpath = os.path.join(output_dir, outfile)
-    
-    # Get outpath of base .SAFE file
-    outpath_SAFE = '/'.join(outpath.split('/')[:-2])
-    
-    # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2Three.
+    # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2three.
     if not os.path.exists('%s/AUX_DATA'%outpath_SAFE):
         os.makedirs('%s/AUX_DATA'%outpath_SAFE)
     
-    # Occasioanlly sen2cor outputs a _null directory. This needs to be removed, or sen2Three will crash.
+    # Occasionally sen2cor outputs a _null directory. This needs to be removed, or sen2Three will crash.
     bad_directories = glob.glob('%s/GRANULE/*_null/'%outpath_SAFE)
     
     if bad_directories:
@@ -229,7 +301,7 @@ def writeMask(jp2, data, image_path):
     # Generate a temporary output file
     temp_jp2 = tempfile.mktemp(suffix='.jp2')
         
-    # Important options for .jp2 file, required for sen2cor/sen2Three to understand image
+    # Important options for .jp2 file, required for sen2cor/sen2three to understand image
     kwargs = {"tilesize": (640, 640), "prog": "RPCL"}
 
     # Save temporary image to generate metadata (boxes)
@@ -251,6 +323,19 @@ def writeMask(jp2, data, image_path):
 
 
 
+def testCompletion(L1C_file):
+    """
+    Test for successful completion of sen2cor processing.
+    
+    Args:
+        L1C_file: Path to level 1C granule file (e.g. /PATH/TO/*_L1C_*.SAFE/GRANULE/*)
+    Returns:
+        A boolean describing whether processing completed sucessfully.
+    """
+    
+    return True
+
+
 def removeL1C(L1C_file):
     """
     Deletes a Level 1C Sentinel-2 .SAFE file from disk.
@@ -260,13 +345,14 @@ def removeL1C(L1C_file):
     """
     
     assert '_MSIL1C_' in L1C_file, "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
-    assert L1C_file.split('/')[-1][-5:] == '.SAFE', "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
+    assert L1C_file.split('/')[-3][-5:] == '.SAFE', "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE tile files"
+    assert testCompletion(L1C_file), "File did not finish processing, so not deleting L1C input file."
     
     shutil.rmtree(L1C_file)
 
 
 
-def main(infile, gipp = None, output_dir = os.getcwd(), remove = False):
+def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resolution = 'all'):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
@@ -280,16 +366,20 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False):
     print 'Processing %s'%infile.split('/')[-1]
     
     # Run sen2cor
-    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir)
-    
-    # Perform improvements to mask for each resolution
-    for res in [20,60]:
-        cloudmask_jp2, image_path = loadMask(L2A_file, res)
-        cloudmask_new = improveMask(cloudmask_jp2, res)
-        writeMask(cloudmask_jp2, cloudmask_new, image_path)
+    L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution)
+
+    # Perform improvements to mask for each resolution   
+    if resolution != 10:
+        for res in [20, 60] if resolution == 'all' else [resolution]:
+            cloudmask_jp2, image_path = loadMask(L2A_file, res)
+            cloudmask_new = improveMask(cloudmask_jp2, res)
+            writeMask(cloudmask_jp2, cloudmask_new, image_path)
     
     if remove: removeL1C(infile)
-
+    
+    # Test for completion
+    if testCompletion(infile) == False: print 'Warning: %s did not complete processing.'%infile
+    
 
 def _prepInfiles(infiles, tile = ''):
     """
@@ -328,13 +418,20 @@ def _prepInfiles(infiles, tile = ''):
     
     return infiles_reduced
 
- 
+
+def _init_worker():
+    '''
+    Function to allow interruption of multiprocessing.Pool().
+    '''
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    
+
 if __name__ == '__main__':
     '''
     '''
     
-    from multiprocessing import Pool
-    from functools import partial
+    import multiprocessing
+    import functools
      
     # Set up command line parser
     parser = argparse.ArgumentParser(description = 'Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level 2A. This script initiates sen2cor, which performs atmospheric correction and generate a cloud mask. This script also performs simple improvements to the cloud mask.')
@@ -350,6 +447,7 @@ if __name__ == '__main__':
     optional.add_argument('-t', '--tile', type = str, default = '', help = 'Specify a specific Sentinel-2 tile to process. If omitted, all tiles in L1C_FILES will be processed.')
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
+    optional.add_argument('-res', '--resolution', type = int, metavar = '10/20/60', default = 0, help = "Process only one of the Sentinel-2 resolutions, with options of 10, 20, or 60 m. Defaults to processing all three.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to processi n paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     
@@ -362,13 +460,34 @@ if __name__ == '__main__':
     # Get absolute path for output directory
     args.output_dir = os.path.abspath(args.output_dir)
     
+    # Check that none of the output files already exist.
+    for infile in infiles:
+        outpath = getOutfile(infile, output_dir = args.output_dir)
+        if os.path.exists(outpath): raise ValueError('The output file %s already exists! Delete it to run L2A.py.'%outpath)
+    
     # Set up number of parallel processes
-    pool = Pool(processes=args.n_processes)
+    pool = multiprocessing.Pool(args.n_processes, _init_worker)
     
     # Set up function with multiple arguments
-    main_partial = partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove)
+    main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution)
     
-    # Run the script for each input file
-    pool.map(main_partial, infiles)
+    # Process for each input file
+    p = pool.map_async(main_partial, infiles)
+    
+    # This structure exits all processes on error (e.g. KeyboardInterrupt)
+    try:
+        results = p.get(0xFFFF)
+    except Exception, e:
+        # Kill all remaining processes on error
+        print e
+        pool.terminate()
+        pool.join()
+        
+    # Test for completion (in case of crashing out of pool)
     
     
+    
+
+    
+    
+
