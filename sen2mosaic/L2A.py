@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
 import argparse
+import functools
 import glob
 import glymur
+import multiprocessing
 import numpy as np
 import os
 import re
@@ -16,7 +18,7 @@ import xml.etree.ElementTree as ET
 
 import pdb
 
-
+     
 
 def _validateTile(tile):
     '''
@@ -76,13 +78,14 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     return temp_gipp
 
 
-def _runCommand(cmd):
+
+def _runCommand(command, verbose = False):
     """
     Function to capture KeyboardInterrupt.
     Idea from: https://stackoverflow.com/questions/38487972/target-keyboardinterrupt-to-subprocess
 
     Args:
-        cmd: A list containing a command for subprocess.Popen().
+        command: A list containing a command for subprocess.Popen().
     """
     
     try:
@@ -97,27 +100,33 @@ def _runCommand(cmd):
                 
         signal.signal(signal.SIGINT, handler)
         
-        p = subprocess.Popen(cmd)
-        #p = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-        #text = p.communicate()[0]
+        #p = subprocess.Popen(command)
+        p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         
+        if verbose:
+            for stdout_line in iter(p.stdout.readline, ""):
+                print stdout_line
+        
+        text = p.communicate()[0]
+                
         if p.wait():
-            raise Exception('Command failed: %s'%' '.join(cmd))
+            raise Exception('Command failed: %s'%' '.join(command))
         
     finally:
         # Reset handler
         signal.signal(signal.SIGINT, signal.SIG_DFL)
     
-    #return text.decode('utf-8'),split('/n')
+    return text.decode('utf-8'),split('/n')
 
 
-def getOutfile(infile, output_dir = os.getcwd(), SAFE = False):
+
+def getL2AFile(infile, output_dir = os.getcwd(), SAFE = False):
     """
     Determine the level 2A tile path name from an input file (level 1C) tile.
     
     Args:
         infile: Input .SAFE file tile (e.g. '/PATH/TO/*.SAFE/GRANULE/*').
-        output_dir:
+        output_dir: Directory of processed file.
         SAFE: Return path of base .SAFE file
     Returns:
         The name and directory of the output file
@@ -132,12 +141,13 @@ def getOutfile(infile, output_dir = os.getcwd(), SAFE = False):
     outpath = os.path.join(output_dir, outfile)
     
     # Get outpath of base .SAFE file
-    if SAFE: outpath = '/'.join(outpath.split('/')[:-2])
+    if SAFE: outpath = '/'.join(outpath.split('.SAFE')[:-1]) + '.SAFE'# '/'.join(outpath.split('/')[:-2])
     
-    return outpath
+    return outpath.rstrip('/')
 
 
-def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, resolution = 0):
+
+def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, resolution = 0, verbose = False):
     """
     Processes Sentinel-2 level 1C files to level L2A with sen2cor.
     
@@ -158,7 +168,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for 10, 20 and 60). The input resolution was %s"%str(resolution)
     
     # Determine output filename
-    outpath = getOutfile(infile, output_dir = output_dir)
+    outpath = getL2AFile(infile, output_dir = output_dir)
       
     # Check if output file already exists
     if os.path.exists(outpath):
@@ -182,12 +192,17 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
        
     # Do the processing, and capture exceptions
     try:
-        output_text = _runCommand(command)
+        output_text = _runCommand(command, verbose = verbose)
     except Exception as e:
+        # Tidy up temporary options file
+        os.remove(temp_gipp)
         raise
+
+    # Tidy up temporary options file
+    os.remove(temp_gipp)
     
     # Get path of .SAFE file.
-    outpath_SAFE = getOutfile(infile, output_dir = output_dir, SAFE = True)
+    outpath_SAFE = getL2AFile(infile, output_dir = output_dir, SAFE = True)
     
     # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2three.
     if not os.path.exists('%s/AUX_DATA'%outpath_SAFE):
@@ -321,14 +336,17 @@ def writeMask(jp2, data, image_path):
     boxes_out.insert(3,boxes[3]) # This is the projection info
             
     # Make a copy of the original file
-    shutil.copy2(image_path, image_path[:-4]+'_old.jp2')
+    shutil.copy2(image_path, image_path[:-7] + 'old_' + image_path[-7:])
 
     # Overwite original file
     jp2_out.wrap(image_path, boxes = boxes_out)
+    
+    # Tidy up temporary .jp2 file
+    os.remove(temp_jp2)
 
 
 
-def testCompletion(L1C_file):
+def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
     """
     Test for successful completion of sen2cor processing. Not yet functional.
     
@@ -337,8 +355,45 @@ def testCompletion(L1C_file):
     Returns:
         A boolean describing whether processing completed sucessfully.
     """
+        
+    L2A_file = getL2AFile(L1C_file, output_dir = output_dir, SAFE = False)
     
-    return True
+    band_creation_failure = False
+    mask_enhancement_failure = False
+    
+    # Test all expected 10 m files are present
+    if resolution == 0 or resolution == 10:
+        
+        for band in ['B02', 'B03', 'B04', 'B08', 'AOT', 'TCI', 'WVP']:
+            
+            if not len(glob.glob('%s/IMG_DATA/R10m/*_%s_10m.jp2'%(L2A_file,band))) == 1:
+                band_creation_failure = True
+    
+    # Test all expected 20 m files are present
+    if resolution == 0 or resolution == 20:
+        
+        for band in ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'VIS', 'SCL', 'SCL_old']:
+            
+            if not len(glob.glob('%s/IMG_DATA/R20m/*_%s_20m.jp2'%(L2A_file,band))) == 1:
+                if band == 'SCL' or band == 'SCL_old':
+                    mask_enhancement_failure = True
+                else:
+                    band_creation_failure = True
+
+    # Test all expected 60 m files are present
+    if resolution == 0 or resolution == 60:
+        
+        for band in ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'SCL', 'SCL_old']:
+            
+            if not len(glob.glob('%s/IMG_DATA/R60m/*_%s_60m.jp2'%(L2A_file,band))) == 1:
+                if band == 'SCL' or band == 'SCL_old':
+                    mask_enhancement_failure = True
+                else:
+                    band_creation_failure = True
+    
+    # At present we only report failure/success. More work requried to get the type of failure.
+    return np.logical_and(band_creation_failure, mask_enhancement_failure) == False
+
 
 
 def removeL1C(L1C_file):
@@ -357,7 +412,7 @@ def removeL1C(L1C_file):
 
 
 
-def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resolution = 0):
+def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resolution = 0, verbose = False):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
@@ -372,7 +427,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
     
     
     try:
-        L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution)
+        L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
     except Exception as e:
         raise
     
@@ -389,8 +444,9 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
     if remove: removeL1C(infile)
     
     # Test for completion
-    if testCompletion(infile) == False: print 'Warning: %s did not complete processing.'%infile
-    
+    if testCompletion(infile, output_dir = output_dir, resolution = resolution) == False: print 'WARNING: %s did not complete processing.'%infile
+
+
 
 def _prepInfiles(infiles, tile = ''):
     """
@@ -430,20 +486,20 @@ def _prepInfiles(infiles, tile = ''):
     return infiles_reduced
 
 
+
 def _init_worker():
     '''
     Function to allow interruption of multiprocessing.Pool().
     '''
     signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     
 
 if __name__ == '__main__':
     '''
     '''
     
-    import multiprocessing
-    import functools
-     
+    
     # Set up command line parser
     parser = argparse.ArgumentParser(description = 'Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level 2A. This script initiates sen2cor, which performs atmospheric correction and generate a cloud mask. This script also performs simple improvements to the cloud mask.')
     
@@ -461,26 +517,32 @@ if __name__ == '__main__':
     optional.add_argument('-res', '--resolution', type = int, metavar = '10/20/60', default = 0, help = "Process only one of the Sentinel-2 resolutions, with options of 10, 20, or 60 m. Defaults to processing all three.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to processi n paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
+    optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
     # Get arguments
     args = parser.parse_args()
         
     # Get all infiles that match tile and file pattern
     infiles = _prepInfiles(args.infiles, tile = args.tile)
-    
+        
     # Get absolute path for output directory
     args.output_dir = os.path.abspath(args.output_dir)
     
-    # Check that none of the output files already exist.
-    for infile in infiles:
-        outpath = getOutfile(infile, output_dir = args.output_dir)
-        if os.path.exists(outpath): raise ValueError('The output file %s already exists! Delete it to run L2A.py.'%outpath)
+    # Strip the output files already exist.
+    for infile in infiles[:]:
+        outpath = getL2AFile(infile, output_dir = args.output_dir)
+        
+        if os.path.exists(outpath):
+            infiles.remove(infile)
+            print 'The output file %s already exists! Skipping file.'%outpath
+    
+    if len(infiles) == 0: raise ValueError('No usable level 1C Sentinel-2 files detected in input directory.')
     
     # Set up number of parallel processes
     pool = multiprocessing.Pool(args.n_processes, _init_worker)
     
     # Set up function with multiple arguments
-    main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution)
+    main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose)
     
     # Process for each input file
     p = pool.map_async(main_partial, infiles)
@@ -489,14 +551,22 @@ if __name__ == '__main__':
     try:
         results = p.get(0xFFFF)
     except Exception, e:
-        # Kill all remaining processes on error
         print e
-        pool.terminate()
-        pool.join()
+    
+    # Kill all remaining processes
+    pool.terminate()
+    pool.join()
         
     # Test for completion (in case of crashing out of pool)
+    completion = np.array([testCompletion(infile, resolution = args.resolution) for infile in infiles])
     
-    
+    # Report back
+    if completion.sum() > 0: print 'Successfully processed files:'
+    for infile in np.array(infiles)[completion == True]:
+        print infile 
+    if (completion == False).sum() > 0: print 'Files that failed:'
+    for infile in np.array(infiles)[completion == False]:
+        print infile 
     
 
     
