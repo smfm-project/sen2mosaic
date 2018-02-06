@@ -18,7 +18,136 @@ import xml.etree.ElementTree as ET
 
 import pdb
 
-     
+
+
+### Functions to enable command line interface with multiprocessing
+
+
+def _prepInfiles(infiles, tile = ''):
+    """
+    Args:
+        infiles: A list of input files, directories, or tiles for Sentinel-2 inputs
+        tile: Optionally filter infiles to return only those matching a particular tile
+    Returns:
+        A list of all Sentinel-2 tiles in infiles, 
+    """
+    
+    # Get absolute path, stripped of symbolic links
+    infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
+    
+    # List to collate 
+    infiles_reduced = []
+    
+    for infile in infiles:
+         
+        # Where infile is a directory:
+        infiles_reduced.extend(glob.glob('%s/*.SAFE/GRANULE/*'%infile))
+        
+        # Where infile is a .SAFE file
+        if infile.split('/')[-1].split('.')[-1] == 'SAFE': infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
+        
+        # Where infile is a specific granule 
+        if infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
+    
+    # Strip repeats (in case)
+    infiles_reduced = list(set(infiles_reduced))
+    
+    # Reduce input to infiles that match the tile (where specified)
+    infiles_reduced = [infile for infile in infiles_reduced if ('_T%s'%tile in infile.split('/')[-1])]
+    
+    # Reduce input files to only L1C files
+    infiles_reduced = [infile for infile in infiles_reduced if ('_MSIL1C_' in infile.split('/')[-3])]
+    
+    return infiles_reduced
+
+
+
+def _do_work(job_queue, counter=None):
+    """
+    Processes jobs from  the multiprocessing queue until all jobs are finished
+    Adapted from: https://github.com/ikreymer/cdx-index-client
+    
+    Args:
+        job_queue: multiprocessing.Queue() object
+        counter: multiprocessing.Value() object
+    """
+    
+    import Queue
+        
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    while not job_queue.empty():
+        try:
+            job = job_queue.get_nowait()
+            
+            main_partial(job)
+
+            num_done = 0
+            with counter.get_lock():
+                counter.value += 1
+                num_done = counter.value
+                
+        except Queue.Empty:
+            pass
+
+        except KeyboardInterrupt:
+            break
+
+        except Exception:
+            if not job:
+                raise
+
+
+def _run_workers(n_processes, jobs):
+    """
+    This script is a queuing system that respects KeyboardInterrupt.
+    Adapted from: https://github.com/ikreymer/cdx-index-client
+    Which in turn was adapted from: http://bryceboe.com/2012/02/14/python-multiprocessing-pool-and-keyboardinterrupt-revisited/
+    
+    Args:
+        n_processes: Number of parallel processes
+        jobs: List of input tiles for sen2cor
+    """
+    
+    import psutil 
+    
+    # Queue up all jobs
+    job_queue = multiprocessing.Queue()
+    counter = multiprocessing.Value('i', 0)
+    
+    for job in jobs:
+        job_queue.put(job)
+    
+    workers = []
+    
+    for i in xrange(0, n_processes):
+        
+        tmp = multiprocessing.Process(target=_do_work, args=(job_queue, counter))
+        tmp.daemon = True
+        tmp.start()
+        workers.append(tmp)
+
+    try:
+        
+        for worker in workers:
+            worker.join()
+            
+    except KeyboardInterrupt:
+        for worker in workers:
+            print 'Keyboard interrupt (ctrl-c) detected. Exiting all processes.'
+            # This is an impolite way to kill sen2cor, but it otherwise does not listen.
+            parent = psutil.Process(worker.pid)
+            children = parent.children(recursive=True)
+            parent.send_signal(signal.SIGKILL)
+            for process in children:
+                process.send_signal(signal.SIGKILL)
+            worker.terminate()
+            worker.join()
+            
+        raise
+
+
+
+### Primary functions
 
 def _validateTile(tile):
     '''
@@ -120,12 +249,12 @@ def _runCommand(command, verbose = False):
 
 
 
-def getL2AFile(infile, output_dir = os.getcwd(), SAFE = False):
+def getL2AFile(L1C_file, output_dir = os.getcwd(), SAFE = False):
     """
     Determine the level 2A tile path name from an input file (level 1C) tile.
     
     Args:
-        infile: Input .SAFE file tile (e.g. '/PATH/TO/*.SAFE/GRANULE/*').
+        L1C_file: Input level 1C .SAFE file tile (e.g. '/PATH/TO/*.SAFE/GRANULE/*').
         output_dir: Directory of processed file.
         SAFE: Return path of base .SAFE file
     Returns:
@@ -133,7 +262,7 @@ def getL2AFile(infile, output_dir = os.getcwd(), SAFE = False):
     """
     
     # Determine output file name, replacing two instances only of substring L1C_ with L2A_
-    outfile = '/'.join(infile.split('/')[-3:])[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
+    outfile = '/'.join(L1C_file.split('/')[-3:])[::-1].replace('L1C_'[::-1],'L2A_'[::-1],2)[::-1]
     
     # Replace _OPER_ with _USER_ for case of old file format (in final 2 cases)
     outfile = outfile[::-1].replace('_OPER_'[::-1],'_USER_'[::-1],2)[::-1]
@@ -197,7 +326,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
         # Tidy up temporary options file
         os.remove(temp_gipp)
         raise
-
+    
     # Tidy up temporary options file
     os.remove(temp_gipp)
     
@@ -348,7 +477,7 @@ def writeMask(jp2, data, image_path):
 
 def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
     """
-    Test for successful completion of sen2cor processing. Not yet functional.
+    Test for successful completion of sen2cor processing. 
     
     Args:
         L1C_file: Path to level 1C granule file (e.g. /PATH/TO/*_L1C_*.SAFE/GRANULE/*)
@@ -411,7 +540,6 @@ def removeL1C(L1C_file):
     shutil.rmtree(L1C_file)
 
 
-
 def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resolution = 0, verbose = False):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
@@ -424,16 +552,12 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
     """
 
     print 'Processing %s'%infile.split('/')[-1]
-    
-    
+        
     try:
         L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
     except Exception as e:
         raise
     
-    # Run sen2cor
-    # L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution)
-
     # Perform improvements to mask for each resolution   
     if resolution != 10:
         for res in [20, 60] if resolution == 0 else [resolution]:
@@ -441,59 +565,17 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
             cloudmask_new = improveMask(cloudmask_jp2, res)
             writeMask(cloudmask_jp2, cloudmask_new, image_path)
     
-    if remove: removeL1C(infile)
-    
-    # Test for completion
-    if testCompletion(infile, output_dir = output_dir, resolution = resolution) == False: print 'WARNING: %s did not complete processing.'%infile
-
-
-
-def _prepInfiles(infiles, tile = ''):
-    """
-    Args:
-        infiles: A list of input files, directories, or tiles for Sentinel-2 inputs
-        tile: Optionally filter infiles to return only those matching a particular tile
-    Returns:
-        A list of all Sentinel-2 tiles in infiles, 
-    """
-    
-    # Get absolute path, stripped of symbolic links
-    infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
-    
-    # List to collate 
-    infiles_reduced = []
-    
-    for infile in infiles:
-         
-        # Where infile is a directory:
-        infiles_reduced.extend(glob.glob('%s/*.SAFE/GRANULE/*'%infile))
+    # Test for completion, and report back
+    if testCompletion(infile, output_dir = output_dir, resolution = resolution) == False:
         
-        # Where infile is a .SAFE file
-        if infile.split('/')[-1].split('.')[-1] == 'SAFE': infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
+        print 'WARNING: %s did not complete processing.'%infile
+    
+    else:
         
-        # Where infile is a specific granule 
-        if infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
-    
-    # Strip repeats (in case)
-    infiles_reduced = list(set(infiles_reduced))
-    
-    # Reduce input to infiles that match the tile (where specified)
-    infiles_reduced = [infile for infile in infiles_reduced if ('_T%s'%tile in infile.split('/')[-1])]
-    
-    # Reduce input files to only L1C files
-    infiles_reduced = [infile for infile in infiles_reduced if ('_MSIL1C_' in infile.split('/')[-3])]
-    
-    return infiles_reduced
+        # Only removing input file where processing complteted successfully
+        if remove: removeL1C(infile)
 
 
-
-def _init_worker():
-    '''
-    Function to allow interruption of multiprocessing.Pool().
-    '''
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-    
 
 if __name__ == '__main__':
     '''
@@ -538,26 +620,22 @@ if __name__ == '__main__':
     
     if len(infiles) == 0: raise ValueError('No usable level 1C Sentinel-2 files detected in input directory.')
     
-    # Set up number of parallel processes
-    pool = multiprocessing.Pool(args.n_processes, _init_worker)
     
-    # Set up function with multiple arguments
-    main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose)
-    
-    # Process for each input file
-    p = pool.map_async(main_partial, infiles)
-    
-    # This structure exits all processes on error (e.g. KeyboardInterrupt)
-    try:
-        results = p.get(0xFFFF)
-    except Exception, e:
-        print e
-    
-    # Kill all remaining processes
-    pool.terminate()
-    pool.join()
+    if args.n_processes == 1:
         
-    # Test for completion (in case of crashing out of pool)
+        # Keep things simple when using one processor
+        for infile in infiles:
+            
+            main(infiles[0], gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose) 
+    
+    else:
+
+        # Set up function with multiple arguments
+        main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose)
+    
+        _run_workers(args.n_processes, infiles)
+    
+    # Test for completion
     completion = np.array([testCompletion(infile, resolution = args.resolution) for infile in infiles])
     
     # Report back
@@ -567,7 +645,6 @@ if __name__ == '__main__':
     if (completion == False).sum() > 0: print 'Files that failed:'
     for infile in np.array(infiles)[completion == False]:
         print infile 
-    
 
     
     
