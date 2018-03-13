@@ -317,7 +317,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
         command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
     
     # Print command for user info
-    print ' '.join(command)
+    if verbose: print ' '.join(command)
        
     # Do the processing, and capture exceptions
     try:
@@ -590,9 +590,9 @@ if __name__ == '__main__':
     optional = parser.add_argument_group('Optional arguments')
 
     # Required arguments
-    required.add_argument('infiles', metavar = 'L1C_FILES', type = str, nargs = '+', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple tiles through wildcards (e.g. *.SAFE/GRANULE/*). All tiles that match input conditions will be atmospherically corrected.')
     
     # Optional arguments
+    optional.add_argument('infiles', metavar = 'L1C_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple tiles through wildcards (e.g. *.SAFE/GRANULE/*). All tiles that match input conditions will be atmospherically corrected.')
     optional.add_argument('-t', '--tile', type = str, default = '', help = 'Specify a specific Sentinel-2 tile to process. If omitted, all tiles in L1C_FILES will be processed.')
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
