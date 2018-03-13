@@ -52,7 +52,6 @@ Contents:
    command_line.rst
    worked_example.rst
    sen2mosaic.rst
-   worked_example_python.rst
 
 Indices and tables
 ==================

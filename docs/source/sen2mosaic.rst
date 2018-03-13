@@ -13,17 +13,17 @@ You should now be able to import each of the four modules in Python as follows:
 
 .. code-block:: python
     
-    import sen2mosaic.L1C
-    import sen2mosaic.L2A
-    import sen2mosaic.L3A
-    import sen2mosaic.L3B
+    import sen2mosaic.download
+    import sen2mosaic.preprocess
+    import sen2mosaic.composite
+    import sen2mosaic.mosaic
 
 Help for each function can be accessed interactively from Python. For example:
 
 .. code-block:: python
     
-    >>> help(sen2mosaic.L1C.connectToAPI)
-            Help on function connectToAPI in module sen2mosaic.L1C:
+    >>> help(sen2mosaic.download.connectToAPI)
+            Help on function connectToAPI in module sen2mosaic.download:
 
             connectToAPI(username, password)
             Connect to the SciHub API with sentinelsat.
@@ -32,34 +32,34 @@ Help for each function can be accessed interactively from Python. For example:
                 username: Scihub username. Sign up at https://scihub.copernicus.eu/.
                 password: Scihub password.
 
-On this page each of the functions from the L1C, L2A, L3A and L3B modules are documented. Note that the ``main()`` function in each is what is driven by the command line tools, so in addition to it's component parts you can call the entire processing chain from Python.
+On this page each of the functions from the download, preprocess, composite and mosaic modules are documented. Note that the ``main()`` function in each is what is driven by the command line tools, so in addition to it's component parts you can call the entire processing chain from Python.
 
-L1C module
-----------
+Download module
+---------------
 
-.. automodule:: sen2mosaic.L1C
+.. automodule:: sen2mosaic.download
     :members:
     :undoc-members:
     :show-inheritance:
 
-L2A module
-----------
+Preprocess module
+-----------------
 
 .. automodule:: sen2mosaic.L2A
     :members:
     :undoc-members:
     :show-inheritance:
 
-L3A module
-----------
+Composite module
+----------------
 
 .. automodule:: sen2mosaic.L3A
     :members:
     :undoc-members:
     :show-inheritance:
 
-L3B module
-----------
+Mosaic module
+-------------
 
 .. automodule:: sen2mosaic.L3B
     :members:

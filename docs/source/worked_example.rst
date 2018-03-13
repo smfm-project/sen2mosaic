@@ -44,7 +44,7 @@ These options can be encoded as follows:
 
 .. code-block:: console
     
-    s2m L2C -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30
+    s2m download -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30
 
 As we didn't specify the option ``-o`` (``--output``), data will output to the current working directory. We also didn't include the ``-r`` (``--remove``) flag, meaning that intermediate .zip files downloaded from the internet won't be deleted. This can quickly result in large volumes of data building up, so if you're limited by disk space use the ``-r`` flag.
 
@@ -74,9 +74,9 @@ Atmopsheric correction and cloud masking
 
 The next step is to perform atmospheric correction (removes the effects of the atmosphere on refectance values of images) and cloud masking (identifies clouds in images.) to generate Sentinel-2 level 2A data. We do this with the ESA program ``sen2cor``.
 
-To perform atmospheric correction and cloud masking we call the tool ``L2A.py``. We need to specify Sentinel-2 level 1C input files, a directory containing level 1C files, or a single tile within a .SAFE file ``*.SAFE/GRANULE/*``).
+To perform atmospheric correction and cloud masking we call the tool ``preprocess.py``. We need to specify Sentinel-2 level 1C input files, a directory containing level 1C files, or a single tile within a .SAFE file ``*.SAFE/GRANULE/*``).
 
-To process all .SAFE files, we can submit the following line:
+To process all .SAFE files for the tile 36KWA, we can submit the following line:
 
 .. code-block:: console
 
@@ -106,13 +106,13 @@ Generating a cloud-free composite image
 
 Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image. We do this with the ESA program ``sen2three``.
 
-To perform this step we call the tool ``L3A.py``. We need to specify the directory that contains Sentinel-2 level 2A input files. Note: the code will not run if the directory contains level 2A files from multiple tiles.
+To perform this step we call the tool ``composite.py``. We need to specify the directory that contains Sentinel-2 level 2A input files. Note: the code will not run if the directory contains level 2A files from multiple tiles.
 
 To run the process, we need to submit the following line:
 
 .. code-block:: console
 
-    python /path/to/sen2mosaic/L3A.py /home/user/DATA/worked_example/36KWA/
+   s2m composite /home/user/DATA/worked_example/36KWA/
 
 Here we didn't specify the ``-r`` (``--remove``) option, which would delete Sentinel-2 level 2A data once data is finished processing.
 
@@ -138,7 +138,7 @@ Once you have multiple level 3A files, the final step is to mosaic these into a 
 
 Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration, generating an output with the limits **500,000 - 600,000** m Eastings and **7,550,000 - 7,650,000** m Northings (**UTM 36S**).
 
-To perform this step we call the tool ``L3B.py``. We need to specify the location of all input files (with wildcards), the exent of the output image and the EPSG code describing the output coordinate reference system. We'll also give output data a name to identfy this tile.
+To perform this step we call the tool ``mosaic.py``. We need to specify the location of all input files (with wildcards), the exent of the output image and the EPSG code describing the output coordinate reference system. We'll also give output data a name to identfy this tile.
 
 First cd to the directory containing all Sentinel-2 level 3 data.
 
@@ -146,18 +146,17 @@ First cd to the directory containing all Sentinel-2 level 3 data.
     
     cd /home/user/DATA/worked_example/
 
-To run ``L3B.py``, 
+To run ``mosaic.py``, 
     
 .. code-block:: console
     
-    python /path/to/sen2mosaic/L3B.py -te 500000 7550000 600000 7650000 -e 32736 -n worked_example 36KW*/*_MSIL03_*.SAFE
+    s2m mosaic -te 500000 7550000 600000 7650000 -e 32736 -n worked_example 36KW*
 
 Here we didn't specify the ``-o`` (``--output_dir``) option, meaning that results will be output to the current working directory. Once processing is complte, you can use ``ls`` to view the newly created output files:
 
 .. code-block:: console
     
     ...
-
     
 Viewing data
 ------------

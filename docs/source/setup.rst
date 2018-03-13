@@ -29,7 +29,7 @@ Once complete, you'll need to add this version of Python to your .bashrc file as
 .. code-block:: console
     
     # Substitute root for the path to your system's installation and .bashrc file.
-    echo 'export PATH="/root/anaconda2/bin:$PATH"' >> /root/.bashrc
+    echo 'export PATH="~/anaconda2/bin:$PATH"' >> ~/.bashrc
     exec -l $SHELL
 
 
