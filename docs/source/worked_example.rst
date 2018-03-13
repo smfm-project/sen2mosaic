@@ -76,13 +76,13 @@ The next step is to perform atmospheric correction (removes the effects of the a
 
 To perform atmospheric correction and cloud masking we call the tool ``preprocess.py``. We need to specify Sentinel-2 level 1C input files, a directory containing level 1C files, or a single tile within a .SAFE file ``*.SAFE/GRANULE/*``).
 
-To process all .SAFE files for the tile 36KWA, we can submit the following line:
+To process all .SAFE files for the tile 36KWA (in the current working directory), we can submit the following line:
 
 .. code-block:: console
 
-    s2m L2A -t 36KWA *.SAFE
+    s2m preprocess -t 36KWA
 
-This command will loop through each Sentinel-2 level 1C file and process them one at a time. You might alternatively want to specify a single level 1C .SAFE file, and run several commands similtaneously. Bear in mind that this will require access to a large quanity of memory.
+This command will loop through each Sentinel-2 level 1C file and process them one at a time. You might alternatively want to run several commands similtaneously using the ``-p`` flag, but bear in mind that this will require access to a large quanity of memory.
 
 Here we didn't specify the options ``-o`` (``--output_dir``) and ``--g`` (``--gipp``), which can be used to output data to a location other than the directory containing input files, or the ``-r`` (``--remove``) option, which would delete Sentinel-2 level 1C data once data is finished processing.
 
