@@ -245,7 +245,7 @@ def _runCommand(command, verbose = False):
         # Reset handler
         signal.signal(signal.SIGINT, signal.SIG_DFL)
     
-    return text.decode('utf-8'),split('/n')
+    return text.decode('utf-8').split('/n')
 
 
 
@@ -294,7 +294,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     assert infile.split('/')[-3][-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
     
     # Test that resolution is reasonable
-    assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for 10, 20 and 60). The input resolution was %s"%str(resolution)
+    assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for all resolutions). The input resolution was %s"%str(resolution)
     
     # Determine output filename
     outpath = getL2AFile(infile, output_dir = output_dir)
@@ -521,7 +521,7 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
                     band_creation_failure = True
     
     # At present we only report failure/success. More work requried to get the type of failure.
-    return np.logical_and(band_creation_failure, mask_enhancement_failure) == False
+    return np.logical_or(band_creation_failure, mask_enhancement_failure) == False
 
 
 
@@ -550,9 +550,9 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
         output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
         remove: Boolean value, which when set to True deletes level 1C files after processing is complete. Defaults to False.
     """
-
-    print 'Processing %s'%infile.split('/')[-1]
-        
+    
+    if verbose: print 'Processing %s'%infile.split('/')[-1]
+      
     try:
         L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
     except Exception as e:
@@ -560,11 +560,14 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
     
     # Perform improvements to mask for each resolution   
     if resolution != 10:
-        for res in [20, 60] if resolution == 0 else [resolution]:
+        for res in [20, 60]:
+            if resolution != 0 and resolution != res:
+                continue
+            if verbose: print 'Improving mask for resolution %s m.'%str(res)
             cloudmask_jp2, image_path = loadMask(L2A_file, res)
             cloudmask_new = improveMask(cloudmask_jp2, res)
             writeMask(cloudmask_jp2, cloudmask_new, image_path)
-    
+            
     # Test for completion, and report back
     if testCompletion(infile, output_dir = output_dir, resolution = resolution) == False:
         
@@ -615,7 +618,7 @@ if __name__ == '__main__':
         outpath = getL2AFile(infile, output_dir = args.output_dir)
         
         if os.path.exists(outpath):
-            infiles.remove(infile)
+            #infiles.remove(infile)
             print 'WARNING: The output file %s already exists! Skipping file.'%outpath
     
     if len(infiles) == 0: raise ValueError('No usable level 1C Sentinel-2 files detected in input directory.')
