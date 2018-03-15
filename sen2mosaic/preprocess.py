@@ -575,7 +575,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
     
     else:
         
-        # Only removing input file where processing complteted successfully
+        # Only removing input file where processing completed successfully
         if remove: removeL1C(infile)
 
 
