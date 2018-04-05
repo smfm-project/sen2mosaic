@@ -142,26 +142,43 @@ Help for ``composite.py`` can be viewed by typing ``s2m composite --help``:
 
 .. code-block:: console
 
-    usage: composite.py [-h] [-r] L2A_DIR
+    usage: composite.py [-h] [-t TILE] [-s START] [-e END] [-o DIR] [-a STR] [-v]
+                        [PATH [PATH ...]]
 
-    Process level 2A Sentinel-2 data from sen2cor to cloud free mosaics with
-    sen2three. This script initiates sen2three from Python. It also tidies up the
-    large database files left behind by sen2three. Level 3A files will be output
-    to the same directory as input files.
+    Process level 2A Sentinel-2 data from sen2cor to cloud free composite images
+    with sen2three.
+
+    Required arguments:
+    -t TILE, --tile TILE  Sentinel-2 to process, in format T##XXX or ##XXX (e.g.
+                            T36KWA or 36KWA).
 
     Optional arguments:
-    L2A_DIR       Directory where the Level-2A input files are located (e.g.
-                    PATH/TO/L2A_DIRECTORY/). By default this will be the current
-                    working directory.
-    -r, --remove  Optionally remove all matching Sentinel-2 level 2A files from
-                    input directory. Be careful.
+    PATH                  Directory where the Level-2A input files are located
+                            (e.g. PATH/TO/L2A_DIRECTORY/). Also supports multiple
+                            directories through wildcards (*), which will be
+                            processed in series. Defaults to current working
+                            directory.
+    -s START, --start START
+                            Start date for tiles to include in format YYYYMMDD.
+                            Defaults to processing all dates.
+    -e END, --end END     End date for tiles to include in format YYYYMMDD.
+                            Defaults to processing all dates.
+    -o DIR, --output_dir DIR
+                            Specify a directory to output level 3A file. If not
+                            specified, the composite image will be written to the
+                            same directory as input files.
+    -a STR, --algorithm STR
+                            Compositing algorithm for sen2three. Select from
+                            'MOST_RECENT', 'TEMP_HOMOGENEITY',
+                            'RADIOMETRIC_QUALITY' or 'AVERAGE'. We recommend
+                            'TEMP_HOMOGENEITY', which is the default setting.
+    -v, --verbose         Print progress.
 
-For example, to run ``composite.py`` on the directory ``/path/to/36KWA_data/`` which contains L2A data for the tile 36KWA and output the level 3A product to the same directory, use the following command:
+For example, to run ``composite.py`` on the directory ``/path/to/36KWA_data/`` which contains L2A data for the tile 36KWA and output the level 3A product to the same directory, limiting dates to the range 1st May to 30th June 2017, use the following command:
 
 .. code-block:: console
     
-    s2m composite -o /path/to/36KWA_data/ /path/to/36KWA_data/
-    
+    s2m composite -t 36KWA -o /path/to/36KWA_data/ -s 20170501 -e 20170630 /path/to/36KWA_data/
     
 Processing to L3B
 -----------------
@@ -212,7 +229,7 @@ To do the same operation, but specifying an output directory and a name to prepe
 
 .. code-block:: console
     
-    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -o /path/to/output/ -n tile_1 /path/to/L3A_tiles
+    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -o /path/to/output/ -n my_output /path/to/L3A_tiles
 
 
 

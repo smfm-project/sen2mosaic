@@ -191,7 +191,7 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     # Read GIPP file
     tree = ET.ElementTree(file = gipp)
     root = tree.getroot()
-
+    
     # Change output directory    
     root.find('Common_Section/Target_Directory').text = output_dir
     
@@ -601,7 +601,7 @@ if __name__ == '__main__':
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
     optional.add_argument('-res', '--resolution', type = int, metavar = '10/20/60', default = 0, help = "Process only one of the Sentinel-2 resolutions, with options of 10, 20, or 60 m. Defaults to processing all three.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
-    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to processi n paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
+    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
     # Get arguments

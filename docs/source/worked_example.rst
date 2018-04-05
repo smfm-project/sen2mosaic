@@ -104,15 +104,15 @@ Wait for all files to be processed to level 2A before proceeding. If you run ``l
 Generating a cloud-free composite image
 ---------------------------------------
 
-Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image. We do this with the ESA program ``sen2three``.
+Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains masked areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image. We do this with the ESA program ``sen2three``.
 
-To perform this step we call the tool ``composite.py``. We need to specify the directory that contains Sentinel-2 level 2A input files. Note: the code will not run if the directory contains level 2A files from multiple tiles.
+To perform this step we call the tool ``composite.py``. We need to specify the tile to process, and ensure that either an input directory is specified or that the script is run with L2A files in the current working directory. It's required to specify an input tile.
 
 To run the process, we need to submit the following line:
 
 .. code-block:: console
 
-   s2m composite /home/user/DATA/worked_example/36KWA/
+   s2m composite -t 36KWA
 
 Here we didn't specify the ``-r`` (``--remove``) option, which would delete Sentinel-2 level 2A data once data is finished processing.
 

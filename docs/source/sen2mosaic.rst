@@ -3,7 +3,7 @@ Using sen2mosaic in Python
 
 This is harder than the command line, but you may be interested in importing the sen2mosaic functions into Python in order to customise the processing chain.
 
-To make sen2mosaic accesible in Python, edit your ``.bashrc`` file (usually located at ``~/.bashrc`` to contain the line:
+To make sen2mosaic accesible in Python, edit your ``.bashrc`` file (located at ``~/.bashrc``) to contain the line:
 
 .. code-block:: console
     
@@ -45,7 +45,7 @@ Download module
 Preprocess module
 -----------------
 
-.. automodule:: sen2mosaic.L2A
+.. automodule:: sen2mosaic.preprocess
     :members:
     :undoc-members:
     :show-inheritance:
@@ -53,7 +53,7 @@ Preprocess module
 Composite module
 ----------------
 
-.. automodule:: sen2mosaic.L3A
+.. automodule:: sen2mosaic.composite
     :members:
     :undoc-members:
     :show-inheritance:
@@ -61,7 +61,7 @@ Composite module
 Mosaic module
 -------------
 
-.. automodule:: sen2mosaic.L3B
+.. automodule:: sen2mosaic.mosaic
     :members:
     :undoc-members:
     :show-inheritance:

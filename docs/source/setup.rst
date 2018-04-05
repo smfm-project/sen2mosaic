@@ -55,18 +55,16 @@ For further details and up-to-date installation instructions, see the `sen2cor w
 At the time of writing, sen2cor can be installed using the following commands. sen2cor must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2cor to be installed, and run the following commands:
 
 .. code-block:: console
-
-    wget http://step.esa.int/thirdparties/sen2cor/2.3.1/sen2cor-2.3.1.tar.gz
-    tar -xvzf sen2cor-2.3.1.tar.gz
-    rm sen2cor-2.3.1.tar.gz
-    cd sen2cor-2.3.1
-    python setup.py install
+    
+    wget http://step.esa.int/thirdparties/sen2cor/2.5.5/Sen2Cor-02.05.05-Linux64.run
+    chmod +x Sen2Cor-02.05.05-Linux64.run
+    ./Sen2Cor-02.05.05-Linux64.run
 
 Once complete, you need to reference this software in your .bashrc file as follows:
 
 .. code-block:: console
     
-    echo "source ~/L2A_Bashrc" >> ~/.bashrc
+    echo "source ~/Sen2Cor-02.05.05-Linux64/L2A_Bashrc" >> ~/.bashrc
     exec -l $SHELL
 
 
@@ -74,33 +72,36 @@ To test the installation, type ``L2A_Process --help`` in a terminal window to sh
 
 .. code-block:: console
 
-    usage: L2A_Process [-h] [--resolution {10,20,60}] [--sc_only] [--cr_only]
-                       [--refresh] [--GIP_L2A GIP_L2A] [--GIP_L2A_SC GIP_L2A_SC]
-                       [--GIP_L2A_AC GIP_L2A_AC]
-                       directory
-    
-    Sentinel-2 Level 2A Processor (Sen2Cor). Version: 2.4.0, created: 2017.02.03,
-    supporting Level-1C product version: 14.
-    
+    usage: L2A_Process.py [-h] [--resolution {10,20,60}] [--sc_only] [--cr_only]
+                        [--refresh] [--GIP_L2A GIP_L2A]
+                        [--GIP_L2A_SC GIP_L2A_SC] [--GIP_L2A_AC GIP_L2A_AC]
+                        [--GIP_L2A_PB GIP_L2A_PB]
+                        directory
+
+    Sentinel-2 Level 2A Processor (Sen2Cor). Version: 2.5.5, created: 2018.03.19,
+    supporting Level-1C product version <= 14.5.
+
     positional arguments:
-      directory             Directory where the Level-1C input files are located
+    directory             Directory where the Level-1C input files are located
 
     optional arguments:
-      -h, --help            show this help message and exit
-      --resolution {10,20,60}
+    -h, --help            show this help message and exit
+    --resolution {10,20,60}
                             Target resolution, can be 10, 20 or 60m. If omitted,
                             all resolutions will be processed
-      --sc_only             Performs only the scene classification at 60 or 20m
+    --sc_only             Performs only the scene classification at 60 or 20m
                             resolution
-      --cr_only             Performs only the creation of the L2A product tree, no
+    --cr_only             Performs only the creation of the L2A product tree, no
                             processing
-      --refresh             Performs a refresh of the persistent configuration
+    --refresh             Performs a refresh of the persistent configuration
                             before start
-      --GIP_L2A GIP_L2A     Select the user GIPP
-      --GIP_L2A_SC GIP_L2A_SC
+    --GIP_L2A GIP_L2A     Select the user GIPP
+    --GIP_L2A_SC GIP_L2A_SC
                             Select the scene classification GIPP
-      --GIP_L2A_AC GIP_L2A_AC
+    --GIP_L2A_AC GIP_L2A_AC
                             Select the atmospheric correction GIPP
+    --GIP_L2A_PB GIP_L2A_PB
+                            Select the processing baseline GIPP
 
 
 Installing sen2three
