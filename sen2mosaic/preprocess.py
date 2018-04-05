@@ -298,7 +298,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     
     # Determine output filename
     outpath = getL2AFile(infile, output_dir = output_dir)
-      
+    
     # Check if output file already exists
     if os.path.exists(outpath):
         raise ValueError('The output file %s already exists! Delete it to run L2_Process.'%outpath)
@@ -622,14 +622,13 @@ if __name__ == '__main__':
             print 'WARNING: The output file %s already exists! Skipping file.'%outpath
     
     if len(infiles) == 0: raise ValueError('No usable level 1C Sentinel-2 files detected in input directory.')
-    
-    
+        
     if args.n_processes == 1:
         
         # Keep things simple when using one processor
         for infile in infiles:
             
-            main(infiles[0], gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose) 
+            main(infile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose) 
     
     else:
 
