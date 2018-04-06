@@ -535,7 +535,7 @@ def removeL1C(L1C_file, output_dir = os.getcwd(), resolution = 0):
     
     assert '_MSIL1C_' in L1C_file, "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
     assert L1C_file.split('/')[-3][-5:] == '.SAFE', "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE tile files"
-    assert testCompletion(L1C_file, output_dir = output_dir, resolution = resolution)), "File did not finish processing, so not deleting L1C input file."
+    assert testCompletion(L1C_file, output_dir = output_dir, resolution = resolution), "File did not finish processing, so not deleting L1C input file."
     
     shutil.rmtree(L1C_file)
 
@@ -552,7 +552,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
     """
     
     if verbose: print 'Processing %s'%infile.split('/')[-1]
-      
+    
     try:
         L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
     except Exception as e:
