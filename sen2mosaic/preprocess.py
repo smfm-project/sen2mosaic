@@ -525,7 +525,7 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
 
 
 
-def removeL1C(L1C_file):
+def removeL1C(L1C_file, output_dir = os.getcwd(), resolution = 0):
     """
     Deletes a Level 1C Sentinel-2 .SAFE file from disk.
     
@@ -535,7 +535,7 @@ def removeL1C(L1C_file):
     
     assert '_MSIL1C_' in L1C_file, "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
     assert L1C_file.split('/')[-3][-5:] == '.SAFE', "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE tile files"
-    assert testCompletion(L1C_file), "File did not finish processing, so not deleting L1C input file."
+    assert testCompletion(L1C_file, output_dir = output_dir, resolution = resolution)), "File did not finish processing, so not deleting L1C input file."
     
     shutil.rmtree(L1C_file)
 
@@ -576,7 +576,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
     else:
         
         # Only removing input file where processing completed successfully
-        if remove: removeL1C(infile)
+        if remove: removeL1C(infile, output_dir = output_dir, resolution = resolution)
 
 
 
@@ -638,7 +638,7 @@ if __name__ == '__main__':
         _run_workers(args.n_processes, infiles)
     
     # Test for completion
-    completion = np.array([testCompletion(infile, resolution = args.resolution) for infile in infiles])
+    completion = np.array([testCompletion(infile, output_dir = args.output_dir, resolution = args.resolution) for infile in infiles])
     
     # Report back
     if completion.sum() > 0: print 'Successfully processed files:'
