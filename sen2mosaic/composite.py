@@ -358,11 +358,10 @@ def main(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150
     processToL3A(tile, input_dir = input_dir, output_dir = output_dir, start = start, end = end, algorithm = algorithm, resolution = resolution, verbose = verbose)
         
     # Test for completion
-    if testCompletion(tile, output_dir = output_dir, start = start, end = end) == False:
-        print 'WARNING: %s did not complete processing.'%tile
-    else:
+    if testCompletion(tile, output_dir = output_dir, start = start, end = end, resolution = resolution):
         print 'Processing completed successfully on %s.'%tile
-
+    else:
+        print 'WARNING: %s did not complete processing.'%tile
 
 
 if __name__ == '__main__':
