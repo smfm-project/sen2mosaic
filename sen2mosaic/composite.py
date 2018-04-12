@@ -84,11 +84,27 @@ def _getDate(infile):
     timestring = infile.split('/')[-1].split('_')[-1].split('T')[0]
     
     return datetime.datetime.strptime(timestring, '%Y%m%d')
+
+
+def _getResolutions(infile):
+    '''
+    Return the resolutions available for an input GRANULE.
     
+    Args:
+        infile: A Sentinel-2 level 2A granule.
+    Returns:
+        A list of resolutions available
+    '''
     
+    res_dirs = glob.glob('%s/IMG_DATA/R*m'%infile)
     
-def _validateInput(tile, input_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d')):
-    """_validateInput(tile, input_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'))
+    resolutions = [int(i.split('/')[-1].lstrip('R').rstrip('m')) for i in res_dirs]
+    
+    return resolutions
+   
+
+def _validateInput(tile, input_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0):
+    """_validateInput(tile, input_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0)
     
     Test whether appropriate input files exist in the input directory
     
@@ -97,6 +113,7 @@ def _validateInput(tile, input_dir = os.getcwd(), start = '20150101', end = date
         input_dir: Input directory
         start: start date in format YYYYMMDD. Defaults to beginning of Sentinel-2 era.
         end: end date in format YYYYMMDD. Defaults to today's date.
+        resolution: The resolution to be processed (10, 20, 60, or 0 for all three)
     """
       
     # Test that input location contains level 2A files for tile.
@@ -108,9 +125,18 @@ def _validateInput(tile, input_dir = os.getcwd(), start = '20150101', end = date
     dates = np.array([_getDate(i) for i in infiles])
     
     valid_dates = np.logical_and(dates >= datetime.datetime.strptime(start, '%Y%m%d'), dates <= datetime.datetime.strptime(end, '%Y%m%d'))
-    
+
     assert valid_dates.sum() > 0, "Input directory must contain at least one file between dates %s and %s."%(start, end)
-        
+    
+    # Test that all files within date range contain data at the appropriate resolution
+    resolutions = np.array([_getResolutions(i) for i in infiles], dtype = np.object)[valid_dates]
+    
+    valid_res_list = [10, 20, 60] if resolution == 0 else [resolution]
+    
+    for file_res in resolutions:
+        for valid_res in valid_res_list:
+            assert valid_res in file_res, "All input files must have your specified resolution. If you've opted to process all resolutions, check that all input files have data for 10, 20 and 60 m."
+    
     
 
 def getL3AFile(tile, start = '20150101'):
@@ -186,8 +212,8 @@ def _setGipp(gipp, tile, output_dir = os.getcwd(), start = '20150101', end = dat
     return gipp_file
 
 
-def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', verbose = False):
-    """processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), verbose = False):
+def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', resolution = 0, verbose = False):
+    """processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, verbose = False):
     
     Processes Sentinel-2 level 2A files to level 3A with sen2three.
     
@@ -198,7 +224,8 @@ def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start 
         start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
         end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
         algorithm: Sen2three compositing algorithm (choose from 'MOST_RECENT', 'TEMP_HOMOGENEITY', 'RADIOMETRIC_QUALITY' or 'AVERAGE'). 'TEMP_HOMOGENEITY' is the default setting.
-        verbose: Print script progress.        
+        resolution: Process only a single Sentinel-2 resolution (10, 20 or 60). Defaults to 0, meaning process all three.
+        verbose: Print script progress.
     """
       
     # Cleanse input formats.
@@ -209,8 +236,11 @@ def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start 
     # Test that tile is properly formatted
     assert _validateTile(tile), "Tile %s is not a correctly formatted Sentinel-2 tile (e.g. T36KWA)."%str(tile)
     
+    # Test that resolution is appropriate
+    assert resolution in [0, 10, 20, 60], "Resolution must be set to 10, 20, 60, or 0 (all)"
+    
     # Test that appropriate inputs exist
-    _validateInput(tile, input_dir = input_dir, start = start, end = end)
+    _validateInput(tile, input_dir = input_dir, start = start, end = end, resolution = resolution)
         
     # Determine output filename
     outpath = getL3AFile(tile, start = start)
@@ -227,6 +257,10 @@ def processToL3A(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start 
         
     # Set up sen2three command
     command = ['L3_Process', input_dir, '--clean']
+    
+    # If only processing one resolution
+    if resolution != 0:
+        command += ['--resolution', str(resolution)]
     
     # Print command for user info
     if verbose: print ' '.join(command)
@@ -250,7 +284,7 @@ def testCompletion(tile, output_dir = os.getcwd(), start = '20150101', end = dat
         output_dir: Output directory. Defaults to current working directory.
         start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
         end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
-        resolution: Test for only a single resolution (10, 20 or 60). Defaults to 0 (all resolutions).
+        resolution: Test for only a single resolution (10, 20 or 60). Defaults to 0 (all three resolutions).
     Returns:
 
     """
@@ -304,8 +338,8 @@ def testCompletion(tile, output_dir = os.getcwd(), start = '20150101', end = dat
 
     
 
-def main(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', verbose = False):
-    """main(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', verbose = False)
+def main(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', resolution = 0, verbose = False):
+    """main(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', resolution = 0, verbose = False)
     
     Process level 2A Sentinel-2 data from sen2cor to cloud free composite images with sen2three. This script calls sen2three from within Python.
     
@@ -316,11 +350,12 @@ def main(tile, input_dir = os.getcwd(), output_dir = os.getcwd(), start = '20150
         start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
         end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
         algorithm: Sen2three compositing algorithm (choose from 'MOST_RECENT', 'TEMP_HOMOGENEITY', 'RADIOMETRIC_QUALITY' or 'AVERAGE'). 'TEMP_HOMOGENEITY' is the default setting.
+        resolution: Process only a single Sentinel-2 resolution (10, 20 or 60). Defaults to 0, meaning process all three.
         verbose: Print script progress.  
     """
-            
+    
     # Do the processing    
-    processToL3A(tile, input_dir = input_dir, output_dir = output_dir, start = start, end = end, algorithm = algorithm, verbose = verbose)
+    processToL3A(tile, input_dir = input_dir, output_dir = output_dir, start = start, end = end, algorithm = algorithm, resolution = resolution, verbose = verbose)
         
     # Test for completion
     if testCompletion(tile, output_dir = output_dir, start = start, end = end) == False:
@@ -348,6 +383,7 @@ if __name__ == '__main__':
     optional.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 3A file. If not specified, the composite image will be written to the same directory as input files.")
     optional.add_argument('-a', '--algorithm', type = str, metavar = 'STR', default = 'TEMP_HOMOGENEITY', help = "Compositing algorithm for sen2three. Select from 'MOST_RECENT', 'TEMP_HOMOGENEITY', 'RADIOMETRIC_QUALITY' or 'AVERAGE'. We recommend 'TEMP_HOMOGENEITY', which is the default setting.")
+    optional.add_argument('-res', '--resolution', type = int, metavar = '10/20/60', default = 0, help = "Process only one of the Sentinel-2 resolutions, with options of 10, 20, or 60 m. Defaults to processing all three.")
     optional.add_argument('-v', '--verbose', action = 'store_true', default = False, help = 'Print progress.')
     
     # Get arguments
@@ -356,4 +392,4 @@ if __name__ == '__main__':
     for input_dir in args.input_dir:
         
         # Run the script
-        main(args.tile, input_dir = input_dir, output_dir = args.output_dir, start = args.start, end = args.end, algorithm = args.algorithm, verbose = args.verbose)
+        main(args.tile, input_dir = input_dir, output_dir = args.output_dir, start = args.start, end = args.end, algorithm = args.algorithm, resolution = args.resolution, verbose = args.verbose)
