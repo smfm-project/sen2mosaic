@@ -20,13 +20,13 @@ except ImportError:
 
 def _createOutputArray(md, dtype = np.uint16):
     '''
-    Create an output array from metadata dictionary.
+    Create an output array from Metadata class from utilities.Metadata().
     
     Args:
-        md: A metadata dictionary created by buildMetadataDictionary().
+        md: Metadata class from utilities.Metadata()
     
     Returns:
-        A numpy array sized to match the specification of the metadata dictionary.
+        A numpy array sized to match the specification of the utilties.Metadata() class.
     '''
     
     output_array = np.zeros((md.nrows, md.ncols), dtype = dtype)
@@ -54,10 +54,10 @@ def _sortSourceFiles(source_files):
 
 def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, options = []):
     '''
-    Function to create an empty gdal dataset with georefence info from metadata dictionary.
+    Function to create an empty gdal dataset with georefence info from Metadata class.
 
     Args:
-        md: A metadata dictionary created by buildMetadataDictionary().
+        md: Metadata class from utilities.Metadata().
         data_out: Optionally specify an array of data to include in the gdal dataset.
         filename: Optionally specify an output filename, if image will be written to disk.
         driver: GDAL driver type (e.g. 'MEM', 'GTiff'). By default this function creates an array in memory, but set driver = 'GTiff' to make a GeoTiff. If writing a file to disk, the argument filename must be specified.
@@ -92,8 +92,8 @@ def _reprojectImage(ds_source, ds_dest, md_source, md_dest):
     Args:
         ds_source: A gdal dataset from _createGdalDataset() containing data to be repojected.
         ds_dest: A gdal dataset from _createGdalDataset(), with destination coordinate reference system and extent.
-        md_source: A metadata dictionary created by buildMetadataDictionary() representing the source image.
-        md_dest: A metadata dictionary created by buildMetadataDictionary() representing the destination image.
+        md_source: Metadata class from utilities.Metadata() representing the source image.
+        md_dest: Metadata class from utilities.Metadata() representing the destination image.
     
     Returns:
         A GDAL array with resampled data
@@ -117,8 +117,8 @@ def _testOutsideTile(md_source, md_dest):
     Function that uses metadata class to test whether any part of a source data falls inside destination tile.
     
     Args:
-        md_source: A metadata dictionary created by buildMetadataDictionary() representing the source image.
-        md_dest: A metadata dictionary created by buildMetadataDictionary() representing the destination image.
+        md_source: Metadata class from utilities.Metadata() representing the source image.
+        md_dest: Metadata class from utilities.Metadata() representing the destination image.
         
     Returns:
         A boolean (True/False) value.
@@ -228,37 +228,37 @@ def _updateBandArray(data_out, data_resampled, image_n, n, scl_out):
 
 
 
-def getSourceFilesInTile(source_files, md_dest, verbose = False):
+def getSourceFilesInTile(scenes, md_dest, verbose = False):
     '''
     Takes a list of source files as input, and determines where each falls within extent of output tile.
     
     Args:
-        source_files: A list of level 3A input files.
-        md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.
+        scenes: A list of utiltites.LoadScene() Sentinel-2 objects
+        md_dest: Metadata class from utilities.Metadata() containing output projection details.
 
     Returns:
-        A reduced list of source_files containing only files that will contribute to each tile.
+        A reduced list of scenes containing only files that will contribute to each tile.
     '''
     
-    # Determine which L3A images are within specified tile bounds
+    # Determine which L2A images are within specified tile bounds
     if verbose: print 'Searching for source files within specified tile...'
     
     do_tile = []
     
-    for source_file in source_files:
+    for scene in scenes:
         
         # Skip processing the file if image falls outside of tile area
-        if _testOutsideTile(source_file.metadata, md_dest):
+        if _testOutsideTile(scene.metadata, md_dest):
             do_tile.append(False)
             continue
         
-        if verbose: print '    Found one: %s'%source_file.filename
+        if verbose: print '    Found one: %s'%scene.filename
         do_tile.append(True)
     
-    # Get subset of source_files in specified tile
-    source_files_tile = list(np.array(source_files)[np.array(do_tile)])
+    # Get subset of scenes in specified tile
+    scenes_tile = list(np.array(scenes)[np.array(do_tile)])
     
-    return source_files_tile
+    return scenes_tile
 
 
 def sortScenes(scenes):
@@ -266,7 +266,7 @@ def sortScenes(scenes):
     Function to sort a list of scenes by tile, then by date. This reduces some artefacts in mosaics.
     
     Args:
-        scenes: A list of LoadScene() Sentinel-2 objects
+        scenes: A list of utiltites.LoadScene() Sentinel-2 objects
     Returns:
         A sorted list of scenes
     '''
@@ -292,9 +292,9 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
 
     Args:
         scenes: A list of level 2A inputs (of class LoadScene).
-        md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.
+        md_dest: Metadata class from utilities.Metadata() containing output projection details.
         output_dir: Optionally specify directory for output file. Defaults to current working directory.
-        output_name: Optionally specify a string to prepend to output files. Defaults to 'L3B_output'.
+        output_name: Optionally specify a string to prepend to output files. Defaults to 'mosaic'.
         
     Returns:
         A numpy array containing mosaic data for the input band.
@@ -354,9 +354,9 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
         image_n: An array of integers from generateSCLArray(), which describes the scene that each pixel should come from. 0 = No data, 1 = first scene, 2 = second scene etc.
         band: String describing bad to process. e.g. B02, B03, B8A....
         scl_out: Numpy array with mask from generateSCLArray().
-        md_dest: Dictionary from buildMetaDataDictionary() containing output projection details.
+        md_dest: Metadata class from utilities.Metadata() containing output projection details.
         output_dir: Optionally specify directory for output file. Defaults to current working directory.
-        output_name: Optionally specify a string to prepend to output files. Defaults to 'L3B_output'.
+        output_name: Optionally specify a string to prepend to output files. Defaults to 'mosaic'.
         
     Returns:
         A numpy array containing mosaic data for the input band.
