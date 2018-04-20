@@ -8,7 +8,7 @@ import os
 from scipy import ndimage
 import subprocess
 
-import utilties
+import utilities
 
 import pdb
 
@@ -26,7 +26,7 @@ def _createOutputArray(md, dtype = np.uint16):
         md: Metadata class from utilities.Metadata()
     
     Returns:
-        A numpy array sized to match the specification of the utilties.Metadata() class.
+        A numpy array sized to match the specification of the utilities.Metadata() class.
     '''
     
     output_array = np.zeros((md.nrows, md.ncols), dtype = dtype)
@@ -233,7 +233,7 @@ def getSourceFilesInTile(scenes, md_dest, verbose = False):
     Takes a list of source files as input, and determines where each falls within extent of output tile.
     
     Args:
-        scenes: A list of utiltites.LoadScene() Sentinel-2 objects
+        scenes: A list of utilitites.LoadScene() Sentinel-2 objects
         md_dest: Metadata class from utilities.Metadata() containing output projection details.
 
     Returns:
@@ -266,7 +266,7 @@ def sortScenes(scenes):
     Function to sort a list of scenes by tile, then by date. This reduces some artefacts in mosaics.
     
     Args:
-        scenes: A list of utiltites.LoadScene() Sentinel-2 objects
+        scenes: A list of utilitites.LoadScene() Sentinel-2 objects
     Returns:
         A sorted list of scenes
     '''
@@ -479,10 +479,10 @@ def main(source_files, extent_dest, EPSG_dest, resolution = 0, output_dir = os.g
     for res in np.unique(res_list)[::-1]:
                 
         # Load metadata for all Sentinel-2 datasets
-        scenes = [utilties.LoadScene(source_file, resolution = res) for source_file in source_files]
+        scenes = [utilities.LoadScene(source_file, resolution = res) for source_file in source_files]
                 
         # Build metadata of output object
-        md_dest = utilties.Metadata(extent_dest, res, EPSG_dest)
+        md_dest = utilities.Metadata(extent_dest, res, EPSG_dest)
         
         # Reduce the pool of scenes to only those that overlap with output tile
         scenes_tile = getSourceFilesInTile(scenes, md_dest, verbose = verbose)       
