@@ -9,12 +9,11 @@ This toolset is written for use in Linux.
 You will need access to a PC or server with at least:
 
 * 8 GB of RAM to run sen2cor.
-* 32 - 128 GB of RAM to run sen2three (depending on how many images you aim to combine).
 
 Installing Anaconda Python
 --------------------------
 
-The ESA tools sen2cor and sen2three are at present reliant upon use of a particular version of the Anaconda Python distribution (v 4.2.0). At the time of writing, newer versions of Anaconda Python are incompatable with sen2cor and sen2three, though this may well change in future.
+All of the modules used by these scripts are available in Anaconda Python.
 
 To install Anaconda Python, open a terminal window, change directory to the location you'd like to install Anaconda Python, and run the following commands:
 
@@ -102,57 +101,6 @@ To test the installation, type ``L2A_Process --help`` in a terminal window to sh
                             Select the atmospheric correction GIPP
     --GIP_L2A_PB GIP_L2A_PB
                             Select the processing baseline GIPP
-
-
-Installing sen2three
---------------------
-
-sen2three is an ESA program to combine multiple level 2A images from Sentinel-2 into cloud-free composite images. It generates a new file containing the best quality cloud-free image that it can construct from available imagery.
-
-For further details and up-to-date installation instructions, see the `sen2three website <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_.
-
-.. note: This processing chain requires sen2three version 1.1.0 or later.
-
-At the time of writing, sen2three can be installed as follows. sen2three must be installed after Anaconda Python. Open a terminal window, change directory to the location you'd like sen2three to be installed, and run the following commands:
-
-.. code-block:: console
-    
-    wget http://step.esa.int/thirdparties/sen2three/1.1.0/sen2three-1.1.0.tar.gz
-    tar -xvzf sen2three-1.1.0.tar.gz
-    rm sen2three-1.1.0.tar.gz
-    cd sen2three-1.1.0
-    python setup.py install
-
-Once complete, you need to reference this software in your ``.bashrc`` file as follows:
-
-.. code-block:: console
-    
-    echo "source ~/sen2three/L3_Bashrc" >> ~/.bashrc
-    exec -l $SHELL
-
-To test the installation, type ``L3_Process --help`` in a terminal window. You should see the following:
-
-.. code-block:: console
-
-    usage: L3_Process [-h] [--resolution {10,20,60}] [--clean] directory
-
-    Sentinel-2 Level 3 Processor (Sen2Three), 1.0.1, created: 2017.02.13,
-    supporting Level-1C product version: 13.
-
-    positional arguments:
-    directory             Directory where the Level-2A input files are located
-
-    optional arguments:
-    -h, --help            show this help message and exit
-    --resolution {10,20,60}
-                            Target resolution, can be 10, 20 or 60m. If omitted,
-                            all resolutions will be processed
-    --clean               Removes the L3 product in the target directory before
-                            processing. Be careful!
-
-
-.. note:: Installation of sen2three v1.1.0 has been known to cause issues with the glymur library in Anaconda Python. If you encounter error messages relating to glymur, they can be fixed by re-installing glymur using the command: `pip install 'glymur==0.8.6'`.
-
 
 Installing sentinelsat
 ----------------------
