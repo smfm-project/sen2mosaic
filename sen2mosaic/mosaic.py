@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import glob
 import glymur
 import numpy as np
@@ -32,24 +33,6 @@ def _createOutputArray(md, dtype = np.uint16):
     output_array = np.zeros((md.nrows, md.ncols), dtype = dtype)
     
     return output_array
-
-
-def _sortSourceFiles(source_files):
-    '''
-    When building a large mosaic, it's necessary for input tiles to be in a consistent order to avoid strange overlap artefacts. This function sorts a list of safe files in alphabetical order by their tile reference.
-    
-    Args:
-        source_files: A list of level 3A Sentinel-2 .SAFE files.
-    
-    Returns:
-        A list of source_files alphabetised by tile name.
-    '''
-    
-    source_files.sort(key = lambda x: x.split('/')[-1].split('_T')[1])
-    
-    return source_files
-
-
 
 
 def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, options = []):
@@ -112,34 +95,6 @@ def _reprojectImage(ds_source, ds_dest, md_source, md_dest):
     return ds_resampled
 
 
-def _testOutsideTile(md_source, md_dest):
-    '''
-    Function that uses metadata class to test whether any part of a source data falls inside destination tile.
-    
-    Args:
-        md_source: Metadata class from utilities.Metadata() representing the source image.
-        md_dest: Metadata class from utilities.Metadata() representing the destination image.
-        
-    Returns:
-        A boolean (True/False) value.
-    '''
-    
-    import osr
-            
-    # Set up function to translate coordinates from source to destination
-    tx = osr.CoordinateTransformation(md_source.proj, md_dest.proj)
-         
-    # And translate the source coordinates
-    md_source.ulx, md_source.uly, z = tx.TransformPoint(md_source.ulx, md_source.uly)
-    md_source.lrx, md_source.lry, z = tx.TransformPoint(md_source.lrx, md_source.lry)   
-    
-    out_of_tile =  md_source.ulx >= md_dest.lrx or \
-                   md_source.lrx <= md_dest.ulx or \
-                   md_source.uly <= md_dest.lry or \
-                   md_source.lry >= md_dest.uly
-    
-    return out_of_tile
-
 
 def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMOGENEITY'):
     '''
@@ -173,7 +128,7 @@ def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMO
     
     elif algorithm == 'TEMP_HOMOGENEITY':
         
-        # Automatically replace any unmeaured pixels
+        # Automatically replace any unmeasured pixels
         selection = image_n == 0
         
         # Also replace pixels where sum of current good pixels greater than those already in the output
@@ -184,15 +139,17 @@ def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMO
             selection = good_px
         elif np.sum(good_px) > counts.max():
             selection = good_px
-    
+        
     else:
         raise
-        
+    
     # Update SCL code in each newly assigned pixel
     scl_out[selection] = scl_resampled[selection]
     
     # Update the image each pixel has come from
     image_n[selection] = n
+    
+    # Set unfilled pixels to zero
     image_n[np.logical_or(scl_out < 4, scl_out > 6)] = 0
     
     return scl_out, image_n
@@ -213,80 +170,43 @@ def _updateBandArray(data_out, data_resampled, image_n, n, scl_out):
         The data_out array with pixels from data_resampled added.
         
     '''
-    
+                
     # Find pixels that need replacing in this image
     selection = image_n == n
     
     # Add good data to data_out array
     data_out[selection] = data_resampled[selection]
-        
-    # Set bad values from scl mask to 0, to keep things tidy
-    #for i in [1, 2, 3, 8, 9, 10, 11, 12]:
-    #    data_out[selection][scl_out[selection] == i] = 0
-
+    
     return data_out
 
-
-
-def getSourceFilesInTile(scenes, md_dest, verbose = False):
+    
+def loadMask(scene, md_dest, correct = False):
     '''
-    Takes a list of source files as input, and determines where each falls within extent of output tile.
+    Funciton to load, correct and reproject a Sentinel-2 mask array.
     
     Args:
-        scenes: A list of utilitites.LoadScene() Sentinel-2 objects
-        md_dest: Metadata class from utilities.Metadata() containing output projection details.
-
+        scenes: A level-2A scene of class utilties.LoadScene().
+        md_dest: An object of class utilties.Metadata() to reproject image to.
+        correct: Set to True to perform corrections to sen2cor mask.
+    
     Returns:
-        A reduced list of scenes containing only files that will contribute to each tile.
+        A numpy array of resampled mask data
     '''
     
-    # Determine which L2A images are within specified tile bounds
-    if verbose: print 'Searching for source files within specified tile...'
-    
-    do_tile = []
-    
-    for scene in scenes:
+    # Write mask array to a gdal dataset
+    ds_source = _createGdalDataset(scene.metadata, data_out = scene.getMask(correct = True), dtype = 3)
         
-        # Skip processing the file if image falls outside of tile area
-        if _testOutsideTile(scene.metadata, md_dest):
-            do_tile.append(False)
-            continue
-        
-        if verbose: print '    Found one: %s'%scene.filename
-        do_tile.append(True)
+    # Create an empty gdal dataset for destination
+    ds_dest = _createGdalDataset(md_dest, dtype = 1)
     
-    # Get subset of scenes in specified tile
-    scenes_tile = list(np.array(scenes)[np.array(do_tile)])
+    # Reproject source to destination projection and extent
+    scl_resampled = _reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)
     
-    return scenes_tile
+    return scl_resampled
 
 
-def sortScenes(scenes):
-    '''
-    Function to sort a list of scenes by tile, then by date. This reduces some artefacts in mosaics.
-    
-    Args:
-        scenes: A list of utilitites.LoadScene() Sentinel-2 objects
-    Returns:
-        A sorted list of scenes
-    '''
-    
-    scenes_out = []
-    
-    scenes = np.array(scenes)
-    
-    dates = np.array([scene.datetime for scene in scenes])
-    tiles = np.array([scene.tile for scene in scenes])
-    
-    for tile in np.unique(tiles):
-        scenes_out.extend(scenes[tiles == tile][np.argsort(dates[tiles == tile])].tolist())
-       
-    return scenes_out
-    
-
-
-def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
-    '''generateSCLArray(source_files, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
+def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', verbose = False):
+    '''generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', verbose = False)
     
     Function which generates an mask GeoTiff file from list of level 2A source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from
 
@@ -295,14 +215,16 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
         md_dest: Metadata class from utilities.Metadata() containing output projection details.
         output_dir: Optionally specify directory for output file. Defaults to current working directory.
         output_name: Optionally specify a string to prepend to output files. Defaults to 'mosaic'.
-        
+        algorithm: Image compositing algorithm. Choose from 'MOST_RECENT', 'MOST_DISTANT', and 'TEMP_HOMOGENEITY'. Defaults to TEMP_HOMOGENEITY.
+        verbose: Set True for printed updates.
+
     Returns:
         A numpy array containing mosaic data for the input band.
         A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first scene, 2 = second scene etc.
     '''
     
     # Sort input scenes
-    scenes = sortScenes(scenes)
+    scenes = utilities.sortScenes(scenes)
     
     # Create array to contain output classified cloud mask array
     scl_out = _createOutputArray(md_dest, dtype = np.uint8)
@@ -314,17 +236,10 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
         
         if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
                 
-        # Write mask array to a gdal dataset
-        ds_source = _createGdalDataset(scene.metadata, data_out = scene.getMask(correct = True), dtype = 3)
-         
-        # Create an empty gdal dataset for destination
-        ds_dest = _createGdalDataset(md_dest, dtype = 1)
-        
-        # Reproject source to destination projection and extent
-        scl_resampled = _reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)
+        scl_resampled = loadMask(scene, md_dest, correct = True)
         
         # Add reprojected data to SCL output array
-        scl_out, image_n = _updateMaskArrays(scl_out, scl_resampled, image_n, n + 1)
+        scl_out, image_n = _updateMaskArrays(scl_out, scl_resampled, image_n, n + 1, algorithm = algorithm)
         
         # Tidy up
         ds_source = None
@@ -344,7 +259,32 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
     return scl_out, image_n
 
 
-def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
+def loadBand(scene, band, md_dest):
+    '''
+    Funciton to load and reproject a Sentinel-2 band array.
+    
+    Args:
+        scenes: A level-2A scene of class utilties.LoadScene().
+        band: The name of a band to load (e.g. 'B02')
+        md_dest: An object of class utilties.Metadata() to reproject image to.
+    
+    Returns:
+        A numpy array of resampled data
+    '''
+    
+    # Write array to a gdal dataset
+    ds_source = _createGdalDataset(scene.metadata, data_out = scene.getBand(band))                
+
+    # Create an empty gdal dataset for destination
+    ds_dest = _createGdalDataset(md_dest, dtype = 2)
+            
+    # Reproject source to destination projection and extent
+    data_resampled = _reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)    
+    
+    return data_resampled
+
+
+def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = False, verbose = False):
     """generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
     Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
@@ -363,31 +303,47 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
     """
     
     # Sort input scenes
-    scenes = sortScenes(scenes)
+    scenes = utilities.sortScenes(scenes)
+    
+    # Process by scene that contributes most pixels first
+    num, count = np.unique(image_n[image_n!=0], return_counts = True)
+    num_sorted = zip(*sorted(zip(count,num), reverse = True))[1]
     
     # Create array to contain output array for this band
     data_out = _createOutputArray(md_dest, dtype = np.uint16)
     
     # For each source file
-    for n, scene in enumerate(scenes):
+    for n in num_sorted:
         
-        # Skip image where no data is used from it
-        if np.sum(image_n[image_n==n+1]) == 0:
-            continue
-        
+        # Select scene
+        scene = scenes[n-1]
+               
         if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
         
-        # Write array to a gdal dataset
-        ds_source = _createGdalDataset(scene.metadata, data_out = scene.getBand(band))                
-
-        # Create an empty gdal dataset for destination
-        ds_dest = _createGdalDataset(md_dest, dtype = 2)
+        data_resampled = loadBand(scene, band, md_dest)
+        
+        # Perform basic colour balancing by histogram matching
+        if colour_balance:
+            
+            # Skip first image
+            if data_out.sum() != 0:
                 
-        # Reproject source to destination projection and extent
-        data_resampled = _reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)
+                scl_resampled = loadMask(scene, md_dest, correct = True)
                 
+                source = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled<4, scl_resampled>6))
+                
+                overlap = np.logical_and(source.mask==False, data_out != 0)
+                
+                # Only histogram match if at least 5 % of source image pixels covered in reference
+                if float(overlap.sum()) / (source.mask==False).sum()  > 0.05:
+                    
+                    data_resampled = utilities.histogram_match(source, np.ma.array(data_out, mask = data_out == 0)).data
+                    
+                else:
+                    if verbose: print '    Not enough overlap for histogram matching on this image.'
+               
         # Add reprojected data to band output array at appropriate image_n
-        data_out = _updateBandArray(data_out, data_resampled, image_n, n + 1, scl_out)
+        data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_out)
         
         # Tidy up
         ds_source = None
@@ -451,16 +407,20 @@ def _getBands(resolution):
 
     
         
-def main(source_files, extent_dest, EPSG_dest, resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
-    """main(source_files, extent_dest, EPSG_dest, resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic')
+def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = False, resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
+    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
-    Function to run through the entire chain for converting output of sen2Three into custom mosaics. This is the function that is initiated from the command line.
+    Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
         
     Args:
         source_files: A list of level 3A input files.
         extent_dest: List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax].
         EPSG_dest: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.
-        resolution: Process 0, 20, or 60 m bands. Defaults to 0 and processes all three.
+        start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
+        end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
+        algorithm: Image compositing algorithm. Choose from 'MOST_RECENT', 'MOST_DISTANT', and 'TEMP_HOMOGENEITY'. Defaults to TEMP_HOMOGENEITY.
+        colour_balance: Set to True to perform simple colour balancing.
+        resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
         output_dir: Optionally specify an output directory.
         output_name: Optionally specify a string to precede output file names. Defaults to 'mosaic'.
         verbose: Make script verbose (set True).
@@ -485,15 +445,18 @@ def main(source_files, extent_dest, EPSG_dest, resolution = 0, output_dir = os.g
         md_dest = utilities.Metadata(extent_dest, res, EPSG_dest)
         
         # Reduce the pool of scenes to only those that overlap with output tile
-        scenes_tile = getSourceFilesInTile(scenes, md_dest, verbose = verbose)       
-                
+        scenes_tile = utilities.getSourceFilesInTile(scenes, md_dest, start = start, end = end, verbose = verbose)       
+        
         # It's only worth processing a tile if at least one input image is inside tile
         assert len(scenes_tile) >= 1, "No data inside specified tile. Not processing this tile."
-                
+        
+        # Sort scenes to minimise artefacts
+        scenes_tile = utilities.sortScenes(scenes_tile)
+        
         if verbose: print 'Doing SCL mask at %s m resolution'%str(res)
         
         # Generate a classified mask
-        scl_out, image_n = generateSCLArray(scenes_tile, md_dest, output_dir = output_dir, output_name = output_name, verbose = verbose)
+        scl_out, image_n = generateSCLArray(scenes_tile, md_dest, output_dir = output_dir, output_name = output_name, algorithm = algorithm, verbose = verbose)
 
         # Process images for each band
         for band in band_list[res_list==res]:
@@ -501,7 +464,7 @@ def main(source_files, extent_dest, EPSG_dest, resolution = 0, output_dir = os.g
             if verbose: print 'Doing band %s at %s m resolution'%(band, str(res))
             
             # Using image_n, combine pixels into outputs images for each band
-            band_out = generateBandArray(scenes_tile, image_n, band, scl_out, md_dest, output_dir = output_dir, output_name = output_name, verbose = verbose)
+            band_out = generateBandArray(scenes_tile, image_n, band, scl_out, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, verbose = verbose)
     
         # Build VRT output files for straightforward visualisation
         if verbose: print 'Building .VRT images for visualisation'
@@ -509,7 +472,7 @@ def main(source_files, extent_dest, EPSG_dest, resolution = 0, output_dir = os.g
         # Natural colour image (10 m)
         buildVRT('%s/%s_R%sm_B04.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B03.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B02.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_RGB.vrt'%(output_dir, output_name, str(res)))
 
-        # Near infrared image (10 m )
+        # Near infrared image. Band at (10 m) has a different format to bands at 20 and 60 m.
         if res == 10:
             buildVRT('%s/%s_R%sm_B08.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B04.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B03.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_NIR.vrt'%(output_dir, output_name, str(res)))    
         else:
@@ -521,7 +484,8 @@ def main(source_files, extent_dest, EPSG_dest, resolution = 0, output_dir = os.g
 
 if __name__ == "__main__":
     
-    # Set up command line parser
+    # Set up command line parser    
+
     parser = argparse.ArgumentParser(description = "Process Sentinel-2 level 2A data to a composite mosaic product. This script mosaics data into a customisable grid square, based on specified UTM coordinate bounds. Files are output as GeoTiffs, which are easier to work with than JPEG2000 files.")
 
     parser._action_groups.pop()
@@ -529,22 +493,29 @@ if __name__ == "__main__":
     optional = parser.add_argument_group('optional arguments')
 
     # Required arguments
-    required.add_argument('infiles', metavar = 'L2A_FILES', type = str, nargs = '+', help = 'Sentinel-2 level 2A input files in .SAFE format. Specify a valid S2 input file or multiple files through wildcards (e.g. PATH/TO/*_MSIL2A_*.SAFE).')
     required.add_argument('-te', '--target_extent', nargs = 4, metavar = ('XMIN', 'YMIN', 'XMAX', 'YMAX'), type = float, help = "Extent of output image tile, in format <xmin, ymin, xmax, ymax>.")
     required.add_argument('-e', '--epsg', type=int, help="EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.")
     
     # Optional arguments
+    optional.add_argument('infiles', metavar = 'L2A_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to processing all granules in current working directory.')
+    optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
+    optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-r', '--resolution', metavar = 'N', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
+    optional.add_argument('-a', '--algorithm', type=str, metavar='NAME', default = 'TEMP_HOMOGENEITY', help="Optionally specify an image compositing algorithm ('MOST_RECENT', 'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to 'TEMP_HOMOGENEITY'.")
+    optional.add_argument('-b', '--balance', action='store_true', default = False, help="Optionally perform colour balancing when generating composite images. Defaults to False.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Optionally specify an output directory. If nothing specified, downloads will output to the present working directory, given a standard filename.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Optionally specify a string to precede output filename.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
     # Get arguments
     args = parser.parse_args()
-
+    
     # Get absolute path of input .safe files.
-    args.infiles = [os.path.abspath(i) for i in args.infiles]
-
-    main(args.infiles, args.target_extent, args.epsg, resolution = args.resolution, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
+    infiles = [os.path.abspath(i) for i in args.infiles]
+    
+    # Find all matching granule files
+    infiles = utilities.prepInfiles(infiles, '2A')
+    
+    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, algorithm = args.algorithm, colour_balance = args.balance, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
     
     

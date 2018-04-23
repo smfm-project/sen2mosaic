@@ -16,6 +16,8 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
+import utilities
+
 import pdb
 
 
@@ -110,63 +112,6 @@ def _run_workers(n_processes, jobs):
 ### Primary functions
 
 
-def _prepInfiles(infiles, tile = ''):
-    """
-    Args:
-        infiles: A list of input files, directories, or tiles for Sentinel-2 inputs
-        tile: Optionally filter infiles to return only those matching a particular tile
-    Returns:
-        A list of all Sentinel-2 tiles in infiles, 
-    """
-    
-    # Get absolute path, stripped of symbolic links
-    infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
-    
-    # List to collate 
-    infiles_reduced = []
-    
-    for infile in infiles:
-         
-        # Where infile is a directory:
-        infiles_reduced.extend(glob.glob('%s/*.SAFE/GRANULE/*'%infile))
-        
-        # Where infile is a .SAFE file
-        if infile.split('/')[-1].split('.')[-1] == 'SAFE': infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
-        
-        # Where infile is a specific granule 
-        if infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
-    
-    # Strip repeats (in case)
-    infiles_reduced = list(set(infiles_reduced))
-    
-    # Reduce input to infiles that match the tile (where specified)
-    infiles_reduced = [infile for infile in infiles_reduced if ('_T%s'%tile in infile.split('/')[-1])]
-    
-    # Reduce input files to only L1C files
-    infiles_reduced = [infile for infile in infiles_reduced if ('_MSIL1C_' in infile.split('/')[-3])]
-    
-    return infiles_reduced
-
-
-
-def _validateTile(tile):
-    '''
-    Validate the name structure of a Sentinel-2 tile. This tests whether the input tile format is correct.
-    
-    Args:
-        tile: A string containing the name of the tile to to download.
-    
-    Returns:
-        A boolean, True if correct, False if not.
-    '''
-    
-    # Tests whether string is in format ##XXX
-    name_test = re.match("[0-9]{2}[A-Z]{3}$",tile)
-    
-    return bool(name_test)
-
-
-
 def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     """
     Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
@@ -229,7 +174,6 @@ def _runCommand(command, verbose = False):
                 
         signal.signal(signal.SIGINT, handler)
         
-        #p = subprocess.Popen(command)
         p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
         
         if verbose:
@@ -273,7 +217,6 @@ def getL2AFile(L1C_file, output_dir = os.getcwd(), SAFE = False):
     if SAFE: outpath = '/'.join(outpath.split('.SAFE')[:-1]) + '.SAFE'# '/'.join(outpath.split('/')[:-2])
     
     return outpath.rstrip('/')
-
 
 
 def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1, resolution = 0, verbose = False):
@@ -346,135 +289,6 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     return outpath
 
 
-
-def loadMask(L2A_file, res):
-    """
-    Load classification mask given .SAFE file and resolution.
-    
-    Args:
-        L2A_file: A level 2A Sentinel-2 .SAFE file, processed with sen2cor.
-        res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).
-    
-    Returns:
-        A glymur .jp2 file the path to the classified image.
-        The directory location of the .jp2 mask file.
-    """
-        
-    # Remove trailing slash from input filename, if it exists
-    L2A_file = L2A_file.rstrip('/')
-    
-    # Identify the cloud mask following the standardised file pattern
-    image_path = glob.glob('%s/IMG_DATA/R%sm/*_SCL_*m.jp2'%(L2A_file,str(res)))
-    
-    # In case of old file format structure, the SCL file is stored elsewhere
-    if len(image_path) == 0:
-        image_path = glob.glob('%s/IMG_DATA/*_SCL_*%sm.jp2'%(L2A_file,str(res)))
-    
-    # Load the cloud mask (.jp2 format)
-    jp2 = glymur.Jp2k(image_path[0])
-
-    return jp2, image_path[0]
-
-
-
-def improveMask(jp2, res):
-    """
-    Tweaks the cloud mask output from sen2cor. Processes are: (1) Changing 'dark features' to 'cloud shadows, (2) Dilating 'cloud shadows', 'medium probability cloud' and 'high probability cloud' by 180 m. (3) Eroding outer 3 km of the tile to improve stitching of images by sen2Three.
-    
-    Args:
-        jp2: A glymur .jp2 file from loadMask().
-        res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m).
-    
-    Returns:
-        A numpy array of the SCL mask with modifications.
-    """
-    
-    # Read file as numpy array
-    data = jp2[:]
-    
-    # Make a copy of the original classification mask
-    data_orig = data.copy()
-    
-    # Change pixels labelled as 'dark features' to cloud shadows
-    data[data==2] = 3
-    
-    # Change cloud shadows not within 1800 m of a cloud pixel to water
-    iterations = 1800/res
-    
-    # Identify pixels proximal to any measure of cloud cover
-    cloud_dilated = ndimage.morphology.binary_dilation((np.logical_or(data==8, data==9)).astype(np.int), iterations = iterations)
-    
-    data[np.logical_and(data == 3, cloud_dilated == 0)] = 6
-        
-    # Dilate cloud shadows, med clouds and high clouds by 180 m.
-    iterations = 180 / res
-    
-    # Make a temporary dataset to prevent dilated masks overwriting each other
-    data_temp = data.copy()
-    
-    for i in [3,8,9]:
-        # Grow the area of each input class
-        mask_dilate = ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
-        
-        # Set dilated area to the same value as input class
-        data_temp[mask_dilate] = i
-        
-    data = data_temp
-
-    # Erode outer 3 km of image tile (should retain overlap)
-    iterations = 3000/res # 3 km buffer around edge
-    
-    # Shrink the area of measured pixels (everything that is not equal to 0)
-    mask_erode = ndimage.morphology.binary_erosion((data_orig != 0).astype(np.int), iterations=iterations)
-    
-    # Set these eroded areas to 0
-    data[mask_erode == False] = 0
-    
-    return data
-
-
-
-def writeMask(jp2, data, image_path):
-    """
-    Overwrites the old SCL mask with a new one, preserving the metadata (including projection info) from the original .jp2 file.
-    
-    Args:
-        jp2: A glymur jp2 file of the original SCL mask.
-        data: A numpy array containing the new data to overwrite the old mask with.
-        image_path: The path to the original classified image.
-    """
-          
-    # Get metadata from original .jp2 file (including projection)
-    boxes = jp2.box
-
-    # Generate a temporary output file
-    temp_jp2 = tempfile.mktemp(suffix='.jp2')
-        
-    # Important options for .jp2 file, required for sen2cor/sen2three to understand image
-    kwargs = {"tilesize": (640, 640), "prog": "RPCL"}
-
-    # Save temporary image to generate metadata (boxes)
-    jp2_out = glymur.Jp2k(temp_jp2, data = data, **kwargs)
-
-    # Replace boxes in modified file with originals
-    boxes_out = jp2_out.box
-
-    boxes_out[0] = boxes[0]
-    boxes_out[1] = boxes[1]
-    boxes_out[2] = boxes[2]
-    boxes_out.insert(3,boxes[3]) # This is the projection info
-            
-    # Make a copy of the original file
-    shutil.copy2(image_path, image_path[:-7] + 'old_' + image_path[-7:])
-
-    # Overwite original file
-    jp2_out.wrap(image_path, boxes = boxes_out)
-    
-    # Tidy up temporary .jp2 file
-    os.remove(temp_jp2)
-
-
-
 def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
     """
     Test for successful completion of sen2cor processing. 
@@ -501,10 +315,10 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
     # Test all expected 20 m files are present
     if resolution == 0 or resolution == 20:
         
-        for band in ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'VIS', 'SCL', 'SCL_old']:
+        for band in ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'VIS', 'SCL']:
             
             if not len(glob.glob('%s/IMG_DATA/R20m/*_%s_20m.jp2'%(L2A_file,band))) == 1:
-                if band == 'SCL' or band == 'SCL_old':
+                if band == 'SCL':
                     mask_enhancement_failure = True
                 else:
                     band_creation_failure = True
@@ -512,10 +326,10 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
     # Test all expected 60 m files are present
     if resolution == 0 or resolution == 60:
         
-        for band in ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'SCL', 'SCL_old']:
+        for band in ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'SCL']:
             
             if not len(glob.glob('%s/IMG_DATA/R60m/*_%s_60m.jp2'%(L2A_file,band))) == 1:
-                if band == 'SCL' or band == 'SCL_old':
+                if band == 'SCL':
                     mask_enhancement_failure = True
                 else:
                     band_creation_failure = True
@@ -525,22 +339,7 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
 
 
 
-def removeL1C(L1C_file, output_dir = os.getcwd(), resolution = 0):
-    """
-    Deletes a Level 1C Sentinel-2 .SAFE file from disk.
-    
-    Args:
-        L1C_file: A Sentinel-2 level 1C file.
-    """
-    
-    assert '_MSIL1C_' in L1C_file, "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE files"
-    assert L1C_file.split('/')[-3][-5:] == '.SAFE', "removeL1C function should only be used to delete Sentinel-2 level 1C .SAFE tile files"
-    assert testCompletion(L1C_file, output_dir = output_dir, resolution = resolution), "File did not finish processing, so not deleting L1C input file."
-    
-    shutil.rmtree(L1C_file)
-
-
-def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resolution = 0, verbose = False):
+def main(infile, gipp = None, output_dir = os.getcwd(), resolution = 0, verbose = False):
     """
     Function to initiate sen2cor on level 1C Sentinel-2 files and perform improvements to cloud masking. This is the function that is initiated from the command line.
     
@@ -548,7 +347,6 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
         infile: A Level 1C Sentinel-2 .SAFE file.
         gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to tweak options.
         output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
-        remove: Boolean value, which when set to True deletes level 1C files after processing is complete. Defaults to False.
     """
     
     if verbose: print 'Processing %s'%infile.split('/')[-1]
@@ -557,28 +355,11 @@ def main(infile, gipp = None, output_dir = os.getcwd(), remove = False, resoluti
         L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
     except Exception as e:
         raise
-    
-    # Perform improvements to mask for each resolution   
-    if resolution != 10:
-        for res in [20, 60]:
-            if resolution != 0 and resolution != res:
-                continue
-            if verbose: print 'Improving mask for resolution %s m.'%str(res)
-            cloudmask_jp2, image_path = loadMask(L2A_file, res)
-            cloudmask_new = improveMask(cloudmask_jp2, res)
-            writeMask(cloudmask_jp2, cloudmask_new, image_path)
-            
+                
     # Test for completion, and report back
-    if testCompletion(infile, output_dir = output_dir, resolution = resolution) == False:
-        
+    if testCompletion(infile, output_dir = output_dir, resolution = resolution) == False:    
         print 'WARNING: %s did not complete processing.'%infile
     
-    else:
-        
-        # Only removing input file where processing completed successfully
-        if remove: removeL1C(infile, output_dir = output_dir, resolution = resolution)
-
-
 
 if __name__ == '__main__':
     '''
@@ -595,12 +376,11 @@ if __name__ == '__main__':
     # Required arguments
     
     # Optional arguments
-    optional.add_argument('infiles', metavar = 'L1C_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple tiles through wildcards (e.g. *.SAFE/GRANULE/*). All tiles that match input conditions will be atmospherically corrected.')
+    optional.add_argument('infiles', metavar = 'L1C_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). All granules that match input conditions will be atmospherically corrected.')
     optional.add_argument('-t', '--tile', type = str, default = '', help = 'Specify a specific Sentinel-2 tile to process. If omitted, all tiles in L1C_FILES will be processed.')
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
     optional.add_argument('-res', '--resolution', type = int, metavar = '10/20/60', default = 0, help = "Process only one of the Sentinel-2 resolutions, with options of 10, 20, or 60 m. Defaults to processing all three.")
-    optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Delete input level 1C files after processing.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
@@ -608,7 +388,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
         
     # Get all infiles that match tile and file pattern
-    infiles = _prepInfiles(args.infiles, tile = args.tile)
+    infiles = utilities.prepInfiles(args.infiles, '1C', tile = args.tile)
         
     # Get absolute path for output directory
     args.output_dir = os.path.abspath(args.output_dir)
@@ -618,7 +398,6 @@ if __name__ == '__main__':
         outpath = getL2AFile(infile, output_dir = args.output_dir)
         
         if os.path.exists(outpath):
-            #infiles.remove(infile)
             print 'WARNING: The output file %s already exists! Skipping file.'%outpath
     
     if len(infiles) == 0: raise ValueError('No usable level 1C Sentinel-2 files detected in input directory.')
@@ -628,12 +407,12 @@ if __name__ == '__main__':
         # Keep things simple when using one processor
         for infile in infiles:
             
-            main(infile, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose) 
+            main(infile, gipp = args.gipp, output_dir = args.output_dir, resolution = args.resolution, verbose = args.verbose) 
     
     else:
 
         # Set up function with multiple arguments, and run in parallel
-        main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, remove = args.remove, resolution = args.resolution, verbose = args.verbose)
+        main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, resolution = args.resolution, verbose = args.verbose)
     
         _run_workers(args.n_processes, infiles)
     
