@@ -106,9 +106,11 @@ class LoadScene(object):
         # Get file format
         self.file_format = self.__getFormat()
         
-        # Extract image type (S1_single, S1_dual, S2), and raise error if filename if formatted incorrectly
+        # Save image type (S1_single, S1_dual, S2)
+        self.image_type = 'S2'
+
         self.level = self.__getLevel()
-        
+                
         self.resolution = self.__checkResolution(resolution)
            
         self.__getMetadata()
@@ -187,7 +189,12 @@ class LoadScene(object):
         # Identify source file following the standardised file pattern
         
         if self.level == '2A':
-            image_path = glob.glob(self.filename + '/IMG_DATA/R%sm/L2A*_%s_%sm.jp2'%(str(resolution), band, str(resolution)))
+            
+            image_path = glob.glob(self.filename + '/IMG_DATA/R%sm/*2A_*_%s_*%sm.jp2'%(str(resolution), band, str(resolution)))
+            
+            # In old files the mask can be in the base folder
+            if len(image_path) == 0 and band == 'SCL':
+                image_path = glob.glob(self.filename + '/IMG_DATA/*2A_*%s_*%sm.jp2'%(band, str(resolution)))
         
         elif self.level == '1C':
             image_path = glob.glob(self.filename + '/IMG_DATA/T%s_%s.jp2'%(str(self.tile), band))        
