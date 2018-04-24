@@ -448,7 +448,9 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         scenes_tile = utilities.getSourceFilesInTile(scenes, md_dest, start = start, end = end, verbose = verbose)       
         
         # It's only worth processing a tile if at least one input image is inside tile
-        assert len(scenes_tile) >= 1, "No data inside specified tile. Not processing this tile."
+        if len(scenes_tile) == 0:
+            print "    No data inside specified tile for resolution %s. Skipping."%str(res)
+            continue
         
         # Sort scenes to minimise artefacts
         scenes_tile = utilities.sortScenes(scenes_tile)

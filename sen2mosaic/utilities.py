@@ -423,12 +423,13 @@ def getSourceFilesInTile(scenes, md_dest, start = '20150101', end = datetime.dat
     return scenes_tile
 
 
-def sortScenes(scenes):
+def sortScenes(scenes, by = 'tile'):
     '''
     Function to sort a list of scenes by tile, then by date. This reduces some artefacts in mosaics.
     
     Args:
         scenes: A list of utilitites.LoadScene() Sentinel-2 objects
+        by: Set to 'tile' to sort by tile then date, or 'date' to sort by date then tile
     Returns:
         A sorted list of scenes
     '''
@@ -440,9 +441,14 @@ def sortScenes(scenes):
     dates = np.array([scene.datetime for scene in scenes])
     tiles = np.array([scene.tile for scene in scenes])
     
-    for tile in np.unique(tiles):
-        scenes_out.extend(scenes[tiles == tile][np.argsort(dates[tiles == tile])].tolist())
-       
+    if by == 'tile':
+        for tile in np.unique(tiles):
+            scenes_out.extend(scenes[tiles == tile][np.argsort(dates[tiles == tile])].tolist())
+    
+    elif by == 'date':
+        for date in np.unique(dates):
+            scenes_out.extend(scenes[dates == date][np.argsort(tiles[dates == date])].tolist())
+    
     return scenes_out
 
 
