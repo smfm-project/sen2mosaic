@@ -251,16 +251,13 @@ class LoadScene(object):
         Load a Sentinel-2 band to a numpy array.
         '''
         
-        import glymur
+        import cv2
         
         image_path = self.__getImagePath(band, resolution = self.resolution)
         
-        # Load the image (.jp2 format)
-        jp2 = glymur.Jp2k(image_path)
-    
-        # Extract array mask from .jp2 file
-        data = jp2[:]
-        
+        # Load image with cv2 (faster than glymur)
+        data = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
+                
         return data
 
 
@@ -453,7 +450,7 @@ def sortScenes(scenes, by = 'tile'):
 
 
 
-def getS2Metadata(granule_file, resolution = 20, level = '2A'):
+def getS2Metadata(granule_file, resolution = 20, level = '2A', tile = ''):
     '''
     Function to extract georefence info from level 1C/2A Sentinel 2 data in .SAFE format.
     
@@ -524,21 +521,20 @@ def getS2Metadata(granule_file, resolution = 20, level = '2A'):
         cloud_cover = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/Image_Content_QI/CLOUDY_PIXEL_PERCENTAGE", ns).text
         
         nodata_percent = 100. - float(cloud_cover)
-        
-    # Get tile from granule filename
-    if granule_file.split('/')[-1].split('_')[1] == 'USER':
-        
-        # If old file format
-        tile = granule_file.split('/')[-1].split('_')[-2]
-        
-    else:
-        
-        # If new file format
-        tile = granule_file.split('/')[-1].split('_')[1]
+    
+    if tile == '':
+        # Get tile from granule filename
+        if granule_file.split('/')[-1].split('_')[1] == 'USER':
+            
+            # If old file format
+            tile = granule_file.split('/')[-1].split('_')[-2]
+            
+        else:
+            
+            # If new file format
+            tile = granule_file.split('/')[-1].split('_')[1]
     
     return extent, EPSG, date, tile, nodata_percent
-
-
 
 
 def improveMask(data, res):
@@ -648,7 +644,6 @@ def histogram_match(source, reference):
         target.fill_value = source.fill_value
 
     return target.reshape(orig_shape)
-
 
 
 if __name__ == '__main__':
