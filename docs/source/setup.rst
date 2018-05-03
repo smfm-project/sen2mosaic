@@ -13,36 +13,38 @@ You will need access to a PC or server with at least:
 Installing Anaconda Python
 --------------------------
 
-All of the modules used by these scripts are available in Anaconda Python.
+These tools are written in Python. We recommend the Anaconda distribution of Python, which contains all the modules necessary to run these scripts.
 
 To install Anaconda Python, open a terminal window, change directory to the location you'd like to install Anaconda Python, and run the following commands:
 
 .. code-block:: console
     
-    wget https://repo.continuum.io/archive/Anaconda2-4.2.0-Linux-x86_64.sh
-    bash Anaconda2-4.2.0-Linux-x86_64.sh
-
-
-Once complete, you'll need to add this version of Python to your .bashrc file as follows:
-
-.. code-block:: console
-    
-    # Substitute root for the path to your system's installation and .bashrc file.
-    echo 'export PATH="~/anaconda2/bin:$PATH"' >> ~/.bashrc
-    exec -l $SHELL
-
+    wget https://repo.anaconda.com/archive/Anaconda2-5.1.0-Linux-x86_64.sh
+    chmod +x Anaconda2-5.1.0-Linux-x86_64.sh 
+    ./Anaconda2-5.1.0-Linux-x86_64.sh 
 
 If this has functioned, on executing ``python`` in a terminal window, you should ssee the following:
 
 .. code-block:: console
-
-    Python 2.7.12 |Anaconda custom (64-bit)| (default, Jul  2 2016, 17:42:40) 
-    [GCC 4.4.7 20120313 (Red Hat 4.4.7-1)] on linux2
+    
+    Python 2.7.14 |Anaconda, Inc.| (default, Dec  7 2017, 17:05:42) 
+    [GCC 7.2.0] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
-    Anaconda is brought to you by Continuum Analytics.
-    Please check out: http://continuum.io/thanks and https://anaconda.org
     >>> 
 
+sen2mosaic requires two further modules to operate (gdal and opencv). At the time of writing, these can be installed using the commands:
+
+.. code-block:: console
+    
+    conda install -c anaconda gdal
+    conda install -c conda-forge opencv
+
+If successful, on opening a new terminal and running ``python`` you should be able to import the two modules without error:
+
+.. code-block:: python
+
+    >>> from osgeo import gdal
+    >>> import cv2
 
 Installing sen2cor
 ------------------
