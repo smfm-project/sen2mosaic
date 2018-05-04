@@ -216,7 +216,7 @@ class LoadScene(object):
             print 'Level 1C Sentinel-2 data are not masked. Try loading a level 2A image.'
             return False
         
-        import glymur
+        import cv2
 
         # Don't rerun processing if mask already present in memory
         if not hasattr(self, 'mask'):
@@ -228,10 +228,7 @@ class LoadScene(object):
                 image_path = self.__getImagePath('SCL', resolution = 20)
             
             # Load the image (.jp2 format)
-            jp2 = glymur.Jp2k(image_path)
-        
-            # Extract array mask from .jp2 file
-            mask = jp2[:]
+            mask = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
             
             # Expand 20 m resolution mask to match 10 metre image resolution if required
             if self.metadata.res == 10:
@@ -509,11 +506,17 @@ def getS2Metadata(granule_file, resolution = 20, level = '2A', tile = ''):
     
     if level == '2A':
         
-        # Get nodata percentage based on scene classification
-        vegetated = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/L2A_Image_Content_QI/VEGETATION_PERCENTAGE",ns).text
-        not_vegetated = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/L2A_Image_Content_QI/NOT_VEGETATED_PERCENTAGE",ns).text
-        water = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/L2A_Image_Content_QI/WATER_PERCENTAGE",ns).text
-        
+        try:
+            # Get nodata percentage based on scene classification
+            vegetated = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/L2A_Image_Content_QI/VEGETATION_PERCENTAGE",ns).text
+            not_vegetated = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/L2A_Image_Content_QI/NOT_VEGETATED_PERCENTAGE",ns).text
+            water = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/L2A_Image_Content_QI/WATER_PERCENTAGE",ns).text
+        except:
+            # In case of new sen2cor format
+            vegetated = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/Image_Content_QI/VEGETATION_PERCENTAGE",ns).text
+            not_vegetated = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/Image_Content_QI/NOT_VEGETATED_PERCENTAGE",ns).text
+            water = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/Image_Content_QI/WATER_PERCENTAGE",ns).text
+            
         nodata_percent = 100. - float(water) - float(vegetated) - float(not_vegetated)
     
     elif level == '1C':
