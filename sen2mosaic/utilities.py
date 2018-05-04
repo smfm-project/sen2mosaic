@@ -505,7 +505,6 @@ def getS2Metadata(granule_file, resolution = 20, level = '2A', tile = ''):
     date = datetime.datetime.strptime(datestring,'%Y-%m-%dT%H:%M:%S')
     
     if level == '2A':
-        
         try:
             # Get nodata percentage based on scene classification
             vegetated = root.find("n1:Quality_Indicators_Info[@metadataLevel='Standard']/L2A_Image_Content_QI/VEGETATION_PERCENTAGE",ns).text
