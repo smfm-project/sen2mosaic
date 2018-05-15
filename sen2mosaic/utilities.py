@@ -199,7 +199,7 @@ class LoadScene(object):
         elif self.level == '1C':
             image_path = glob.glob(self.filename + '/IMG_DATA/T%s_%s.jp2'%(str(self.tile), band))        
         
-        assert len(image_path) > 0, "No file found for band: %s, resolution: %s."%(band, str(resolution))
+        assert len(image_path) > 0, "No file found for band: %s, resolution: %s in file %s."%(band, str(resolution), self.filename)
         
         return image_path[0]
 

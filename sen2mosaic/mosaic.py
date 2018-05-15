@@ -3,7 +3,6 @@
 import argparse
 import datetime
 import glob
-import glymur
 import numpy as np
 import os
 from scipy import ndimage
@@ -50,6 +49,7 @@ def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype
     Returns:
         A GDAL dataset.
     '''
+    
     from osgeo import gdal
     
     gdal_driver = gdal.GetDriverByName(driver)
@@ -194,7 +194,7 @@ def loadMask(scene, md_dest, correct = False):
     '''
     
     # Write mask array to a gdal dataset
-    ds_source = _createGdalDataset(scene.metadata, data_out = scene.getMask(correct = True), dtype = 3)
+    ds_source = _createGdalDataset(scene.metadata, data_out = scene.getMask(correct = correct), dtype = 3)
         
     # Create an empty gdal dataset for destination
     ds_dest = _createGdalDataset(md_dest, dtype = 1)
@@ -205,7 +205,7 @@ def loadMask(scene, md_dest, correct = False):
     return scl_resampled
 
 
-def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', verbose = False):
+def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', correct_mask = True, verbose = False):
     '''generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', verbose = False)
     
     Function which generates an mask GeoTiff file from list of level 2A source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from
@@ -236,7 +236,7 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
         
         if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
                 
-        scl_resampled = loadMask(scene, md_dest, correct = True)
+        scl_resampled = loadMask(scene, md_dest, correct = correct_mask)
         
         # Add reprojected data to SCL output array
         scl_out, image_n = _updateMaskArrays(scl_out, scl_resampled, image_n, n + 1, algorithm = algorithm)
