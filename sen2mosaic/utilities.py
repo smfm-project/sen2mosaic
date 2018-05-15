@@ -190,11 +190,11 @@ class LoadScene(object):
         
         if self.level == '2A':
             
-            image_path = glob.glob(self.filename + '/IMG_DATA/R%sm/*2A_*_%s_*%sm.jp2'%(str(resolution), band, str(resolution)))
+            image_path = glob.glob(self.filename + '/IMG_DATA/R%sm/*%s*%sm.jp2'%(str(resolution), band, str(resolution)))
             
             # In old files the mask can be in the base folder
             if len(image_path) == 0 and band == 'SCL':
-                image_path = glob.glob(self.filename + '/IMG_DATA/*2A_*%s_*%sm.jp2'%(band, str(resolution)))
+                image_path = glob.glob(self.filename + '/IMG_DATA/*%s*%sm.jp2'%(band, str(resolution)))
         
         elif self.level == '1C':
             image_path = glob.glob(self.filename + '/IMG_DATA/T%s_%s.jp2'%(str(self.tile), band))        
