@@ -580,8 +580,8 @@ def improveMask(data, res):
         
     data = data_temp
 
-    # Erode outer 3 km of image tile (should retain overlap)
-    iterations = 3000/res # 3 km buffer around edge
+    # Erode outer 0.6 km of image tile (should retain overlap)
+    iterations = 600/res 
     
     # Shrink the area of measured pixels (everything that is not equal to 0)
     mask_erode = scipy.ndimage.morphology.binary_erosion((data_orig != 0).astype(np.int), iterations=iterations)

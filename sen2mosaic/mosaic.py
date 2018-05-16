@@ -128,17 +128,19 @@ def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMO
     
     elif algorithm == 'TEMP_HOMOGENEITY':
         
-        # Automatically replace any unmeasured pixels
-        selection = image_n == 0
+        # Replace any unmeasured pixels with 'good' values
+        selection = np.logical_and(good_px, image_n == 0)
         
         # Also replace pixels where sum of current good pixels greater than those already in the output
-        _, counts = np.unique(image_n[image_n > 0], return_counts = True)
+        #_, counts = np.unique(image_n[image_n > 0], return_counts = True)
         
-        if counts.size == 0:
-            # For first image
-            selection = good_px
-        elif np.sum(good_px) > counts.max():
-            selection = good_px
+        # Also replace pixels where sum of current good pixels greater than those already in the output for a given tile
+        _, counts = np.unique(image_n[np.logical_and(image_n > 0, scl_resampled != 0)], return_counts = True)
+        
+        # For every image past the first, replace all pixels with good_px if the result is a more homogenous image
+        if counts.size != 0:
+            if np.sum(good_px) > counts.max():
+                selection = np.logical_or(selection, good_px)
         
     else:
         raise
@@ -284,6 +286,39 @@ def loadBand(scene, band, md_dest):
     return data_resampled
 
 
+def _getImageOrder(scenes, image_n):
+    '''
+    Sort tiles, so that most populated is processed first to improve quality of colour balancing
+    
+    Args:
+        scenes: A list of level 2A inputs (of class LoadScene).
+        image_n: An array of integers from generateSCLArray(), which describes the scene that each pixel should come from. 0 = No data, 1 = first scene, 2 = second scene etc.
+    '''
+    
+    # tile_count = Number of included pixels by tile
+    # tile_name  = Granule name in format T##XXX
+    # tile_total = Total number of pixels from all images of each tile_count
+    
+    num, count = np.unique(image_n[image_n!=0], return_counts = True)
+    num_sorted = zip(*sorted(zip(count,num), reverse = True))[1]
+    tile_count = np.zeros(len(scenes), dtype=np.int)
+    tile_count[num-1] = count
+    
+    tile_name = np.array([scene.tile for scene in scenes])
+    
+    tile_total = np.zeros(len(scenes),dtype=np.int)
+    for tile in np.unique(tile_name):
+        tile_total[tile_name == tile] = np.sum(tile_count[tile_name == tile])
+
+    # Sort first by contribution from tile, then tile name (where tied), then by contribution of pixels from each overpass. This improves the quality of colour balancing.
+    tile_number = np.lexsort((tile_count,tile_name,tile_total))[::-1] + 1
+    
+    # Exclude tiles where no data are used
+    tile_number = tile_number[tile_count[tile_number-1] > 0]
+    
+    return tile_number
+
+
 def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = False, verbose = False):
     """generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
@@ -303,17 +338,30 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
     """
     
     # Sort input scenes
-    scenes = utilities.sortScenes(scenes)
+    #scenes = utilities.sortScenes(scenes)
     
-    # Process by scene that contributes most pixels first
-    num, count = np.unique(image_n[image_n!=0], return_counts = True)
-    num_sorted = zip(*sorted(zip(count,num), reverse = True))[1]
-    
+    # Get a name, number and pixel count for each tile
+    #tile_number = np.arange(len(scenes))+1
+        
+    #num, count = np.unique(image_n[image_n!=0], return_counts = True)
+    #num_sorted = zip(*sorted(zip(count,num), reverse = True))[1]
+    #tile_count = np.zeros(len(scenes), dtype=np.int)
+    #tile_count[num-1] = count
+    #
+    #tile_name = np.array([scene.tile for scene in scenes])
+    #
+    #tile_total = np.zeros(len(scenes),dtype=np.int)
+    #for tile in np.unique(tile_name):
+    #    tile_total[tile_name == tile] = np.sum(tile_count[tile_name == tile])
+
+    # Sort first by contribution from tile, then tile name (where tied), then by contribution of pixels from each overpass. This improves the quality of colour balancing.
+    #tile_number = np.lexsort((tile_count,tile_name,tile_total))[::-1] + 1  
+        
     # Create array to contain output array for this band
     data_out = _createOutputArray(md_dest, dtype = np.uint16)
     
-    # For each source file
-    for n in num_sorted:
+    # For each source file that contributes pixels
+    for n in _getImageOrder(scenes, image_n): #tile_number[tile_count[tile_number-1] > 0]:
         
         # Select scene
         scene = scenes[n-1]
@@ -334,12 +382,13 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                 
                 overlap = np.logical_and(source.mask==False, data_out != 0)
                 
-                # Only histogram match if at least 5 % of source image pixels covered in reference
-                if float(overlap.sum()) / (source.mask==False).sum()  > 0.05:
+                # Only histogram match if at least 2% of source image pixels covered in reference
+                if float(overlap.sum()) / (source.mask==False).sum()  > 0.02:
                     
                     data_resampled = utilities.histogram_match(source, np.ma.array(data_out, mask = data_out == 0)).data
                     
                 else:
+                    pdb.set_trace()
                     if verbose: print '    Not enough overlap for histogram matching on this image.'
                
         # Add reprojected data to band output array at appropriate image_n
