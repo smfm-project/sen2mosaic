@@ -157,7 +157,7 @@ def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMO
     return scl_out, image_n
 
 
-def _updateBandArray(data_out, data_resampled, image_n, n, scl_out):
+def _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled):
     '''
     Function to update contents of output array based on image_n array.
     
@@ -166,15 +166,15 @@ def _updateBandArray(data_out, data_resampled, image_n, n, scl_out):
         data_resampled: A numpy array containing resampled band data to be added to data_out.
         image_n: A numpy array representing the image number from _updateMaskArrays().
         n: An integer describing the image number (first image = 1, second image = 2 etc.).
-        scl_out: A numpy array representing the SCL mask from _updateMaskArrays().
+        scl_resampled: A numpy array representing the SCL mask for data_resampled
     
     Returns:
         The data_out array with pixels from data_resampled added.
         
     '''
                 
-    # Find pixels that need replacing in this image
-    selection = image_n == n
+    # Find pixels that can be replaced in this image (valid, or selected). Add all valid, to aid with colour balancing between scenes.
+    selection = np.logical_and(np.logical_or(image_n == n, data_out == 0),np.logical_and(scl_resampled>=4,scl_resampled<=6))
     
     # Add good data to data_out array
     data_out[selection] = data_resampled[selection]
@@ -286,6 +286,7 @@ def loadBand(scene, band, md_dest):
     return data_resampled
 
 
+
 def _getImageOrder(scenes, image_n):
     '''
     Sort tiles, so that most populated is processed first to improve quality of colour balancing
@@ -295,9 +296,25 @@ def _getImageOrder(scenes, image_n):
         image_n: An array of integers from generateSCLArray(), which describes the scene that each pixel should come from. 0 = No data, 1 = first scene, 2 = second scene etc.
     '''
     
+    def _getCentre(scene):
+        '''
+        '''
+        from osgeo import osr
+        
+        # Set up function to translate coordinates from source to destination CRS for each scene
+        tx = osr.CoordinateTransformation(ref_scene.metadata.proj, scene.metadata.proj)
+        
+        # And translate the source coordinates
+        x_min, y_min, z = tx.TransformPoint(scene.extent[0], scene.extent[1])
+        x_max, y_max, z = tx.TransformPoint(scene.extent[2], scene.extent[3])
+        
+        return ((y_max - y_min) / 2.) + y_min, ((x_max - x_min) / 2.) + x_min
+        
+        
     # tile_count = Number of included pixels by tile
     # tile_name  = Granule name in format T##XXX
     # tile_total = Total number of pixels from all images of each tile_count
+    # tile_dist  = Euclidean distance to reference tile (in ref tile units)
     
     num, count = np.unique(image_n[image_n!=0], return_counts = True)
     num_sorted = zip(*sorted(zip(count,num), reverse = True))[1]
@@ -309,9 +326,20 @@ def _getImageOrder(scenes, image_n):
     tile_total = np.zeros(len(scenes),dtype=np.int)
     for tile in np.unique(tile_name):
         tile_total[tile_name == tile] = np.sum(tile_count[tile_name == tile])
-
-    # Sort first by contribution from tile, then tile name (where tied), then by contribution of pixels from each overpass. This improves the quality of colour balancing.
-    tile_number = np.lexsort((tile_count,tile_name,tile_total))[::-1] + 1
+    
+    # Get reference scene
+    ref_scene = np.array(scenes)[tile_total==np.max(tile_total)][0]
+    
+    tile_dist = []
+    
+    ref_y, ref_x = _getCentre(ref_scene)
+    for n, scene in enumerate(scenes):
+        y, x = _getCentre(scene)
+        tile_dist.append((((y - ref_y)**2) + ((x - ref_x)**2)) ** 0.5)
+    tile_dist = np.array(tile_dist)
+    
+    # Sort first by distance to refernece tile, then tile name (some tiles are equidistant), then then by contribution of pixels from each overpass. This improves the quality of colour balancing.
+    tile_number = np.lexsort((tile_count, tile_name, tile_dist*-1))[::-1] + 1
     
     # Exclude tiles where no data are used
     tile_number = tile_number[tile_count[tile_number-1] > 0]
@@ -342,7 +370,7 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
     
     # Get a name, number and pixel count for each tile
     #tile_number = np.arange(len(scenes))+1
-        
+    
     #num, count = np.unique(image_n[image_n!=0], return_counts = True)
     #num_sorted = zip(*sorted(zip(count,num), reverse = True))[1]
     #tile_count = np.zeros(len(scenes), dtype=np.int)
@@ -370,14 +398,14 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
         
         data_resampled = loadBand(scene, band, md_dest)
         
+        scl_resampled = loadMask(scene, md_dest, correct = True)
+        
         # Perform basic colour balancing by histogram matching
         if colour_balance:
             
             # Skip first image
             if data_out.sum() != 0:
-                
-                scl_resampled = loadMask(scene, md_dest, correct = True)
-                
+                               
                 source = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled<4, scl_resampled>6))
                 
                 overlap = np.logical_and(source.mask==False, data_out != 0)
@@ -388,16 +416,15 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                     data_resampled = utilities.histogram_match(source, np.ma.array(data_out, mask = data_out == 0)).data
                     
                 else:
-                    pdb.set_trace()
                     if verbose: print '    Not enough overlap for histogram matching on this image.'
                
         # Add reprojected data to band output array at appropriate image_n
-        data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_out)
+        data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled)
         
         # Tidy up
         ds_source = None
         ds_dest = None
-
+        
     if verbose: print 'Outputting band %s'%band
     
     # Write output for this band to disk
