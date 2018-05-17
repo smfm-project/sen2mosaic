@@ -394,7 +394,7 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                 # Get dominant date in overlap region
                 label, counts = np.unique(image_n[overlap], return_counts = True)
                 overlap_date = dates[label[counts == np.max(counts)][0] - 1]
-                
+                                
                 if scene.datetime.date() != overlap_date:
                     
                     # Only histogram match if at least 2% of source image pixels covered in reference
@@ -469,7 +469,6 @@ def _getBands(resolution):
         res_list.extend([10] * 4)
         
     return np.array(res_list), np.array(band_list)
-
 
     
         

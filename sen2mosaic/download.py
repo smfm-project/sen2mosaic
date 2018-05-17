@@ -99,7 +99,7 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
     Returns:
         A pandas dataframe with details of scenes matching conditions.
     """
-
+    
     # Test that we're connected to the 
     assert 'scihub_api' in globals(), "The global variable scihub_api doesn't exist. You should run connectToAPI(username, password) before searching the data archive."
 
