@@ -237,16 +237,13 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
     for n, scene in enumerate(scenes):
         
         if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
-                
+        
+        # Reproject mask
         scl_resampled = loadMask(scene, md_dest, correct = correct_mask)
         
         # Add reprojected data to SCL output array
         scl_out, image_n = _updateMaskArrays(scl_out, scl_resampled, image_n, n + 1, algorithm = algorithm)
-        
-        # Tidy up
-        ds_source = None
-        ds_dest = None
-        
+    
     if verbose: print 'Outputting SCL mask'
     
     # Write output cloud mask to disk for each resolution
@@ -296,8 +293,9 @@ def _getImageOrder(scenes, image_n):
         image_n: An array of integers from generateSCLArray(), which describes the scene that each pixel should come from. 0 = No data, 1 = first scene, 2 = second scene etc.
     '''
     
-    def _getCentre(scene):
+    def _getCentre(scene, ref_scene):
         '''
+        Function to get centre point from scene in CRS of ref_scene
         '''
         from osgeo import osr
         
@@ -332,9 +330,9 @@ def _getImageOrder(scenes, image_n):
     
     tile_dist = []
     
-    ref_y, ref_x = _getCentre(ref_scene)
+    ref_y, ref_x = _getCentre(ref_scene, ref_scene)
     for n, scene in enumerate(scenes):
-        y, x = _getCentre(scene)
+        y, x = _getCentre(scene, ref_scene)
         tile_dist.append((((y - ref_y)**2) + ((x - ref_x)**2)) ** 0.5)
     tile_dist = np.array(tile_dist)
     
@@ -364,29 +362,12 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
     Returns:
         A numpy array containing mosaic data for the input band.
     """
-    
-    # Sort input scenes
-    #scenes = utilities.sortScenes(scenes)
-    
-    # Get a name, number and pixel count for each tile
-    #tile_number = np.arange(len(scenes))+1
-    
-    #num, count = np.unique(image_n[image_n!=0], return_counts = True)
-    #num_sorted = zip(*sorted(zip(count,num), reverse = True))[1]
-    #tile_count = np.zeros(len(scenes), dtype=np.int)
-    #tile_count[num-1] = count
-    #
-    #tile_name = np.array([scene.tile for scene in scenes])
-    #
-    #tile_total = np.zeros(len(scenes),dtype=np.int)
-    #for tile in np.unique(tile_name):
-    #    tile_total[tile_name == tile] = np.sum(tile_count[tile_name == tile])
-
-    # Sort first by contribution from tile, then tile name (where tied), then by contribution of pixels from each overpass. This improves the quality of colour balancing.
-    #tile_number = np.lexsort((tile_count,tile_name,tile_total))[::-1] + 1  
-        
+            
     # Create array to contain output array for this band
     data_out = _createOutputArray(md_dest, dtype = np.uint16)
+    
+    # Get data for each image_n
+    dates = [scene.datetime.date() for scene in scenes]
     
     # For each source file that contributes pixels
     for n in _getImageOrder(scenes, image_n): #tile_number[tile_count[tile_number-1] > 0]:
@@ -405,19 +386,28 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
             
             # Skip first image
             if data_out.sum() != 0:
-                               
+                                               
                 source = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled<4, scl_resampled>6))
                 
                 overlap = np.logical_and(source.mask==False, data_out != 0)
                 
-                # Only histogram match if at least 2% of source image pixels covered in reference
-                if float(overlap.sum()) / (source.mask==False).sum()  > 0.02:
+                # Get dominant date in overlap region
+                label, counts = np.unique(image_n[overlap], return_counts = True)
+                overlap_date = dates[label[counts == np.max(counts)][0] - 1]
+                
+                if scene.datetime.date() != overlap_date:
                     
-                    data_resampled = utilities.histogram_match(source, np.ma.array(data_out, mask = data_out == 0)).data
-                    
+                    # Only histogram match if at least 2% of source image pixels covered in reference
+                    if float(overlap.sum()) / (source.mask==False).sum()  > 0.02:
+                        
+                        data_resampled = utilities.histogram_match(source, np.ma.array(data_out, mask = data_out == 0)).data
+                        
+                    else:
+                        if verbose: print '    Not enough overlap, not histogram matching for this image.'
+                        
                 else:
-                    if verbose: print '    Not enough overlap for histogram matching on this image.'
-               
+                    if verbose: print '    Date matches adjacent scene, not histogram matching for this image.'
+                
         # Add reprojected data to band output array at appropriate image_n
         data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled)
         
@@ -516,7 +506,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
                 
         # Load metadata for all Sentinel-2 datasets
         scenes = [utilities.LoadScene(source_file, resolution = res) for source_file in source_files]
-                
+        
         # Build metadata of output object
         md_dest = utilities.Metadata(extent_dest, res, EPSG_dest)
         
