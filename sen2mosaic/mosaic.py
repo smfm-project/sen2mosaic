@@ -6,6 +6,7 @@ import glob
 import numpy as np
 import os
 from scipy import ndimage
+from scipy import interpolate
 import subprocess
 
 import utilities
@@ -345,7 +346,7 @@ def _getImageOrder(scenes, image_n):
     return tile_number
 
 
-def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = False, verbose = False):
+def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = 'none', verbose = False):
     """generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
     Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
@@ -362,7 +363,8 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
     Returns:
         A numpy array containing mosaic data for the input band.
     """
-            
+    
+    
     # Create array to contain output array for this band
     data_out = _createOutputArray(md_dest, dtype = np.uint16)
     
@@ -371,56 +373,73 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
     
     # For each source file that contributes pixels
     for n in _getImageOrder(scenes, image_n): #tile_number[tile_count[tile_number-1] > 0]:
-        
+                
         # Select scene
         scene = scenes[n-1]
-               
+                
         if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
         
+        # Load data and mask
         data_resampled = loadBand(scene, band, md_dest)
-        
         scl_resampled = loadMask(scene, md_dest, correct = True)
-        
+
         # Perform basic colour balancing by histogram matching
-        if colour_balance:
+        if colour_balance != 'none':
             
             # Skip first image
             if data_out.sum() != 0:
-                                               
-                source = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled<4, scl_resampled>6))
                 
-                overlap = np.logical_and(source.mask==False, data_out != 0)
+                # Add mask to data_resampled
+                data_resampled_ma = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled<4, scl_resampled>6))
                 
-                # Get dominant date in overlap region
-                label, counts = np.unique(image_n[overlap], return_counts = True)
-                overlap_date = dates[label[counts == np.max(counts)][0] - 1]
-                                
-                if scene.datetime.date() != overlap_date:
+                # Calculate overlap with other images
+                overlap = np.logical_and(data_resampled_ma.mask==False, data_out != 0)
+                
+                # Calculate percent overlap between images
+                this_overlap = float(overlap.sum()) / (data_resampled_ma.mask==False).sum()
+                
+                if (this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'aggressive'):
                     
-                    # Only histogram match if at least 2% of source image pixels covered in reference
-                    if float(overlap.sum()) / (source.mask==False).sum()  > 0.02:
-                        
-                        data_resampled = utilities.histogram_match(source, np.ma.array(data_out, mask = data_out == 0)).data
-                        
-                    else:
-                        if verbose: print '    Not enough overlap, not histogram matching for this image.'
-                        
-                else:
-                    if verbose: print '    Date matches adjacent scene, not histogram matching for this image.'
+                    if verbose: print '        interpolating'
+                                                            
+                    sel = np.logical_and(data_resampled_ma.mask == False, scl_resampled != 6)
+                    #data_resampled[sel] = np.round(f(data_resampled_ma.data),0).astype(np.uint16)[sel]
+                    
+                    # Gain compensation (simple inter-scene correction)                    
+                    this_intensity = np.mean(data_resampled[overlap])
+                    ref_intensity = np.mean(data_out[overlap])
+                    
+                    data_resampled[sel] = np.round(data_resampled[sel] * (ref_intensity/this_intensity),0).astype(np.uint16)
+                    
                 
+                elif this_overlap > 0.5:
+                    
+                    if verbose: print '        matching'
+                    
+                    data_resampled = utilities.histogram_match(data_resampled_ma, np.ma.array(data_out, mask = data_out == 0)).data
+                
+                else:
+                    
+                    if verbose: print '        adding'
+           
+           else:
+               if verbose: print '        adding'
+           
+        last_tile = scene.tile
+        
         # Add reprojected data to band output array at appropriate image_n
         data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled)
         
         # Tidy up
-        ds_source = None
-        ds_dest = None
+        #ds_source = None
+        #ds_dest = None
         
     if verbose: print 'Outputting band %s'%band
     
     # Write output for this band to disk
     ds_out = _createGdalDataset(md_dest, data_out = data_out,
-                               filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band),
-                               driver='GTiff', dtype = 2, options = ['COMPRESS=LZW'])
+                                filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band),
+                                driver='GTiff', dtype = 2, options = ['COMPRESS=LZW'])
 
     return data_out
 
@@ -472,8 +491,8 @@ def _getBands(resolution):
 
     
         
-def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = False, resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
-    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
+def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
+    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
         
@@ -484,7 +503,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
         end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
         algorithm: Image compositing algorithm. Choose from 'MOST_RECENT', 'MOST_DISTANT', and 'TEMP_HOMOGENEITY'. Defaults to TEMP_HOMOGENEITY.
-        colour_balance: Set to True to perform simple colour balancing.
+        colour_balance: Set to 'none', 'basic' or 'aggressive'
         resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
         output_dir: Optionally specify an output directory.
         output_name: Optionally specify a string to precede output file names. Defaults to 'mosaic'.
@@ -494,7 +513,8 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(source_files) >= 1, "No source files in specified location."
     assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
-    
+    assert colour_balance in ['none', 'basic', 'aggressive'], "colour_balance must be 'none', 'basic', or 'aggressive'."
+        
     # Remove trailing / from output directory if present 
     output_dir = output_dir.rstrip('/')
     
@@ -569,7 +589,7 @@ if __name__ == "__main__":
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-r', '--resolution', metavar = 'N', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
     optional.add_argument('-a', '--algorithm', type=str, metavar='NAME', default = 'TEMP_HOMOGENEITY', help="Optionally specify an image compositing algorithm ('MOST_RECENT', 'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to 'TEMP_HOMOGENEITY'.")
-    optional.add_argument('-b', '--balance', action='store_true', default = False, help="Optionally perform colour balancing when generating composite images. Defaults to False.")
+    optional.add_argument('-b', '--balance', type=str, default='none', help="Optionally perform colour balancing when generating composite images ('none', 'basic' or 'aggressive'). Defaults to none.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Optionally specify an output directory. If nothing specified, downloads will output to the present working directory, given a standard filename.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Optionally specify a string to precede output filename.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
