@@ -397,8 +397,8 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                 
                 # Calculate percent overlap between images
                 this_overlap = float(overlap.sum()) / (data_resampled_ma.mask==False).sum()
-                
-                if (this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'aggressive'):
+                                
+                if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'aggressive':
                     
                     if verbose: print '        interpolating'
                                                             
@@ -422,8 +422,8 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                     
                     if verbose: print '        adding'
            
-           else:
-               if verbose: print '        adding'
+            else:
+                if verbose: print '        adding'
            
         last_tile = scene.tile
         
