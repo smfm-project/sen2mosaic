@@ -400,7 +400,7 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                                 
                 if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'aggressive':
                     
-                    if verbose: print '        interpolating'
+                    if verbose: print '        compensating'
                                                             
                     sel = np.logical_and(data_resampled_ma.mask == False, scl_resampled != 6)
                     #data_resampled[sel] = np.round(f(data_resampled_ma.data),0).astype(np.uint16)[sel]
