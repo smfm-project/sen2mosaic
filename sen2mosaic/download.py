@@ -243,8 +243,8 @@ if __name__ == '__main__':
     # Optional arguments
     optional.add_argument('-s', '--start', type = str, default = '20161206', help = "Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.")
     optional.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
-    optional.add_argument('-c', '--cloud', type = int, default = 100, help = "Maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).")
-    optional.add_argument('-m', '--minsize', type = int, default = 25., help = "Minimum file size to download in MB. Defaults to 25 MB. Be aware, file sizes smaller than this can result sen2three crashing.")
+    optional.add_argument('-c', '--cloud', type = int, default = 100, metavar = '%', help = "Maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).")
+    optional.add_argument('-m', '--minsize', type = int, default = 25., metavar = 'MB', help = "Minimum file size to download in MB. Defaults to 25 MB.")
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'PATH', default = os.getcwd(), help = "Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Remove level 1C .zip files after decompression.")
     
