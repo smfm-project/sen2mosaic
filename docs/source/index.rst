@@ -17,8 +17,7 @@ This repository contains four command-line based scripts to perform the followin
 
 * Downloading Sentinel-2 data from the `Copernicus Open Access Hub <https://scihub.copernicus.eu/>`_ for a particular tile, specifying date ranges and degrees of cloud cover. This is based on the `Sentinelsat <https://github.com/sentinelsat/sentinelsat/>`_ utility.
 * Executing the `sen2cor <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_ tool to perform atmospheric correction, and performing simple improvements to its cloud mask.
-* Building a mosaic of cloud-free outputs with `sen2three <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_.
-* Mosaicking cloud-free Sentinel-2 .SAFE files into larger GeoTIFF files that are suitable for image classification.
+* Mosaicking cloud-free Sentinel-2 pixels from .SAFE files into larger GeoTIFF files that are suitable for image classification.
 
 How do I get set up?
 --------------------
@@ -27,9 +26,8 @@ These tools are written in Python for use in Linux. You will need to have first 
 
 * `Sentinelhub <https://github.com/sinergise/sentinelhub>`_: A library for searching and downloading Sentinel-2 products.
 * `Sen2cor <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_: Atmospheric correction and cloud masking for Sentinel-2.
-* `Sen2three <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_: Synthesis of atmospherically corrected Sentinel-2 images into cloud-free composite images (version 1.1.0 or later).
 
-The tools sen2cor and sen2three are both built around the `Anaconda <https://www.anaconda.com/download/>`_ distribution of Python. The modules used in these scripts are all available in Anaconda Python.
+The sen2cor tool is built around the `Anaconda <https://www.anaconda.com/download/>`_ distribution of Python. The modules used in these scripts are all available in Anaconda Python.
 
 Who do I talk to?
 -----------------
