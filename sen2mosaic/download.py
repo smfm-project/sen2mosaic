@@ -196,7 +196,7 @@ def decompress(tile, dataloc = os.getcwd(), remove = False):
     
 
 def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
-    """main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, output_dir = os.getcwd(), remove = False)
+    """main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)
     
     Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover. This is the function that is initiated from the command line.
     
@@ -246,7 +246,7 @@ if __name__ == '__main__':
     optional.add_argument('-c', '--cloud', type = int, default = 100, help = "Maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).")
     optional.add_argument('-m', '--minsize', type = int, default = 25., help = "Minimum file size to download in MB. Defaults to 25 MB. Be aware, file sizes smaller than this can result sen2three crashing.")
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'PATH', default = os.getcwd(), help = "Specify an output directory. Defaults to the present working directory.")
-    optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Optionally remove level 1C .zip files after decompression.")
+    optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Remove level 1C .zip files after decompression.")
     
     
     # Get arguments from command line
