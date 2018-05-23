@@ -3,7 +3,7 @@
 Worked example on the command line
 ==================================
 
-Here we'll show you by example how the sen2mosaic processing chain works in practice. We will focus on an example from southern Mozambique, with the aim of creating a cloud-free composite GeoTiff product for the area **500,000 - 600,000** m Eastings and **7,550,000 - 7,650,000** m Northings (**UTM 36S**). This area is covered by Sentinel-2 tiles **36KWA** and **36KWB**. We'll limit this mosaic to the early dry season (**May and June**) of **2017**, in anticipation of multiple seasonally-specific mosaics improving classification accuracy.
+Here we'll show you by example how the sen2mosaic processing chain works in practice. We will focus on an example from southern Mozambique, with the aim of creating a cloud-free composite GeoTiff product for the area **500,000 - 600,000** m Eastings and **7,500,000 - 7,700,000** m Northings (**UTM 36S**). This area is covered by Sentinel-2 tiles **36KWA** and **36KWB**. We'll limit this mosaic to the early dry season (**May and June**) of **2017**, in anticipation of multiple seasonally-specific mosaics improving classification accuracy.
 
 Preparation
 -----------
@@ -76,11 +76,11 @@ The next step is to perform atmospheric correction (removes the effects of the a
 
 To perform atmospheric correction and cloud masking we call the tool ``preprocess.py``. We need to specify Sentinel-2 level 1C input files, a directory containing level 1C files, or a single tile within a .SAFE file ``*.SAFE/GRANULE/*``).
 
-To process all .SAFE files for the tile 36KWA (in the current working directory), we can submit the following line:
+To process all .SAFE files for the tile 36KWA (in the current working directory) at 20 m resolution, we can submit the following line:
 
 .. code-block:: console
 
-    s2m preprocess -t 36KWA
+    s2m preprocess -res 20 -t 36KWA -v
 
 This command will loop through each Sentinel-2 level 1C file and process them one at a time. You might alternatively want to run several commands similtaneously using the ``-p`` flag, but bear in mind that this will require access to a large quanity of memory.
 
@@ -100,47 +100,23 @@ Wait for all files to be processed to level 2A before proceeding. If you run ``l
     S2A_MSIL2A_20170608T075211_N0205_R092_T36KWA_20170608T080546.SAFE
     S2A_MSIL2A_20170628T075211_N0205_R092_T36KWA_20170628T080542.SAFE
 
-
-Generating a cloud-free composite image
----------------------------------------
-
-Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains masked areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image. We do this with the ESA program ``sen2three``.
-
-To perform this step we call the tool ``composite.py``. We need to specify the tile to process, and ensure that either an input directory is specified or that the script is run with L2A files in the current working directory. It's required to specify an input tile.
-
-To run the process, we need to submit the following line:
-
-.. code-block:: console
-
-   s2m composite -t 36KWA
-
-Here we didn't specify the ``-r`` (``--remove``) option, which would delete Sentinel-2 level 2A data once data is finished processing.
-
-.. warning: sen2three requires access to a lot of memory. If this is an issue, consider inputting a smaller number of level 2A fies.
-
-Wait for sen2three to finish processing (which may take several hours). If you run ``ls`` again, your ``36KWA/`` directory should now contain a new level-3 file:
-
-.. code-block:: console
-    
-    S2A_MSIL03_20170506T074241_N0205_R049_T36KWA_20160101T000000.SAFE
-    
 Repeat for other tiles
 ----------------------
 
-The download, atmospheric correction and compositing stages need to be repeated for each tile of interest.
+The download and atmospheric correction stages need to be repeated for each tile for your area of interest.
 
 Now it's your turn! ``cd`` to the 36KWB folder, and generate a Sentinel-2 level-3 image using the methods we've just employed for tile 36KWA.
 
-Generating a mosaic for classification
---------------------------------------
+Generating a cloud-free mosaic image
+------------------------------------
 
-Once you have multiple level 3A files, the final step is to mosaic these into a larger tiling system in preparation for image classification. Whilst it is possible to classify the level 3A tiles directly, the .SAFE file format is difficult to work with, and tiles might not be the size you might prefer to work with. We recommend a grid of tiles that's approximately equal to the area of four Sentinel-2 tiles (~200,000 x 200,000 m). We call this the (unofficial) level 3B product, which is output in the easy to work with GeoTiff format.
+Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains masked areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image composed of multiple satellite overpasses. This step also converts data from the Sentinel-2 .SAFE format to the easy to work with GeoTiff format, and allows the specification of a customised tiling grid. We recommend a grid of tiles that's approximately equal to the area of four Sentinel-2 tiles (~200,000 x 200,000 m).
 
-Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration, generating an output with the limits **500,000 - 600,000** m Eastings and **7,550,000 - 7,650,000** m Northings (**UTM 36S**).
+Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration, generating an output with the limits **500,000 - 600,000** m Eastings and **7,500,000 - 7,700,000** m Northings (**UTM 36S**) at **20** m resolution. We'll use 'AGGRESSIVE' colour balancing to produce a good visual output and apply corrections the the cloud mask.
 
-To perform this step we call the tool ``mosaic.py``. We need to specify the location of all input files (with wildcards), the exent of the output image and the EPSG code describing the output coordinate reference system. We'll also give output data a name to identfy this tile.
+To perform this step we call the tool ``mosaic.py``. We need to specify the location of all input files (with wildcards), the exent of the output image and the EPSG code describing the output coordinate reference system (UTM 36S = 32736). We'll also give output data a name to identfy this tile.
 
-First cd to the directory containing all Sentinel-2 level 3 data.
+First cd to the directory containing all Sentinel-2 L2A data.
 
 .. code-block:: console
     
@@ -150,23 +126,31 @@ To run ``mosaic.py``,
     
 .. code-block:: console
     
-    s2m mosaic -te 500000 7550000 600000 7650000 -e 32736 -n worked_example 36KW*
+    s2m mosaic -te 500000 7500000 600000 7700000 -e 32736 -res 20 -n worked_example -b AGGRESSIVE -c -v ./36KW* 
 
-Here we didn't specify the ``-o`` (``--output_dir``) option, meaning that results will be output to the current working directory. Once processing is complte, you can use ``ls`` to view the newly created output files:
+Here we didn't specify the ``-o`` (``--output_dir``) option, meaning that results will be output to the current working directory. Once processing is complete, you can use ``ls`` to view the newly created output files:
 
 .. code-block:: console
     
-    ...
+    worked_example_R20m_B02.tif
+    worked_example_R20m_B03.tif
+    worked_example_R20m_B04.tif
+    worked_example_R20m_B05.tif
+    worked_example_R20m_B06.tif
+    worked_example_R20m_B07.tif
+    worked_example_R20m_B09.tif
+    worked_example_R20m_B11.tif
+    worked_example_R20m_B12.tif    
+    worked_example_R20m_B8A.tif
+    worked_example_R20m_imageN.tif
+    worked_example_R20m_SCL.tif
+
+The files ``B01`` to ``B12`` represent individual Sentinel-2 spectral bands, ``imageN`` records the L2A image that each pixel was derived from, and ``SCL`` records the mask value for each pixel (generally acceptable values are: 4 = vegetation, 5 = bare soils, 6 = water).    
     
 Viewing data
 ------------
 
-In addition to a GeoTiff file for each Sentinel-2 band, ``L3B.py`` outputs two 3-band GDAL virtual dataset files (``.vrt``). These are labelled ``_RGB.vrt`` and ``_NIR.vrt``, and can be opened in QGIS to show a true colour and false colour composite (NIR, Red, Green) image.
+In addition to a GeoTiff file for each Sentinel-2 band, ``mosaic.py`` outputs two 3-band GDAL virtual dataset files (``.vrt``). These are labelled ``_RGB.vrt`` and ``_NIR.vrt``, and can be opened in QGIS to show a true colour (Red, Green, Blue) and false colour composite (NIR, Red, Green) image.
 
-[INSERT IMAGE]
-
-See also
---------
-
-This example required a lot of manual typing. We can achieve further automation through Python. To see an example of how to run achieve the same results in Python, see the scripts in the sectiomn :ref:`worked_example_python`.
+.. image:: _static/worked_example.png
 

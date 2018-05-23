@@ -21,8 +21,8 @@ Help for ``download.py`` can be viewed by typing ``s2m download --help``:
 
 .. code-block:: console
     
-    usage: download.py [-h] -u USER -p PASS -t TILE [-s START] [-e END] [-c CLOUD]
-                    [-m MINSIZE] [-o PATH] [-r]
+    usage: download.py [-h] -u USER -p PASS -t TILE [-s START] [-e END] [-c %]
+                    [-m MB] [-o PATH] [-r]
 
     Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a
     particular tile, date ranges and degrees of cloud cover.
@@ -40,20 +40,15 @@ Help for ``download.py`` can be viewed by typing ``s2m download --help``:
                             Sentinel-2 files was simplified. Defaults to 20161206.
     -e END, --end END     End date for search in format YYYYMMDD. Defaults to
                             today's date.
-    -c CLOUD, --cloud CLOUD
-                            Maximum percentage of cloud cover to download.
+    -c %, --cloud %       Maximum percentage of cloud cover to download.
                             Defaults to 100 % (download all images, regardless of
                             cloud cover).
-    -m MINSIZE, --minsize MINSIZE
-                            Minimum file size to download in MB. Defaults to 25
-                            MB. Be aware, file sizes smaller than this can result
-                            sen2three crashing.
+    -m MB, --minsize MB   Minimum file size to download in MB. Defaults to 25
+                            MB.
     -o PATH, --output_dir PATH
                             Specify an output directory. Defaults to the present
                             working directory.
-    -r, --remove          Optionally remove level 1C .zip files after
-                            decompression.
-
+    -r, --remove          Remove level 1C .zip files after decompression.
 
 For example, to download all data for tile 36KWA between for May and June 2017, with a maximum cloud cover percentage of 30 %, specifying an output location and removing decompressed .zip files, use the following command:
 
@@ -63,7 +58,7 @@ For example, to download all data for tile 36KWA between for May and June 2017, 
 
 .. note:: **What if I want data before 6th December 2016?**. 
    
-    The format in which Sentinel-2 data is distributed was modified in December 2016, and at present the download tool does not support the earlier format. As there is a limited volume of data from before this date, we recommend downloading the data from `Scihub <https://scihub.copernicus.eu/>`_.
+    The format in which Sentinel-2 data is distributed was modified in December 2016, and the earlier format is nto well supported. As there is a limited volume of data from before this date, we recommend downloading the data from `Scihub <https://scihub.copernicus.eu/>`_.
     
     A nice tool to help out with this is `aria2 <https://aria2.github.io/>`_. After adding products to your basket at Sentinelhub, you'll download a metadata file called ``products.meta4``. Use aria2 to download the file's contents as follows:
     
@@ -82,24 +77,22 @@ Help for ``preprocess.py`` can be viewed by typing ``s2m preprocess --help``:
 
 .. code-block:: console
     
-    usage: preprocess.py [-h] [-t TILE] [-g GIPP] [-o DIR] [-res 10/20/60] [-r]
-                        [-p N] [-v]
-                        L1C_FILES [L1C_FILES ...]
+    usage: preprocess.py [-h] [-t TILE] [-g GIPP] [-o DIR] [-res 10/20/60] [-p N]
+                        [-v]
+                        [L1C_FILES [L1C_FILES ...]]
 
     Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level
     2A. This script initiates sen2cor, which performs atmospheric correction and
     generate a cloud mask. This script also performs simple improvements to the
     cloud mask.
 
-    Required arguments:
+    Optional arguments:
     L1C_FILES             Sentinel 2 input files (level 1C) in .SAFE format.
                             Specify one or more valid Sentinel-2 .SAFE, a
                             directory containing .SAFE files, a Sentinel-2 tile or
-                            multiple tiles through wildcards (e.g.
-                            *.SAFE/GRANULE/*). All tiles that match input
+                            multiple granules through wildcards (e.g.
+                            *.SAFE/GRANULE/*). All granules that match input
                             conditions will be atmospherically corrected.
-
-    Optional arguments:
     -t TILE, --tile TILE  Specify a specific Sentinel-2 tile to process. If
                             omitted, all tiles in L1C_FILES will be processed.
     -g GIPP, --gipp GIPP  Specify a custom L2A_Process settings file (default =
@@ -112,97 +105,46 @@ Help for ``preprocess.py`` can be viewed by typing ``s2m preprocess --help``:
                             Process only one of the Sentinel-2 resolutions, with
                             options of 10, 20, or 60 m. Defaults to processing all
                             three.
-    -r, --remove          Delete input level 1C files after processing.
     -p N, --n_processes N
-                            Specify a maximum number of tiles to processi n
+                            Specify a maximum number of tiles to process in
                             paralell. Bear in mind that more processes will
                             require more memory. Defaults to 1.
     -v, --verbose         Make script verbose.
 
-For example, to run preprocess.py on a set of level 1C Sentinel-2 files in a directory, use the following command:
+For example, to run preprocess.py on a set of level 1C Sentinel-2 files in a directory, processing only 20 m resolution data, use the following command:
 
 .. code-block:: console
     
-    s2m preprocess /path/to/36KWA_data
+    s2m preprocess -res 20 /path/to/36KWA_data
 
-If specifying an output directory, you'll need to include a reference to the location of your sen2cor options file ('GIPP'). This is by default in the directory /path/to/sen2cor/cfg/L2A_GIPP.xml, but can be moved to a location of your choosing. To write outputs to the same directory as input files, and delete level 1C files after processing, input:
-
-.. code-block:: console
-    
-    s2m preprocess -r -g /path/to/sen2mosaic/cfg/L2A_GIPP.xml -o /path/to/36KWA_data/ /path/to/36KWA_data
-
-Processing to L3A
------------------
-
-The final data processing step is to combine cloud-masked images for each tile into a single cloud-free composite image. This step is based on `sen2three <http://step.esa.int/main/third-party-plugins-2/sen2three/>`_.
-
-``composite.py`` takes a directory containing level 2A .SAFE files as input, and initiates sen2three.
-
-Help for ``composite.py`` can be viewed by typing ``s2m composite --help``:
-
-.. code-block:: console
-
-    usage: composite.py [-h] [-t TILE] [-s START] [-e END] [-o DIR] [-a STR] [-v]
-                        [PATH [PATH ...]]
-
-    Process level 2A Sentinel-2 data from sen2cor to cloud free composite images
-    with sen2three.
-
-    Required arguments:
-    -t TILE, --tile TILE  Sentinel-2 to process, in format T##XXX or ##XXX (e.g.
-                            T36KWA or 36KWA).
-
-    Optional arguments:
-    PATH                  Directory where the Level-2A input files are located
-                            (e.g. PATH/TO/L2A_DIRECTORY/). Also supports multiple
-                            directories through wildcards (*), which will be
-                            processed in series. Defaults to current working
-                            directory.
-    -s START, --start START
-                            Start date for tiles to include in format YYYYMMDD.
-                            Defaults to processing all dates.
-    -e END, --end END     End date for tiles to include in format YYYYMMDD.
-                            Defaults to processing all dates.
-    -o DIR, --output_dir DIR
-                            Specify a directory to output level 3A file. If not
-                            specified, the composite image will be written to the
-                            same directory as input files.
-    -a STR, --algorithm STR
-                            Compositing algorithm for sen2three. Select from
-                            'MOST_RECENT', 'TEMP_HOMOGENEITY',
-                            'RADIOMETRIC_QUALITY' or 'AVERAGE'. We recommend
-                            'TEMP_HOMOGENEITY', which is the default setting.
-    -v, --verbose         Print progress.
-
-For example, to run ``composite.py`` on the directory ``/path/to/36KWA_data/`` which contains L2A data for the tile 36KWA and output the level 3A product to the same directory, limiting dates to the range 1st May to 30th June 2017, use the following command:
+The pre-processing script supports parallel processing of L1C files. Be aware that this will entail greater processing and memory requirements than are available on most standard desktop PCs. To parallel process 3 tiles for the 20 m resolution, input:
 
 .. code-block:: console
     
-    s2m composite -t 36KWA -o /path/to/36KWA_data/ -s 20170501 -e 20170630 /path/to/36KWA_data/
+    s2m preprocess -res 20 -n 3 /path/to/36KWA_data
     
-Processing to L3B
------------------
+Processing to a mosaic
+----------------------
 
-The (unofficial) level 3B Sentintel-2 data product is a mosaic of multiple Sentinel-2 level 3A tiles in user-specified tiling grid. This script takes L3A data as input, selects the tiles that fall within the specified spatial extent, and mosaics available data into single-band GeoTiff files for easy use in classification systems.
+The final ``sen2mosaic`` processing step creates a composite image of multiple Sentinel-2 level 2A images in user-specified tiling grid. This script takes L2A data as input, selects the tiles that fall within the specified spatial extent, and mosaics available data into single-band GeoTiff files for easy use in classification systems.
 
-``mosaic.py`` takes a directory containing level 3A .SAFE files, an output image extent (xmin, ymin, xmax, ymax) and projection EPSG code as input.
+``mosaic.py`` takes a directory containing level 2A .SAFE files, an output image extent (xmin, ymin, xmax, ymax) and projection EPSG code as inputs, along with a series of options to modify the compositing approach.
 
 Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
 
 .. code-block:: console
+    
+    usage: mosaic.py [-h] [-te XMIN YMIN XMAX YMAX] [-e EPSG] [-st START]
+                    [-en END] [-r 10/20/60] [-a NAME] [-b NAME] [-c] [-o DIR]
+                    [-n NAME] [-v]
+                    [L2A_FILES [L2A_FILES ...]]
 
-    usage: mosaic.py [-h] [-te XMIN YMIN XMAX YMAX] [-e EPSG] [-o DIR] [-n NAME]
-                    L3A_FILES [L3A_FILES ...]
-
-    Process Sentinel-2 level 3A data to unofficial 'level 3B'. This script mosaics
-    L3A into a customisable grid square, based on specified UTM coordinate bounds.
-    Files are output as GeoTiffs, which are easier to work with than JPEG2000
-    files.
+    Process Sentinel-2 level 2A data to a composite mosaic product. This script
+    mosaics data into a customisable grid square, based on specified UTM
+    coordinate bounds. Data are output as GeoTiff files for each spectral band,
+    with .vrt files for ease of visualisation.
 
     required arguments:
-    L3A_FILES             Sentinel-2 level 3A input files in .SAFE format.
-                            Specify a valid S2 input file or multiple files
-                            through wildcards (e.g. PATH/TO/*_MSIL3A_*.SAFE).
     -te XMIN YMIN XMAX YMAX, --target_extent XMIN YMIN XMAX YMAX
                             Extent of output image tile, in format <xmin, ymin,
                             xmax, ymax>.
@@ -211,27 +153,46 @@ Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
                             .epsg-registry.org/.
 
     optional arguments:
+    L2A_FILES             Sentinel 2 input files (level 2A) in .SAFE format.
+                            Specify one or more valid Sentinel-2 .SAFE, a
+                            directory containing .SAFE files, or multiple granules
+                            through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to
+                            processing all granules in current working directory.
+    -st START, --start START
+                            Start date for tiles to include in format YYYYMMDD.
+                            Defaults to processing all dates.
+    -en END, --end END    End date for tiles to include in format YYYYMMDD.
+                            Defaults to processing all dates.
+    -res 10/20/60, --resolution 10/20/60
+                            Specify a resolution to process (10, 20, 60, or 0 for
+                            all).
+    -a NAME, --algorithm NAME
+                            Specify an image compositing algorithm ('MOST_RECENT',
+                            'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to
+                            'TEMP_HOMOGENEITY'.
+    -b NAME, --balance NAME
+                            Perform colour balancing when generating composite
+                            images ('NONE', 'SIMPLE' or 'AGGRESSIVE'). Defaults to
+                            'NONE'.
+    -c, --correct_mask    Apply improvements to sen2cor cloud mask.
     -o DIR, --output_dir DIR
-                            Optionally specify an output directory. If nothing
-                            specified, downloads will output to the present
-                            working directory, given a standard filename.
+                            Specify an output directory. Defaults to the present
+                            working directory.
     -n NAME, --output_name NAME
-                            Optionally specify a string to precede output
-                            filename.
+                            Specify a string to precede output filename. Defaults
+                            to 'mosaic'.
+    -v, --verbose         Make script verbose.
 
-For example, to run L3B.py in the directory ``/path/to/L3A_tiles/`` which contains level 3A files to create a 200 x 200 km output tile in the UTM36S projection, input:
+Options are available for different compositing algorithms (``-a``), colour balancing options (``-b``), and cloud mask correction (``-c``). The compositing algorithms select which pixels to prioritise in the output mosaic: 'MOST_RECENT' prioritises pixels from the latest images, 'MOST_DISTANT' from the earliest images, and 'TEMP_HOMOGENEITY' prioritises pixels from the tiles that are the most cloud free to produce a consistent image (recommended). Colour balancing alters the pixel values from images captured at different times to reduce the appearance of seam lines between images: 'NONE' does not alter pixel values, 'SIMPLE' performs histogram matching between image composites at the same tile, and 'AGGRESSIVE' aims to match the pixel values of adjacent satellite overpasses based on their overlap. We recommend testing these three approaches to see which is most appropriate for your application. Mask correction adds a buffer around the cloud masks from ``sen2cor`` to remove residual cloud: until ``sen2cor`` is updated we recommend this is always activated.
+    
+For example, to run ``mosaic.py`` in the directory ``/path/to/36KWA_data/`` which contains level 2A files to create a 200 x 200 km output tile in the UTM36S projection at 20 m resoluton, input:
 
 .. code-block:: console
     
-    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 /path/to/L3A_tiles
+    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -res 20 /path/to/36KWA_data
 
-To do the same operation, but specifying an output directory and a name to prepend to outputs from this tile, input:
+To do the same operation, but specifying an output directory, a name to prepend to outputs from this tile, and performing inter-scene colour balancing and corrections to the sen2cor mask, input:
 
 .. code-block:: console
     
-    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -o /path/to/output/ -n my_output /path/to/L3A_tiles
-
-
-
-
-
+    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -res 20 -o /path/to/output/ -n my_output -b AGGRESSIVE -c /path/to/36KWA_data

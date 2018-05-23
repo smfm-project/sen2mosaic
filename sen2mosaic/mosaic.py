@@ -348,7 +348,7 @@ def _getImageOrder(scenes, image_n):
     return tile_number
 
 
-def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = 'none', verbose = False):
+def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = 'NONE', verbose = False):
     """generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
     Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
@@ -385,8 +385,8 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
         data_resampled = loadBand(scene, band, md_dest)
         scl_resampled = loadMask(scene, md_dest, correct = True)
 
-        # Perform basic colour balancing by histogram matching
-        if colour_balance != 'none':
+        # Perform colour balancing by histogram matching and inter-scene compensation
+        if colour_balance != 'NONE':
             
             # Skip first image
             if data_out.sum() != 0:
@@ -400,7 +400,7 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                 # Calculate percent overlap between images
                 this_overlap = float(overlap.sum()) / (data_resampled_ma.mask ==False).sum()
                                 
-                if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'aggressive':
+                if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'AGGRESSIVE':
                     
                     if verbose: print '        scaling'
                                                             
@@ -496,7 +496,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
         end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
         algorithm: Image compositing algorithm. Choose from 'MOST_RECENT', 'MOST_DISTANT', and 'TEMP_HOMOGENEITY'. Defaults to TEMP_HOMOGENEITY.
-        colour_balance: Set to 'none', 'basic' or 'aggressive'
+        colour_balance: Set to 'NONE', 'SIMPLE' or 'AGGRESSIVE'
         resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
         correct_mask: Set True to apply improvements to mask from sen2cor.
         output_dir: Optionally specify an output directory.
@@ -507,7 +507,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(source_files) >= 1, "No source files in specified location."
     assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
-    assert colour_balance in ['none', 'basic', 'aggressive'], "colour_balance must be 'none', 'basic', or 'aggressive'."
+    assert colour_balance in ['NONE', 'SIMPLE', 'AGGRESSIVE'], "colour_balance must be 'NONE', 'SIMPLE', or 'AGGRESSIVE'."
     assert type(correct_mask) == bool, "correct_mask can only be set to True or False."
     
     # Remove trailing / from output directory if present 
@@ -568,7 +568,7 @@ if __name__ == "__main__":
     
     # Set up command line parser    
 
-    parser = argparse.ArgumentParser(description = "Process Sentinel-2 level 2A data to a composite mosaic product. This script mosaics data into a customisable grid square, based on specified UTM coordinate bounds. Files are output as GeoTiffs, which are easier to work with than JPEG2000 files.")
+    parser = argparse.ArgumentParser(description = "Process Sentinel-2 level 2A data to a composite mosaic product. This script mosaics data into a customisable grid square, based on specified UTM coordinate bounds. Data are output as GeoTiff files for each spectral band, with .vrt files for ease of visualisation.")
 
     parser._action_groups.pop()
     required = parser.add_argument_group('required arguments')
@@ -582,9 +582,9 @@ if __name__ == "__main__":
     optional.add_argument('infiles', metavar = 'L2A_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to processing all granules in current working directory.')
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
-    optional.add_argument('-r', '--resolution', metavar = 'N', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
-    optional.add_argument('-a', '--algorithm', type=str, metavar='NAME', default = 'TEMP_HOMOGENEITY', help="Optionally specify an image compositing algorithm ('MOST_RECENT', 'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to 'TEMP_HOMOGENEITY'.")
-    optional.add_argument('-b', '--balance', type=str, default='none', help="Perform colour balancing when generating composite images ('none', 'basic' or 'aggressive'). Defaults to none.")
+    optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
+    optional.add_argument('-a', '--algorithm', type=str, metavar='NAME', default = 'TEMP_HOMOGENEITY', help="Specify an image compositing algorithm ('MOST_RECENT', 'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to 'TEMP_HOMOGENEITY'.")
+    optional.add_argument('-b', '--balance', type=str, default='NONE', metavar='NAME', help="Perform colour balancing when generating composite images ('NONE', 'SIMPLE' or 'AGGRESSIVE'). Defaults to 'NONE'.")
     optional.add_argument('-c', '--correct_mask', action='store_true', default = False, help = "Apply improvements to sen2cor cloud mask.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
