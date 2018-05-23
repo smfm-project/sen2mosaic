@@ -244,7 +244,8 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     
     # Check if output file already exists
     if os.path.exists(outpath):
-        raise ValueError('The output file %s already exists! Delete it to run L2_Process.'%outpath)
+      print 'The output file %s already exists! Delete it to run L2_Process.'%outpath
+      return outpath
     
     # Get location of exemplar gipp file for modification
     if gipp == None:
@@ -264,7 +265,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
        
     # Do the processing, and capture exceptions
     try:
-        output_text = _runCommand(command, verbose = verbose)
+        output_text = 't'#_runCommand(command, verbose = verbose)
     except Exception as e:
         # Tidy up temporary options file
         os.remove(temp_gipp)
@@ -298,11 +299,10 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
     Returns:
         A boolean describing whether processing completed sucessfully.
     """
-        
+      
     L2A_file = getL2AFile(L1C_file, output_dir = output_dir, SAFE = False)
     
-    band_creation_failure = False
-    mask_enhancement_failure = False
+    failure = False
     
     # Test all expected 10 m files are present
     if resolution == 0 or resolution == 10:
@@ -310,18 +310,16 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
         for band in ['B02', 'B03', 'B04', 'B08', 'AOT', 'TCI', 'WVP']:
             
             if not len(glob.glob('%s/IMG_DATA/R10m/*_%s_10m.jp2'%(L2A_file,band))) == 1:
-                band_creation_failure = True
+                failure = True
     
     # Test all expected 20 m files are present
     if resolution == 0 or resolution == 20:
         
-        for band in ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'VIS', 'SCL']:
+        for band in ['B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'SCL']:
             
             if not len(glob.glob('%s/IMG_DATA/R20m/*_%s_20m.jp2'%(L2A_file,band))) == 1:
-                if band == 'SCL':
-                    mask_enhancement_failure = True
-                else:
-                    band_creation_failure = True
+                
+                failure = True
 
     # Test all expected 60 m files are present
     if resolution == 0 or resolution == 60:
@@ -329,13 +327,11 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
         for band in ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B8A', 'B11', 'B12', 'AOT', 'TCI', 'WVP', 'SCL']:
             
             if not len(glob.glob('%s/IMG_DATA/R60m/*_%s_60m.jp2'%(L2A_file,band))) == 1:
-                if band == 'SCL':
-                    mask_enhancement_failure = True
-                else:
-                    band_creation_failure = True
+                
+                failure = True
     
-    # At present we only report failure/success. More work requried to get the type of failure.
-    return np.logical_or(band_creation_failure, mask_enhancement_failure) == False
+    # At present we only report failure/success, can be extended to type of failure 
+    return failure == False
 
 
 

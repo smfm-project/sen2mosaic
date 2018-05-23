@@ -116,25 +116,26 @@ def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMO
     
     # Keep pixels where the mask has a value 4 to 6
     good_px = np.logical_and(scl_resampled >= 4, scl_resampled <= 6)
-        
+    #other_px = np.logical_and(scl_resampled > 0, good_px == False)
+    
     if algorithm == 'MOST_RECENT':
         
-        # Select all pixels that have data in this image
+        # Select all pixels that have data in this image, or some usable data where no good data already exist
         selection = good_px
+        #selection = np.logical_or(good_px, np.logical_and(other_px, np.logical_or(scl_out < 4, scl_out > 6)))
         
     elif algorithm == 'MOST_DISTANT':
         
         # Select only pixels which have new data, and have not already had data allocated
-        selection = np.logical_and(image_n == 0, good_px)
+        selection = np.logical_and(np.logical_or(scl_out < 4, scl_out > 6), good_px)
+        #selection = np.logical_or(selection, np.logical_and(other_px, scl_out == 0))
+        
     
     elif algorithm == 'TEMP_HOMOGENEITY':
         
         # Replace any unmeasured pixels with 'good' values
         selection = np.logical_and(good_px, image_n == 0)
-        
-        # Also replace pixels where sum of current good pixels greater than those already in the output
-        #_, counts = np.unique(image_n[image_n > 0], return_counts = True)
-        
+                
         # Also replace pixels where sum of current good pixels greater than those already in the output for a given tile
         _, counts = np.unique(image_n[np.logical_and(image_n > 0, scl_resampled != 0)], return_counts = True)
         
@@ -142,7 +143,7 @@ def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMO
         if counts.size != 0:
             if np.sum(good_px) > counts.max():
                 selection = np.logical_or(selection, good_px)
-        
+                        
     else:
         raise
     
@@ -175,7 +176,8 @@ def _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled):
     '''
                 
     # Find pixels that can be replaced in this image (valid, or selected). Add all valid, to aid with colour balancing between scenes.
-    selection = np.logical_and(np.logical_or(image_n == n, data_out == 0),np.logical_and(scl_resampled>=4,scl_resampled<=6))
+    #selection = np.logical_and(np.logical_or(image_n == n, data_out == 0),np.logical_and(scl_resampled>=4,scl_resampled<=6))
+    selection = image_n == n
     
     # Add good data to data_out array
     data_out[selection] = data_resampled[selection]
@@ -390,20 +392,19 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
             if data_out.sum() != 0:
                 
                 # Add mask to data_resampled
-                data_resampled_ma = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled<4, scl_resampled>6))
+                data_resampled_ma = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled < 4, scl_resampled > 6))
                 
                 # Calculate overlap with other images
-                overlap = np.logical_and(data_resampled_ma.mask==False, data_out != 0)
+                overlap = np.logical_and(data_resampled_ma.mask == False, data_out != 0)
                 
                 # Calculate percent overlap between images
-                this_overlap = float(overlap.sum()) / (data_resampled_ma.mask==False).sum()
+                this_overlap = float(overlap.sum()) / (data_resampled_ma.mask ==False).sum()
                                 
                 if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'aggressive':
                     
-                    if verbose: print '        compensating'
+                    if verbose: print '        scaling'
                                                             
                     sel = np.logical_and(data_resampled_ma.mask == False, scl_resampled != 6)
-                    #data_resampled[sel] = np.round(f(data_resampled_ma.data),0).astype(np.uint16)[sel]
                     
                     # Gain compensation (simple inter-scene correction)                    
                     this_intensity = np.mean(data_resampled[overlap])
@@ -411,28 +412,20 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
                     
                     data_resampled[sel] = np.round(data_resampled[sel] * (ref_intensity/this_intensity),0).astype(np.uint16)
                     
-                
                 elif this_overlap > 0.5:
                     
                     if verbose: print '        matching'
                     
                     data_resampled = utilities.histogram_match(data_resampled_ma, np.ma.array(data_out, mask = data_out == 0)).data
-                
+                    
                 else:
                     
                     if verbose: print '        adding'
-           
-            else:
-                if verbose: print '        adding'
-           
-        last_tile = scene.tile
-        
+                
+                
         # Add reprojected data to band output array at appropriate image_n
         data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled)
         
-        # Tidy up
-        #ds_source = None
-        #ds_dest = None
         
     if verbose: print 'Outputting band %s'%band
     
@@ -491,7 +484,7 @@ def _getBands(resolution):
 
     
         
-def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
+def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, correct_mask = True, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
     """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
@@ -505,6 +498,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         algorithm: Image compositing algorithm. Choose from 'MOST_RECENT', 'MOST_DISTANT', and 'TEMP_HOMOGENEITY'. Defaults to TEMP_HOMOGENEITY.
         colour_balance: Set to 'none', 'basic' or 'aggressive'
         resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
+        correct_mask: Set True to apply improvements to mask from sen2cor.
         output_dir: Optionally specify an output directory.
         output_name: Optionally specify a string to precede output file names. Defaults to 'mosaic'.
         verbose: Make script verbose (set True).
@@ -514,7 +508,8 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     assert len(source_files) >= 1, "No source files in specified location."
     assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
     assert colour_balance in ['none', 'basic', 'aggressive'], "colour_balance must be 'none', 'basic', or 'aggressive'."
-        
+    assert type(correct_mask) == bool, "correct_mask can only be set to True or False."
+    
     # Remove trailing / from output directory if present 
     output_dir = output_dir.rstrip('/')
     
@@ -543,7 +538,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         if verbose: print 'Doing SCL mask at %s m resolution'%str(res)
         
         # Generate a classified mask
-        scl_out, image_n = generateSCLArray(scenes_tile, md_dest, output_dir = output_dir, output_name = output_name, algorithm = algorithm, verbose = verbose)
+        scl_out, image_n = generateSCLArray(scenes_tile, md_dest, output_dir = output_dir, output_name = output_name, algorithm = algorithm, correct_mask = correct_mask, verbose = verbose)
 
         # Process images for each band
         for band in band_list[res_list==res]:
@@ -589,9 +584,10 @@ if __name__ == "__main__":
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-r', '--resolution', metavar = 'N', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
     optional.add_argument('-a', '--algorithm', type=str, metavar='NAME', default = 'TEMP_HOMOGENEITY', help="Optionally specify an image compositing algorithm ('MOST_RECENT', 'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to 'TEMP_HOMOGENEITY'.")
-    optional.add_argument('-b', '--balance', type=str, default='none', help="Optionally perform colour balancing when generating composite images ('none', 'basic' or 'aggressive'). Defaults to none.")
-    optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Optionally specify an output directory. If nothing specified, downloads will output to the present working directory, given a standard filename.")
-    optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Optionally specify a string to precede output filename.")
+    optional.add_argument('-b', '--balance', type=str, default='none', help="Perform colour balancing when generating composite images ('none', 'basic' or 'aggressive'). Defaults to none.")
+    optional.add_argument('-c', '--correct_mask', action='store_true', default = False, help = "Apply improvements to sen2cor cloud mask.")
+    optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
+    optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
     # Get arguments
@@ -603,6 +599,6 @@ if __name__ == "__main__":
     # Find all matching granule files
     infiles = utilities.prepInfiles(infiles, '2A')
     
-    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, algorithm = args.algorithm, colour_balance = args.balance, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
+    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, algorithm = args.algorithm, colour_balance = args.balance, correct_mask = args.correct_mask, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
     
     
