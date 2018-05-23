@@ -15,7 +15,6 @@ You should now be able to import each of the four modules in Python as follows:
     
     import sen2mosaic.download
     import sen2mosaic.preprocess
-    import sen2mosaic.composite
     import sen2mosaic.mosaic
 
 Help for each function can be accessed interactively from Python. For example:
@@ -32,7 +31,7 @@ Help for each function can be accessed interactively from Python. For example:
                 username: Scihub username. Sign up at https://scihub.copernicus.eu/.
                 password: Scihub password.
 
-On this page each of the functions from the download, preprocess, composite and mosaic modules are documented. Note that the ``main()`` function in each is what is driven by the command line tools, so in addition to it's component parts you can call the entire processing chain from Python.
+On this page each of the functions from the ``download``, ``preprocess``, and ``mosaic`` modules are documented. A further module named ``utilities`` contains generic functions for processing Sentinel-2 data. Note that the ``main()`` function in each is what is driven by the command line tools, so in addition to it's component parts you can call the entire processing chain from Python.
 
 Download module
 ---------------
@@ -50,14 +49,6 @@ Preprocess module
     :undoc-members:
     :show-inheritance:
 
-Composite module
-----------------
-
-.. automodule:: sen2mosaic.composite
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 Mosaic module
 -------------
 
@@ -66,3 +57,10 @@ Mosaic module
     :undoc-members:
     :show-inheritance:
 
+Utilities module
+-------------
+
+.. automodule:: sen2mosaic.utilties
+    :members:
+    :undoc-members:
+    :show-inheritance:
