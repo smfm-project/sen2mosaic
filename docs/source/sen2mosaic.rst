@@ -16,6 +16,8 @@ You should now be able to import each of the four modules in Python as follows:
     import sen2mosaic.download
     import sen2mosaic.preprocess
     import sen2mosaic.mosaic
+    import sen2mosaic.utilities
+    
 
 Help for each function can be accessed interactively from Python. For example:
 
@@ -60,7 +62,7 @@ Mosaic module
 Utilities module
 -------------
 
-.. automodule:: sen2mosaic.utilties
+.. automodule:: sen2mosaic.utilities
     :members:
     :undoc-members:
     :show-inheritance:
