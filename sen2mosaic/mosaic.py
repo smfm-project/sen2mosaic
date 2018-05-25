@@ -19,83 +19,6 @@ except ImportError:
     import xml.etree.ElementTree as ET
 
 
-def _createOutputArray(md, dtype = np.uint16):
-    '''
-    Create an output array from Metadata class from utilities.Metadata().
-    
-    Args:
-        md: Metadata class from utilities.Metadata()
-    
-    Returns:
-        A numpy array sized to match the specification of the utilities.Metadata() class.
-    '''
-    
-    output_array = np.zeros((md.nrows, md.ncols), dtype = dtype)
-    
-    return output_array
-
-
-def _createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, options = []):
-    '''
-    Function to create an empty gdal dataset with georefence info from Metadata class.
-
-    Args:
-        md: Metadata class from utilities.Metadata().
-        data_out: Optionally specify an array of data to include in the gdal dataset.
-        filename: Optionally specify an output filename, if image will be written to disk.
-        driver: GDAL driver type (e.g. 'MEM', 'GTiff'). By default this function creates an array in memory, but set driver = 'GTiff' to make a GeoTiff. If writing a file to disk, the argument filename must be specified.
-        dtype: Output data type. Default data type is a 16-bit unsigned integer (gdal.GDT_Int16, 3), but this can be specified using GDAL standards.
-        options: A list containing other GDAL options (e.g. for compression, use [compress='LZW'].
-
-    Returns:
-        A GDAL dataset.
-    '''
-    
-    from osgeo import gdal
-    
-    gdal_driver = gdal.GetDriverByName(driver)
-    ds = gdal_driver.Create(filename, md.ncols, md.nrows, 1, dtype, options = options)
-    ds.SetGeoTransform(md.geo_t)
-    ds.SetProjection(md.proj.ExportToWkt())
-    
-    # If a data array specified, add it to the gdal dataset
-    if type(data_out).__module__ == np.__name__:
-        ds.GetRasterBand(1).WriteArray(data_out)
-    
-    # If a filename is specified, write the array to disk.
-    if filename != '':
-        ds = None
-    
-    return ds
-
-
-def _reprojectImage(ds_source, ds_dest, md_source, md_dest):
-    '''
-    Reprojects a source image to match the coordinates of a destination GDAL dataset.
-    
-    Args:
-        ds_source: A gdal dataset from _createGdalDataset() containing data to be repojected.
-        ds_dest: A gdal dataset from _createGdalDataset(), with destination coordinate reference system and extent.
-        md_source: Metadata class from utilities.Metadata() representing the source image.
-        md_dest: Metadata class from utilities.Metadata() representing the destination image.
-    
-    Returns:
-        A GDAL array with resampled data
-    '''
-    
-    from osgeo import gdal
-    
-    proj_source = md_source.proj.ExportToWkt()
-    proj_dest = md_dest.proj.ExportToWkt()
-    
-    # Reproject source into dest project coordinates
-    gdal.ReprojectImage(ds_source, ds_dest, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
-            
-    ds_resampled = ds_dest.GetRasterBand(1).ReadAsArray()
-    
-    return ds_resampled
-
-
 
 def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMOGENEITY'):
     '''
@@ -175,39 +98,13 @@ def _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled):
         
     '''
                 
-    # Find pixels that can be replaced in this image (valid, or selected). Add all valid, to aid with colour balancing between scenes.
-    #selection = np.logical_and(np.logical_or(image_n == n, data_out == 0),np.logical_and(scl_resampled>=4,scl_resampled<=6))
+    # Find pixels that can be replaced in this image
     selection = image_n == n
     
     # Add good data to data_out array
     data_out[selection] = data_resampled[selection]
     
     return data_out
-
-    
-def loadMask(scene, md_dest, correct = False):
-    '''
-    Funciton to load, correct and reproject a Sentinel-2 mask array.
-    
-    Args:
-        scenes: A level-2A scene of class utilties.LoadScene().
-        md_dest: An object of class utilties.Metadata() to reproject image to.
-        correct: Set to True to perform corrections to sen2cor mask.
-    
-    Returns:
-        A numpy array of resampled mask data
-    '''
-    
-    # Write mask array to a gdal dataset
-    ds_source = _createGdalDataset(scene.metadata, data_out = scene.getMask(correct = correct), dtype = 3)
-        
-    # Create an empty gdal dataset for destination
-    ds_dest = _createGdalDataset(md_dest, dtype = 1)
-    
-    # Reproject source to destination projection and extent
-    scl_resampled = _reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)
-    
-    return scl_resampled
 
 
 def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', correct_mask = True, verbose = False):
@@ -232,17 +129,18 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
     scenes = utilities.sortScenes(scenes)
     
     # Create array to contain output classified cloud mask array
-    scl_out = _createOutputArray(md_dest, dtype = np.uint8)
+    scl_out = md_dest.createBlankArray(dtype = np.uint8)
     
     # Create array to contain record of the number of source image
-    image_n = _createOutputArray(md_dest, dtype = np.uint16) 
+    image_n = md_dest.createBlankArray(dtype = np.uint8)
     
     for n, scene in enumerate(scenes):
         
         if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
         
         # Reproject mask
-        scl_resampled = loadMask(scene, md_dest, correct = correct_mask)
+        #scl_resampled = loadMask(scene, md_dest, correct = correct_mask)
+        scl_resampled = scene.getMask(correct = correct_mask, md = md_dest)
         
         # Add reprojected data to SCL output array
         scl_out, image_n = _updateMaskArrays(scl_out, scl_resampled, image_n, n + 1, algorithm = algorithm)
@@ -250,41 +148,153 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
     if verbose: print 'Outputting SCL mask'
     
     # Write output cloud mask to disk for each resolution
-    ds_out = _createGdalDataset(md_dest, data_out = scl_out,
+    ds_out = utilities.createGdalDataset(md_dest, data_out = scl_out,
                                filename = '%s/%s_R%sm_SCL.tif'%(output_dir, output_name, str(scene.resolution)),
                                driver='GTiff', dtype = 1, options = ['COMPRESS=LZW'])
     
-    ds_out = _createGdalDataset(md_dest, data_out = image_n,
+    ds_out = utilities.createGdalDataset(md_dest, data_out = image_n,
                                filename = '%s/%s_R%sm_imageN.tif'%(output_dir, output_name, str(scene.resolution)),
                                driver='GTiff', dtype = 2, options = ['COMPRESS=LZW'])
 
     return scl_out, image_n
 
 
-def loadBand(scene, band, md_dest):
-    '''
-    Funciton to load and reproject a Sentinel-2 band array.
+def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = 'NONE', verbose = False):
+    """generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
+    
+    Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
+
+    Args:
+        scenes: A list of level 2A inputs (of class LoadScene).
+        image_n: An array of integers from generateSCLArray(), which describes the scene that each pixel should come from. 0 = No data, 1 = first scene, 2 = second scene etc.
+        band: String describing bad to process. e.g. B02, B03, B8A....
+        scl_out: Numpy array with mask from generateSCLArray().
+        md_dest: Metadata class from utilities.Metadata() containing output projection details.
+        output_dir: Optionally specify directory for output file. Defaults to current working directory.
+        output_name: Optionally specify a string to prepend to output files. Defaults to 'mosaic'.
+        
+    Returns:
+        A numpy array containing mosaic data for the input band.
+    """
+    
+    
+    # Create array to contain output array for this band
+    data_out = md_dest.createBlankArray(dtype = np.uint16)
+    
+    # Get data for each image_n
+    dates = [scene.datetime.date() for scene in scenes]
+    
+    # For each source file that contributes pixels
+    for n in _getImageOrder(scenes, image_n): #tile_number[tile_count[tile_number-1] > 0]:
+                
+        # Select scene
+        scene = scenes[n-1]
+                
+        if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
+        
+        # Load data and mask
+        #data_resampled = loadBand(scene, band, md_dest)
+        #scl_resampled = loadMask(scene, md_dest, correct = True)
+        data_resampled = scene.getBand(band, md = md_dest)
+        scl_resampled = scene.getMask(correct = True, md = md_dest)
+
+        # Perform colour balancing by histogram matching and inter-scene compensation
+        if colour_balance != 'NONE':
+            
+            # Skip first image
+            if data_out.sum() != 0:
+                
+                # Add mask to data_resampled
+                data_resampled_ma = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled < 4, scl_resampled > 6))
+                
+                # Calculate overlap with other images
+                overlap = np.logical_and(data_resampled_ma.mask == False, data_out != 0)
+                
+                # Calculate percent overlap between images
+                this_overlap = float(overlap.sum()) / (data_resampled_ma.mask ==False).sum()
+                                
+                if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'AGGRESSIVE':
+                    
+                    if verbose: print '        scaling'
+                                                            
+                    sel = np.logical_and(data_resampled_ma.mask == False, scl_resampled != 6)
+                    
+                    # Gain compensation (simple inter-scene correction)                    
+                    this_intensity = np.mean(data_resampled[overlap])
+                    ref_intensity = np.mean(data_out[overlap])
+                    
+                    data_resampled[sel] = np.round(data_resampled[sel] * (ref_intensity/this_intensity),0).astype(np.uint16)
+                    
+                elif this_overlap > 0.5:
+                    
+                    if verbose: print '        matching'
+                    
+                    data_resampled = utilities.histogram_match(data_resampled_ma, np.ma.array(data_out, mask = data_out == 0)).data
+                    
+                else:
+                    
+                    if verbose: print '        adding'
+                
+                
+        # Add reprojected data to band output array at appropriate image_n
+        data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled)
+        
+        
+    if verbose: print 'Outputting band %s'%band
+    
+    # Write output for this band to disk
+    ds_out = utilities.createGdalDataset(md_dest, data_out = data_out,
+                                filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band),
+                                driver='GTiff', dtype = 2, options = ['COMPRESS=LZW'])
+
+    return data_out
+
+
+def buildVRT(red_band, green_band, blue_band, output_path):
+    """
+    Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.
     
     Args:
-        scenes: A level-2A scene of class utilties.LoadScene().
-        band: The name of a band to load (e.g. 'B02')
-        md_dest: An object of class utilties.Metadata() to reproject image to.
+        red_band: Filename to add to red band
+        green_band: Filename to add to green band
+        blue_band: Filename to add to blue band
+        output_name: Path to output file
+    """
     
-    Returns:
-        A numpy array of resampled data
+    # Remove trailing / from output directory name if present
+    output_path = output_path.rstrip('/')
+    
+    # Ensure output name is a VRT
+    if output_path[-4:] != '.vrt':
+        output_path += '.vrt'
+    
+    command = ['gdalbuildvrt', '-separate', '-overwrite']
+    command += [output_path, red_band, green_band, blue_band]
+    
+    subprocess.call(command)
+
+
+def _getBands(resolution):
+    '''
+    Get bands and resolutions for each
     '''
     
-    # Write array to a gdal dataset
-    ds_source = _createGdalDataset(scene.metadata, data_out = scene.getBand(band))                
-
-    # Create an empty gdal dataset for destination
-    ds_dest = _createGdalDataset(md_dest, dtype = 2)
-            
-    # Reproject source to destination projection and extent
-    data_resampled = _reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)    
+    band_list = []
+    res_list = []
     
-    return data_resampled
-
+    if resolution == 60 or resolution == 0:
+        band_list.extend(['B01','B02','B03','B04','B05','B06','B07','B8A','B09','B11','B12'])
+        res_list.extend([60] * 11)
+        
+    if resolution == 20 or resolution == 0:
+        band_list.extend(['B02','B03','B04','B05','B06','B07','B8A','B11','B12'])
+        res_list.extend([20] * 9)
+        
+    if resolution == 10 or resolution == 0:
+        band_list.extend(['B02','B03','B04','B08'])
+        res_list.extend([10] * 4)
+        
+    return np.array(res_list), np.array(band_list)
 
 
 def _getImageOrder(scenes, image_n):
@@ -346,144 +356,8 @@ def _getImageOrder(scenes, image_n):
     tile_number = tile_number[tile_count[tile_number-1] > 0]
     
     return tile_number
+ 
 
-
-def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = 'NONE', verbose = False):
-    """generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
-    
-    Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
-
-    Args:
-        scenes: A list of level 2A inputs (of class LoadScene).
-        image_n: An array of integers from generateSCLArray(), which describes the scene that each pixel should come from. 0 = No data, 1 = first scene, 2 = second scene etc.
-        band: String describing bad to process. e.g. B02, B03, B8A....
-        scl_out: Numpy array with mask from generateSCLArray().
-        md_dest: Metadata class from utilities.Metadata() containing output projection details.
-        output_dir: Optionally specify directory for output file. Defaults to current working directory.
-        output_name: Optionally specify a string to prepend to output files. Defaults to 'mosaic'.
-        
-    Returns:
-        A numpy array containing mosaic data for the input band.
-    """
-    
-    
-    # Create array to contain output array for this band
-    data_out = _createOutputArray(md_dest, dtype = np.uint16)
-    
-    # Get data for each image_n
-    dates = [scene.datetime.date() for scene in scenes]
-    
-    # For each source file that contributes pixels
-    for n in _getImageOrder(scenes, image_n): #tile_number[tile_count[tile_number-1] > 0]:
-                
-        # Select scene
-        scene = scenes[n-1]
-                
-        if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
-        
-        # Load data and mask
-        data_resampled = loadBand(scene, band, md_dest)
-        scl_resampled = loadMask(scene, md_dest, correct = True)
-
-        # Perform colour balancing by histogram matching and inter-scene compensation
-        if colour_balance != 'NONE':
-            
-            # Skip first image
-            if data_out.sum() != 0:
-                
-                # Add mask to data_resampled
-                data_resampled_ma = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled < 4, scl_resampled > 6))
-                
-                # Calculate overlap with other images
-                overlap = np.logical_and(data_resampled_ma.mask == False, data_out != 0)
-                
-                # Calculate percent overlap between images
-                this_overlap = float(overlap.sum()) / (data_resampled_ma.mask ==False).sum()
-                                
-                if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'AGGRESSIVE':
-                    
-                    if verbose: print '        scaling'
-                                                            
-                    sel = np.logical_and(data_resampled_ma.mask == False, scl_resampled != 6)
-                    
-                    # Gain compensation (simple inter-scene correction)                    
-                    this_intensity = np.mean(data_resampled[overlap])
-                    ref_intensity = np.mean(data_out[overlap])
-                    
-                    data_resampled[sel] = np.round(data_resampled[sel] * (ref_intensity/this_intensity),0).astype(np.uint16)
-                    
-                elif this_overlap > 0.5:
-                    
-                    if verbose: print '        matching'
-                    
-                    data_resampled = utilities.histogram_match(data_resampled_ma, np.ma.array(data_out, mask = data_out == 0)).data
-                    
-                else:
-                    
-                    if verbose: print '        adding'
-                
-                
-        # Add reprojected data to band output array at appropriate image_n
-        data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled)
-        
-        
-    if verbose: print 'Outputting band %s'%band
-    
-    # Write output for this band to disk
-    ds_out = _createGdalDataset(md_dest, data_out = data_out,
-                                filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band),
-                                driver='GTiff', dtype = 2, options = ['COMPRESS=LZW'])
-
-    return data_out
-
-
-def buildVRT(red_band, green_band, blue_band, output_path):
-    """
-    Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.
-    
-    Args:
-        red_band: Filename to add to red band
-        green_band: Filename to add to green band
-        blue_band: Filename to add to blue band
-        output_name: Path to output file
-    """
-    
-    # Remove trailing / from output directory name if present
-    output_path = output_path.rstrip('/')
-    
-    # Ensure output name is a VRT
-    if output_path[-4:] != '.vrt':
-        output_path += '.vrt'
-    
-    command = ['gdalbuildvrt', '-separate', '-overwrite']
-    command += [output_path, red_band, green_band, blue_band]
-    
-    subprocess.call(command)
-
-def _getBands(resolution):
-    '''
-    Get bands and resolutions for each
-    '''
-    
-    band_list = []
-    res_list = []
-    
-    if resolution == 60 or resolution == 0:
-        band_list.extend(['B01','B02','B03','B04','B05','B06','B07','B8A','B09','B11','B12'])
-        res_list.extend([60] * 11)
-        
-    if resolution == 20 or resolution == 0:
-        band_list.extend(['B02','B03','B04','B05','B06','B07','B8A','B11','B12'])
-        res_list.extend([20] * 9)
-        
-    if resolution == 10 or resolution == 0:
-        band_list.extend(['B02','B03','B04','B08'])
-        res_list.extend([10] * 4)
-        
-    return np.array(res_list), np.array(band_list)
-
-    
-        
 def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, correct_mask = True, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
     """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     

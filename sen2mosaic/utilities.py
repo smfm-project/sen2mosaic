@@ -14,7 +14,7 @@ import pdb
 
 class Metadata(object):
     '''
-    This is a generic metadata class for Geosptial data
+    This is a generic metadata class for Geospatial data
     '''
     
     def __init__(self, extent, res, EPSG):
@@ -85,9 +85,21 @@ class Metadata(object):
         geo_t = (self.ulx, self.xres, 0, self.uly, 0, self.yres)
         
         return geo_t
-
-
-
+    
+    def createBlankArray(self, dtype = np.uint16):
+        '''
+        Create a blank array with the extent of the Metadata class.
+            
+        Args:
+            dtype: Data type from numpy, defaults to np.uint16.
+            
+        Returns:
+            A numpy array sized to match the specification of the utilities.Metadata() class.
+        '''
+        
+        return np.zeros((self.nrows, self.ncols), dtype = dtype)
+        
+        
 class LoadScene(object):
     '''
     Load a Sentinel-2, L1C or L2A scene
@@ -105,6 +117,9 @@ class LoadScene(object):
                 
         # Get file format
         self.file_format = self.__getFormat()
+        
+        # Save satellite name
+        self.satellite = 'S2'
         
         # Save image type (S1_single, S1_dual, S2)
         self.image_type = 'S2'
@@ -141,8 +156,7 @@ class LoadScene(object):
             return 'SAFE'
 
         else:
-            print 'File %s does not match any expected file pattern'%self.filename
-            raise IOError
+            raise IOError('File %s does not match any expected file pattern'%self.filename)
         
     def __getLevel(self):
         '''
@@ -204,12 +218,12 @@ class LoadScene(object):
         return image_path[0]
 
     
-    def getMask(self, correct = False):
+    def getMask(self, correct = False, md = None):
         '''
         Load the mask to a numpy array.
         
         Args:
-            correct: Set to True to apply imporvements to the Sentinel-2 mask (recommended)
+            correct: Set to True to apply improvements to the Sentinel-2 mask (recommended)
         '''
         
         if self.level == '1C':
@@ -217,33 +231,33 @@ class LoadScene(object):
             return False
         
         import cv2
-
-        # Don't rerun processing if mask already present in memory
-        if not hasattr(self, 'mask'):
-            
-            # Load mask at appropriate resolution
-            if self.metadata.res in [20, 60]:
-                image_path = self.__getImagePath('SCL', resolution = self.resolution)
-            else:
-                image_path = self.__getImagePath('SCL', resolution = 20)
-            
-            # Load the image (.jp2 format)
-            mask = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
-            
-            # Expand 20 m resolution mask to match 10 metre image resolution if required
-            if self.metadata.res == 10:
-                mask = scipy.ndimage.zoom(mask, 2, order = 0)
-            
-            # apply corrections
-            if correct:
-                mask = improveMask(mask, self.resolution)
                 
-            # Save mask to class for later use
-            self.mask = mask
-                
-        return self.mask
+        # Load mask at appropriate resolution
+        if self.metadata.res in [20, 60]:
+            image_path = self.__getImagePath('SCL', resolution = self.resolution)
+        else:
+            # In case of 10 m image, use 20 m mask
+            image_path = self.__getImagePath('SCL', resolution = 20)
+        
+        # Load the image (.jp2 format)
+        mask = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
+        
+        # Expand 20 m resolution mask to match 10 metre image resolution if required
+        if self.metadata.res == 10:
+            mask = scipy.ndimage.zoom(mask, 2, order = 0)
+        
+        # Apply corrections?
+        if correct:
+            mask = improveMask(mask, self.resolution)
+        
+        # Reproject?
+        if md is not None:
+            mask = _reprojectBand(self, mask, md, dtype = 1)
+        
+        return mask
     
-    def getBand(self, band):
+    
+    def getBand(self, band, md = None):
         '''
         Load a Sentinel-2 band to a numpy array.
         '''
@@ -254,10 +268,99 @@ class LoadScene(object):
         
         # Load image with cv2 (faster than glymur)
         data = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
-                
+        
+        # Reproject?
+        if md is not None:
+            data = _reprojectBand(self, data, md, dtype = 2) 
+            
         return data
 
 
+def _reprojectBand(scene, data, md_dest, dtype = 2):
+    """
+    Funciton to load, correct and reproject a Sentinel-2 array
+    
+    Args:
+        scene: A level-2A scene of class utilities.LoadScene().
+        data: The array to reproject
+        md_dest: An object of class utilities.Metadata() to reproject image to.
+    
+    Returns:
+        A numpy array of resampled mask data
+    """
+    
+    # Write mask array to a gdal dataset
+    ds_source = createGdalDataset(scene.metadata, data_out = data, dtype = dtype)
+        
+    # Create an empty gdal dataset for destination
+    ds_dest = createGdalDataset(md_dest, dtype = dtype)
+    
+    # Reproject source to destination projection and extent
+    data_resampled = reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)
+    
+    return data_resampled
+
+
+def createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, options = []):
+    '''
+    Function to create an empty gdal dataset with georefence info from Metadata class.
+
+    Args:
+        md: Metadata class from utilities.Metadata().
+        data_out: Optionally specify an array of data to include in the gdal dataset.
+        filename: Optionally specify an output filename, if image will be written to disk.
+        driver: GDAL driver type (e.g. 'MEM', 'GTiff'). By default this function creates an array in memory, but set driver = 'GTiff' to make a GeoTiff. If writing a file to disk, the argument filename must be specified.
+        dtype: Output data type. Default data type is a 16-bit unsigned integer (gdal.GDT_Int16, 3), but this can be specified using GDAL standards.
+        options: A list containing other GDAL options (e.g. for compression, use [compress='LZW'].
+
+    Returns:
+        A GDAL dataset.
+    '''
+    
+    from osgeo import gdal
+    
+    gdal_driver = gdal.GetDriverByName(driver)
+    ds = gdal_driver.Create(filename, md.ncols, md.nrows, 1, dtype, options = options)
+    ds.SetGeoTransform(md.geo_t)
+    ds.SetProjection(md.proj.ExportToWkt())
+    
+    # If a data array specified, add it to the gdal dataset
+    if type(data_out).__module__ == np.__name__:
+        ds.GetRasterBand(1).WriteArray(data_out)
+    
+    # If a filename is specified, write the array to disk.
+    if filename != '':
+        ds = None
+    
+    return ds
+
+
+
+def reprojectImage(ds_source, ds_dest, md_source, md_dest):
+    '''
+    Reprojects a source image to match the coordinates of a destination GDAL dataset.
+    
+    Args:
+        ds_source: A gdal dataset from utilities.createGdalDataset() containing data to be repojected.
+        ds_dest: A gdal dataset from utilities.createGdalDataset(), with destination coordinate reference system and extent.
+        md_source: Metadata class from utilities.Metadata() representing the source image.
+        md_dest: Metadata class from utilities.Metadata() representing the destination image.
+    
+    Returns:
+        A GDAL array with resampled data
+    '''
+    
+    from osgeo import gdal
+    
+    proj_source = md_source.proj.ExportToWkt()
+    proj_dest = md_dest.proj.ExportToWkt()
+    
+    # Reproject source into dest project coordinates
+    gdal.ReprojectImage(ds_source, ds_dest, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
+            
+    ds_resampled = ds_dest.GetRasterBand(1).ReadAsArray()
+    
+    return ds_resampled
 
 
 def validateTile(tile):
@@ -374,7 +477,7 @@ def getSourceFilesInTile(scenes, md_dest, start = '20150101', end = datetime.dat
         Function that uses LoadScene class to test whether a tile falls within the specified time range.
         
         Args:
-            scene: Object from utilties.LoadScene()
+            scene: Object from utilities.LoadScene()
             start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
             end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
             
