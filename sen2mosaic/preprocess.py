@@ -265,7 +265,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
        
     # Do the processing, and capture exceptions
     try:
-        output_text = 't'#_runCommand(command, verbose = verbose)
+        output_text = _runCommand(command, verbose = verbose)
     except Exception as e:
         # Tidy up temporary options file
         os.remove(temp_gipp)
