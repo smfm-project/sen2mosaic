@@ -384,8 +384,9 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     assert colour_balance in ['NONE', 'SIMPLE', 'AGGRESSIVE'], "colour_balance must be 'NONE', 'SIMPLE', or 'AGGRESSIVE'."
     assert type(correct_mask) == bool, "correct_mask can only be set to True or False."
     
-    # Remove trailing / from output directory if present 
-    output_dir = output_dir.rstrip('/')
+    # Test that output directory is writeable
+    output_dir = os.path.abspath(output_dir)
+    assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory"%output_dir
     
     res_list, band_list = _getBands(resolution)
     

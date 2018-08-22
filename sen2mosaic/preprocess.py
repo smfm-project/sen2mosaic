@@ -233,11 +233,16 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
         Absolute file path to the output file.
     """
     
+    
     # Test that input file is in .SAFE format
     assert infile.split('/')[-3][-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
     
     # Test that resolution is reasonable
     assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for all resolutions). The input resolution was %s"%str(resolution)
+    
+    # Test that output directory is writeable
+    output_dir = os.path.abspath(output_dir)
+    assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory"%output_dir
     
     # Determine output filename
     outpath = getL2AFile(infile, output_dir = output_dir)

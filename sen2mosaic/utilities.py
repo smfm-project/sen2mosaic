@@ -252,7 +252,7 @@ class LoadScene(object):
         
         # Reproject?
         if md is not None:
-            mask = _reprojectBand(self, mask, md, dtype = 1)
+            mask = reprojectBand(self, mask, md, dtype = 1)
         
         return mask
     
@@ -271,12 +271,12 @@ class LoadScene(object):
         
         # Reproject?
         if md is not None:
-            data = _reprojectBand(self, data, md, dtype = 2) 
+            data = reprojectBand(self, data, md, dtype = 2) 
             
         return data
 
 
-def _reprojectBand(scene, data, md_dest, dtype = 2):
+def reprojectBand(scene, data, md_dest, dtype = 2, resampling = 0):
     """
     Funciton to load, correct and reproject a Sentinel-2 array
     
@@ -296,17 +296,17 @@ def _reprojectBand(scene, data, md_dest, dtype = 2):
     ds_dest = createGdalDataset(md_dest, dtype = dtype)
     
     # Reproject source to destination projection and extent
-    data_resampled = reprojectImage(ds_source, ds_dest, scene.metadata, md_dest)
+    data_resampled = reprojectImage(ds_source, ds_dest, scene.metadata, md_dest, resampling = resampling)
     
     return data_resampled
 
 
-def createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, options = []):
+def createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, RasterCount = 1, nodata = None, options = []):
     '''
-    Function to create an empty gdal dataset with georefence info from Metadata class.
+    Function to create an empty gdal dataset with georefence info from metadata dictionary.
 
     Args:
-        md: Metadata class from utilities.Metadata().
+        md: Object from Metadata() class.
         data_out: Optionally specify an array of data to include in the gdal dataset.
         filename: Optionally specify an output filename, if image will be written to disk.
         driver: GDAL driver type (e.g. 'MEM', 'GTiff'). By default this function creates an array in memory, but set driver = 'GTiff' to make a GeoTiff. If writing a file to disk, the argument filename must be specified.
@@ -316,17 +316,28 @@ def createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype 
     Returns:
         A GDAL dataset.
     '''
-    
-    from osgeo import gdal
-    
+    from osgeo import gdal, osr
+        
     gdal_driver = gdal.GetDriverByName(driver)
-    ds = gdal_driver.Create(filename, md.ncols, md.nrows, 1, dtype, options = options)
-    ds.SetGeoTransform(md.geo_t)
-    ds.SetProjection(md.proj.ExportToWkt())
+    ds = gdal_driver.Create(filename, md.ncols, md.nrows, RasterCount, dtype, options = options)
     
-    # If a data array specified, add it to the gdal dataset
+    ds.SetGeoTransform(md.geo_t)
+    
+    proj = osr.SpatialReference()
+    proj.ImportFromEPSG(md.EPSG_code)
+    ds.SetProjection(proj.ExportToWkt())
+    
+    # If a data array specified, add data to the gdal dataset
     if type(data_out).__module__ == np.__name__:
-        ds.GetRasterBand(1).WriteArray(data_out)
+        
+        if len(data_out.shape) == 2:
+            data_out = np.ma.expand_dims(data_out,2)
+        
+        for feature in range(RasterCount):
+            ds.GetRasterBand(feature + 1).WriteArray(data_out[:,:,feature])
+            
+            if nodata != None:
+                ds.GetRasterBand(feature + 1).SetNoDataValue(nodata)
     
     # If a filename is specified, write the array to disk.
     if filename != '':
@@ -335,8 +346,7 @@ def createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype 
     return ds
 
 
-
-def reprojectImage(ds_source, ds_dest, md_source, md_dest):
+def reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
     '''
     Reprojects a source image to match the coordinates of a destination GDAL dataset.
     
