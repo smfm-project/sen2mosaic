@@ -145,7 +145,7 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     
     # Generate a temporary output file
     temp_gipp = tempfile.mktemp(suffix='.xml')
-    
+        
     # Ovewrite old GIPP file with new options
     tree.write(temp_gipp)
     
@@ -241,7 +241,8 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for all resolutions). The input resolution was %s"%str(resolution)
     
     # Test that output directory is writeable
-    output_dir = os.path.abspath(output_dir)
+    output_dir = os.path.abspath(os.path.expanduser(output_dir))
+    assert os.path.exists(output_dir), "Output directory (%s) does not exist."%output_dir
     assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory"%output_dir
     
     # Determine output filename

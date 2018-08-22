@@ -385,7 +385,8 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     assert type(correct_mask) == bool, "correct_mask can only be set to True or False."
     
     # Test that output directory is writeable
-    output_dir = os.path.abspath(output_dir)
+    output_dir = os.path.abspath(os.path.expanduser(output_dir))
+    assert os.path.exists(output_dir), "Output directory (%s) does not exist."%output_dir
     assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory"%output_dir
     
     res_list, band_list = _getBands(resolution)
