@@ -430,10 +430,10 @@ def prepInfiles(infiles, level, tile = ''):
     assert validateTile(tile) or tile == '', "Tile format not recognised. It should take the format '##XXX' (e.g.' 36KWA')."
     
     # In case infiles is a list of files
-    if type(infiles) != list and os.path.isfile(infiles):
-        with open(infiles, 'rb') as infile:
+    if len(infiles) == 1 and os.path.isfile(infiles[0]):
+        with open(infiles[0], 'rb') as infile:
             infiles = [row.rstrip() for row in infile]
-    
+     
     # Make interable if only one item
     if not isinstance(infiles, list):
         infiles = [infiles]
