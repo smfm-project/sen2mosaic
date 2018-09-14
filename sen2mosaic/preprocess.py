@@ -3,7 +3,6 @@
 import argparse
 import functools
 import glob
-import glymur
 import multiprocessing
 import numpy as np
 import os
