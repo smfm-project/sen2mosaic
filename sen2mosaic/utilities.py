@@ -227,7 +227,7 @@ class LoadScene(object):
         '''
         
         if self.level == '1C':
-            print 'Level 1C Sentinel-2 data are not masked. Try loading a level 2A image.'
+            print 'Level 1C Sentinel-2 data do not have a usable mask. Try loading a level 2A image.'
             return False
         
         import cv2
@@ -264,10 +264,34 @@ class LoadScene(object):
         
         import cv2
         
-        image_path = self.__getImagePath(band, resolution = self.resolution)
+        # Where high-res band doesn't exist, load the nearest alternative and expand its extent
+        zoom = None
+        
+        if self.resolution == 10:
+            if band in ['B02', 'B03', 'B04', 'B08']:
+                image_path = self.__getImagePath(band, resolution = 10)
+            elif band in ['B05', 'B06', 'B07', 'B11', 'B12']:
+                image_path = self.__getImagePath(band, resolution = 20)
+                zoom = 2
+            else:
+                image_path = self.__getImagePath(band, resolution = 60)
+                zoom = 6
+        elif self.resolution == 20:
+            if band in ['B01', 'B09']:
+                image_path = self.__getImagePath(band, resolution = 60)
+                zoom = 3
+            else:
+                image_path = self.__getImagePath(band, resolution = 20)
+        else:
+            image_path = self.__getImagePath(band, resolution = 60)
+        
         
         # Load image with cv2 (faster than glymur)
         data = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
+        
+        # Expand coarse resolution band to match image resolution if required
+        if zoom is not None:
+            data = scipy.ndimage.zoom(data, zoom, order = 0)
         
         # Reproject?
         if md is not None:
@@ -404,7 +428,12 @@ def prepInfiles(infiles, level, tile = ''):
     
     assert level in ['1C', '2A'], "Sentinel-2 processing level must be either '1C' or '2A'."
     assert validateTile(tile) or tile == '', "Tile format not recognised. It should take the format '##XXX' (e.g.' 36KWA')."
-
+    
+    # In case infiles is a list of files
+    if type(infiles) != list and os.path.isfile(infiles):
+        with open(infiles, 'rb') as infile:
+            infiles = [row.rstrip() for row in infile]
+    
     # Make interable if only one item
     if not isinstance(infiles, list):
         infiles = [infiles]
