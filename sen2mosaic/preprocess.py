@@ -401,7 +401,7 @@ if __name__ == '__main__':
         if os.path.exists(outpath):
             print 'WARNING: The output file %s already exists! Skipping file.'%outpath
     
-    if len(infiles) == 0: raise ValueError('No usable level 1C Sentinel-2 files detected in input directory.')
+    if len(infiles) == 0: raise ValueError('No level 1C Sentinel-2 files detected in input directory that match specification.')
         
     if args.n_processes == 1:
         
