@@ -234,7 +234,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     
     
     # Test that input file is in .SAFE format
-    assert infile.split('/')[-3][-5:] == '.SAFE', "Input files must be in .SAFE format. This file is %s."%infile
+    assert '_MSIL1C_' in infile.split('/')[-3], "Input files must be in level 1C format."
     
     # Test that resolution is reasonable
     assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for all resolutions). The input resolution was %s"%str(resolution)
