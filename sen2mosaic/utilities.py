@@ -429,11 +429,6 @@ def prepInfiles(infiles, level, tile = ''):
     assert level in ['1C', '2A'], "Sentinel-2 processing level must be either '1C' or '2A'."
     assert validateTile(tile) or tile == '', "Tile format not recognised. It should take the format '##XXX' (e.g.' 36KWA')."
     
-    # In case infiles is a list of files
-    if len(infiles) == 1 and os.path.isfile(infiles[0]):
-        with open(infiles[0], 'rb') as infile:
-            infiles = [row.rstrip() for row in infile]
-     
     # Make interable if only one item
     if not isinstance(infiles, list):
         infiles = [infiles]
@@ -441,16 +436,21 @@ def prepInfiles(infiles, level, tile = ''):
     # Get absolute path, stripped of symbolic links
     infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
     
+    # In case infiles is a list of files
+    if len(infiles) == 1 and os.path.isfile(infiles[0]):
+        with open(infiles[0], 'rb') as infile:
+            infiles = [row.rstrip() for row in infile]
+    
     # List to collate 
     infiles_reduced = []
     
     for infile in infiles:
          
         # Where infile is a directory:
-        infiles_reduced.extend(glob.glob('%s/*.SAFE/GRANULE/*'%infile))
+        infiles_reduced.extend(glob.glob('%s/*_MSIL%s_*/GRANULE/*'%(infile, level)))
         
         # Where infile is a .SAFE file
-        if infile.split('/')[-1].split('.')[-1] == 'SAFE': infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
+        if '_MSIL%s_'%level in infile.split('/')[-1]: infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
         
         # Where infile is a specific granule 
         if infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
