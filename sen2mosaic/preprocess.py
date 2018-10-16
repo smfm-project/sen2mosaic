@@ -107,6 +107,31 @@ def _run_workers(n_processes, jobs):
         raise
 
 
+def _which(program):
+    '''
+    Tests whether command line script exists. Mimics which in command line.
+    From: https://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
+    
+    Args:
+        program: String to be executed
+    Returns:
+        Path to script, or None where program does not exist.
+    '''
+    
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
 
 ### Primary functions
 
@@ -231,13 +256,15 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     Returns:
         Absolute file path to the output file.
     """
-    
-    
+        
     # Test that input file is in .SAFE format
     assert '_MSIL1C_' in infile.split('/')[-3], "Input files must be in level 1C format."
     
     # Test that resolution is reasonable
     assert resolution in [0, 10, 20, 60], "Input resolution must be 10, 20, 60, or 0 (for all resolutions). The input resolution was %s"%str(resolution)
+    
+    # Test that sen2cor is installed
+    assert _which('L2A_Process') is not None, "Can't find program L2A_Process. Ensure that sen2cor has been correctly installed."
     
     # Test that output directory is writeable
     output_dir = os.path.abspath(os.path.expanduser(output_dir))
