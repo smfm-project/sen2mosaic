@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 
+import cv2
 import datetime
 import glob
 import numpy as np
 import os
+from osgeo import gdal
 import re
 import scipy.ndimage
+import skimage.measure
+import subprocess
+import tempfile
 
 import pdb
 
@@ -176,7 +181,7 @@ class LoadScene(object):
             level = '1C'
         else:
             level = 'unknown'
-                        
+        
         return level
     
     def __checkResolution(self, resolution):
@@ -193,7 +198,7 @@ class LoadScene(object):
         Extract metadata from the Sentinel-2 file.
         '''
                 
-        self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = getS2Metadata(self.filename, self.resolution)
+        self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = getS2Metadata(self.filename, self.resolution, level = self.level)
     
     def __getImagePath(self, band, resolution = 20):
         '''
@@ -211,13 +216,56 @@ class LoadScene(object):
                 image_path = glob.glob(self.filename + '/IMG_DATA/*%s*%sm.jp2'%(band, str(resolution)))
         
         elif self.level == '1C':
-            image_path = glob.glob(self.filename + '/IMG_DATA/T%s_%s.jp2'%(str(self.tile), band))        
+            
+            image_path = glob.glob(self.filename + '/IMG_DATA/%s_*_%s.jp2'%(str(self.tile), band))        
         
         assert len(image_path) > 0, "No file found for band: %s, resolution: %s in file %s."%(band, str(resolution), self.filename)
         
         return image_path[0]
-
     
+    
+    def __findGML(self, variety, band = 'B02'):
+        '''
+        '''
+        
+        assert variety in ['CLOUDS', 'DEFECT', 'DETFOO', 'NODATA', 'SATURA', 'TECQUA'], 'Variety of L1C mask (%s) not recognised'%str(variety)
+        assert band in ['B01', 'B02', 'B03', 'B04', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B10', 'B11', 'B12'], 'Band (%s) not recognised'%str(band)
+        assert self.level == '1C', "GML cloud masks are only used in Level 1C data."
+        
+        if variety == 'CLOUDS':
+            gml_path = glob.glob(self.filename + '/QI_DATA/MSK_%s_B00.gml'%variety)
+        else:
+            # Assume all bands approx the same
+            gml_path = glob.glob(self.filename + '/QI_DATA/MSK_%s_%s.gml'%(variety, band))
+        
+        assert len(gml_path) > 0, "No GML file found for file %s"%self.filename
+        
+        return gml_path[0]
+
+
+    def __loadGML(self, gml_path):
+        '''
+        Loads a cloud mask from the Sentinel-1 level 1C data product
+        '''
+                        
+         # Generate a temporary output file
+        temp_tif = tempfile.mktemp(suffix='.tif')
+        
+        # Rasterize to temp file
+        cmd = ['gdal_rasterize', '-burn', '1' ,'-of', 'GTiff', '-te', str(self.extent[0]), str(self.extent[1]), str(self.extent[2]), str(self.extent[3]), '-tr', str(self.resolution), str(self.resolution), gml_path, temp_tif]
+        
+        try:
+            # Load vector mask, rasterize with gdal_rasterize, and load into memory
+            with open(os.devnull, 'w') as devnull:
+                gdal_output = subprocess.check_output(' '.join(cmd), shell = True, stderr=devnull)              
+                mask = gdal.Open(temp_tif,0).ReadAsArray()       
+                gdal_removed = subprocess.check_output('rm ' + temp_tif, shell = True, stderr=devnull)
+        except:
+            # Occasionally the mask GML file is empty. Assume all pixels should be masked in this case
+            mask = np.zeros((int((self.metadata.extent[3] - self.metadata.extent[1]) / self.metadata.res), int((self.metadata.extent[2] - self.metadata.extent[0]) / self.metadata.res))) + 1
+        
+        return mask == 1
+                
     def getMask(self, correct = False, md = None):
         '''
         Load the mask to a numpy array.
@@ -227,24 +275,33 @@ class LoadScene(object):
         '''
         
         if self.level == '1C':
-            print 'Level 1C Sentinel-2 data do not have a usable mask. Try loading a level 2A image.'
-            return False
-        
-        import cv2
-                
+            
+            # Rasterize and load GML cloud mask for L1C data
+            gml_path = self.__findGML('CLOUDS')
+            mask_clouds = self.__loadGML(gml_path)
+            
+            # Get area outside of satellite overpass using B02
+            mask_nodata = self.getBand('B02') == 0
+            
+            # Initiate mask to pass all (4 = vegetation)
+            mask = np.zeros_like(mask_clouds, dtype = np.int) + 4
+            mask[mask_clouds] = 9
+            mask[mask_nodata] = 0
+            
         # Load mask at appropriate resolution
-        if self.metadata.res in [20, 60]:
-            image_path = self.__getImagePath('SCL', resolution = self.resolution)
-        else:
-            # In case of 10 m image, use 20 m mask
-            image_path = self.__getImagePath('SCL', resolution = 20)
-        
-        # Load the image (.jp2 format)
-        mask = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
-        
-        # Expand 20 m resolution mask to match 10 metre image resolution if required
-        if self.metadata.res == 10:
-            mask = scipy.ndimage.zoom(mask, 2, order = 0)
+        elif self.level == '2A':
+            if self.metadata.res in [20, 60]:
+                image_path = self.__getImagePath('SCL', resolution = self.resolution)
+            else:
+                # In case of 10 m image, use 20 m mask
+                image_path = self.__getImagePath('SCL', resolution = 20)
+            
+            # Load the image (.jp2 format)
+            mask = gdal.Open(image_path, 0).ReadAsArray()
+            
+            # Expand 20 m resolution mask to match 10 metre image resolution if required
+            if self.metadata.res == 10:
+                mask = scipy.ndimage.zoom(mask, 2, order = 0)
         
         # Apply corrections?
         if correct:
@@ -262,37 +319,56 @@ class LoadScene(object):
         Load a Sentinel-2 band to a numpy array.
         '''
         
-        import cv2
+        bands_10 = ['B02', 'B03', 'B04', 'B08']            
+        bands_20 = ['B05', 'B06', 'B07', 'B8A', 'B11', 'B12']
+        bands_60 = ['B01', 'B09', 'B10']
         
-        # Where high-res band doesn't exist, load the nearest alternative and expand its extent
-        zoom = None
+        # Default size
+        zoom = 1
         
-        if self.resolution == 10:
-            if band in ['B02', 'B03', 'B04', 'B08']:
-                image_path = self.__getImagePath(band, resolution = 10)
-            elif band in ['B05', 'B06', 'B07', 'B11', 'B12']:
-                image_path = self.__getImagePath(band, resolution = 20)
-                zoom = 2
+        # Determine the resolution of the chosen band, and how to rescale it to match resolution
+        if self.level == '1C':
+            image_path = self.__getImagePath(band)
+            
+            if self.resolution == 10:
+                if band in bands_20: zoom = 2
+                elif band in bands_60: zoom = 6
+            elif self.resolution == 20:
+                if band in bands_10: zoom = 0.5
+                elif band in bands_60: zoom = 3
+            elif self.resolution == 60:
+                if band in bands_10: zoom = 1. / 6
+                elif band in bands_20: zoom = 1./ 3
+        
+        # Do the same for level 2A data, but without need for down-scaling which is performed by sen2cor
+        if self.level == '2A':
+            if self.resolution == 10:
+                if band in bands_10:
+                    image_path = self.__getImagePath(band, resolution = 10)
+                elif band in bands_20:
+                    image_path = self.__getImagePath(band, resolution = 20)
+                    zoom = 2
+                else:
+                    image_path = self.__getImagePath(band, resolution = 60)
+                    zoom = 6
+            elif self.resolution == 20:
+                if band in bands_60:
+                    image_path = self.__getImagePath(band, resolution = 60)
+                    zoom = 3
+                else:
+                    image_path = self.__getImagePath(band, resolution = 20)
             else:
                 image_path = self.__getImagePath(band, resolution = 60)
-                zoom = 6
-        elif self.resolution == 20:
-            if band in ['B01', 'B09']:
-                image_path = self.__getImagePath(band, resolution = 60)
-                zoom = 3
-            else:
-                image_path = self.__getImagePath(band, resolution = 20)
-        else:
-            image_path = self.__getImagePath(band, resolution = 60)
         
-        
-        # Load image with cv2 (faster than glymur)
-        data = cv2.imread(image_path, cv2.IMREAD_ANYDEPTH)
+        # Load image
+        data = gdal.Open(image_path, 0).ReadAsArray()
         
         # Expand coarse resolution band to match image resolution if required
-        if zoom is not None:
+        if zoom > 1:
             data = scipy.ndimage.zoom(data, zoom, order = 0)
-        
+        if zoom < 1:
+            data = np.round(skimage.measure.block_reduce(data, block_size = (int(1./zoom), int(1./zoom)), func = np.mean), 0).astype(np.int)
+            
         # Reproject?
         if md is not None:
             data = reprojectBand(self, data, md, dtype = 2) 
@@ -681,13 +757,14 @@ def getS2Metadata(granule_file, resolution = 20, level = '2A', tile = ''):
     return extent, EPSG, date, tile, nodata_percent
 
 
-def improveMask(data, res):
+def improveMask(data, res, cloud_buffer = 180):
     """
     Function that applied tweaks to the cloud mask output from sen2cor. Processes are: (1) Changing 'dark features' to 'cloud shadows, (2) Dilating 'cloud shadows', 'medium probability cloud' and 'high probability cloud' by 180 m. (3) Eroding outer 3 km of the tile.
     
     Args:
         data: A mask from sen2cor
         res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m). This should match the resolution of the mask.
+        cloud_buffer: Buffer to place around clouds, in meters
     
     Returns:
         A numpy array of the SCL mask with modifications.
@@ -708,8 +785,8 @@ def improveMask(data, res):
     data[np.logical_and(data == 3, cloud_dilated == 0)] = 6
         
     # Dilate cloud shadows, med clouds and high clouds by 180 m.
-    iterations = 180 / res
-    sortScenes
+    iterations = int(round(cloud_buffer / res, 0))
+    
     # Make a temporary dataset to prevent dilated masks overwriting each other
     data_temp = data.copy()
     

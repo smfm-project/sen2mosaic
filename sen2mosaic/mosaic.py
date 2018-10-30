@@ -144,8 +144,8 @@ def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'm
         
         # Add reprojected data to SCL output array
         scl_out, image_n = _updateMaskArrays(scl_out, scl_resampled, image_n, n + 1, algorithm = algorithm)
-    
-    if verbose: print 'Outputting SCL mask'
+        
+    if verbose: print 'Outputting mask'
     
     # Write output cloud mask to disk for each resolution
     ds_out = utilities.createGdalDataset(md_dest, data_out = scl_out,
@@ -197,7 +197,7 @@ def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.g
         #scl_resampled = loadMask(scene, md_dest, correct = True)
         data_resampled = scene.getBand(band, md = md_dest)
         scl_resampled = scene.getMask(correct = True, md = md_dest)
-
+        
         # Perform colour balancing by histogram matching and inter-scene compensation
         if colour_balance != 'NONE':
             
@@ -349,7 +349,7 @@ def _getImageOrder(scenes, image_n):
         tile_dist.append((((y - ref_y)**2) + ((x - ref_x)**2)) ** 0.5)
     tile_dist = np.array(tile_dist)
     
-    # Sort first by distance to refernece tile, then tile name (some tiles are equidistant), then then by contribution of pixels from each overpass. This improves the quality of colour balancing.
+    # Sort first by distance to referenece tile, then tile name (some tiles are equidistant), then then by contribution of pixels from each overpass. This improves the quality of colour balancing.
     tile_number = np.lexsort((tile_count, tile_name, tile_dist*-1))[::-1] + 1
     
     # Exclude tiles where no data are used
@@ -359,7 +359,7 @@ def _getImageOrder(scenes, image_n):
  
 
 def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, correct_mask = True, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
-    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
+    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, correct_mask = True, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
         
@@ -377,7 +377,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         output_name: Optionally specify a string to precede output file names. Defaults to 'mosaic'.
         verbose: Make script verbose (set True).
     """
-
+    
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(source_files) >= 1, "No source files in specified location."
     assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
@@ -411,7 +411,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         # Sort scenes to minimise artefacts
         scenes_tile = utilities.sortScenes(scenes_tile)
         
-        if verbose: print 'Doing SCL mask at %s m resolution'%str(res)
+        if verbose: print 'Building mask at %s m resolution'%str(res)
         
         # Generate a classified mask
         scl_out, image_n = generateSCLArray(scenes_tile, md_dest, output_dir = output_dir, output_name = output_name, algorithm = algorithm, correct_mask = correct_mask, verbose = verbose)
@@ -419,7 +419,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         # Process images for each band
         for band in band_list[res_list==res]:
             
-            if verbose: print 'Doing band %s at %s m resolution'%(band, str(res))
+            if verbose: print 'Building band %s at %s m resolution'%(band, str(res))
             
             # Using image_n, combine pixels into outputs images for each band
             band_out = generateBandArray(scenes_tile, image_n, band, scl_out, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, verbose = verbose)
@@ -455,7 +455,8 @@ if __name__ == "__main__":
     required.add_argument('-e', '--epsg', type=int, help="EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.")
     
     # Optional arguments
-    optional.add_argument('infiles', metavar = 'L2A_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to processing all granules in current working directory.')
+    optional.add_argument('infiles', metavar = 'PATH', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C/2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to processing all granules in current working directory.')
+    optional.add_argument('-l', '--level', type=str, metavar='1C/2A', default = '2A', help = "Choose input image level, '1C' or '2A'. Defaults to '2A'.")
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
@@ -469,11 +470,13 @@ if __name__ == "__main__":
     # Get arguments
     args = parser.parse_args()
     
+    assert args.level in ['1C', '2A'], "Input level much be '1C' or '2A'."
+    
     # Get absolute path of input .safe files.
     infiles = [os.path.abspath(i) for i in args.infiles]
-    
+        
     # Find all matching granule files
-    infiles = utilities.prepInfiles(infiles, '2A')
+    infiles = utilities.prepInfiles(infiles, args.level)
     
     main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, algorithm = args.algorithm, colour_balance = args.balance, correct_mask = args.correct_mask, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
     
