@@ -131,8 +131,8 @@ class LoadScene(object):
 
         self.level = self.__getLevel()
                 
-        self.resolution = self.__checkResolution(resolution)
-           
+        self.resolution = self.__getResolution(resolution)
+                   
         self.__getMetadata()
         
         # Define source metadata
@@ -184,7 +184,7 @@ class LoadScene(object):
         
         return level
     
-    def __checkResolution(self, resolution):
+    def __getResolution(self, resolution):
         '''
         Makes sure that the resolution matches a Sentinel-2 resolution
         '''
@@ -192,6 +192,7 @@ class LoadScene(object):
         assert resolution in [10, 20, 60], "Resolution must be 10, 20 or 60 m."
         
         return resolution
+    
                 
     def __getMetadata(self):
         '''
@@ -266,7 +267,7 @@ class LoadScene(object):
         
         return mask == 1
                 
-    def getMask(self, correct = False, md = None):
+    def getMask(self, correct = False, chunk = None, cloud_buffer = 180):
         '''
         Load the mask to a numpy array.
         
@@ -297,24 +298,22 @@ class LoadScene(object):
                 image_path = self.__getImagePath('SCL', resolution = 20)
             
             # Load the image (.jp2 format)
-            mask = gdal.Open(image_path, 0).ReadAsArray()
+            if chunk is None:
+                mask = gdal.Open(image_path, 0).ReadAsArray()
+            else:
+                mask = gdal.Open(image_path, 0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
             
             # Expand 20 m resolution mask to match 10 metre image resolution if required
             if self.metadata.res == 10:
                 mask = scipy.ndimage.zoom(mask, 2, order = 0)
         
-        # Apply corrections?
-        if correct:
-            mask = improveMask(mask, self.resolution)
-        
-        # Reproject?
-        if md is not None:
-            mask = reprojectBand(self, mask, md, dtype = 1)
+        if correct and mask.sum() > 0:
+            mask = improveMask(mask, self.resolution, cloud_buffer = cloud_buffer)
         
         return mask
     
     
-    def getBand(self, band, md = None):
+    def getBand(self, band, chunk = None):
         '''
         Load a Sentinel-2 band to a numpy array.
         '''
@@ -360,18 +359,17 @@ class LoadScene(object):
             else:
                 image_path = self.__getImagePath(band, resolution = 60)
         
-        # Load image
-        data = gdal.Open(image_path, 0).ReadAsArray()
-        
+        # Load the image (.jp2 format)
+        if chunk is None:
+            data = gdal.Open(image_path, 0).ReadAsArray()
+        else:
+            data = gdal.Open(image_path, 0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
+         
         # Expand coarse resolution band to match image resolution if required
         if zoom > 1:
             data = scipy.ndimage.zoom(data, zoom, order = 0)
         if zoom < 1:
             data = np.round(skimage.measure.block_reduce(data, block_size = (int(1./zoom), int(1./zoom)), func = np.mean), 0).astype(np.int)
-            
-        # Reproject?
-        if md is not None:
-            data = reprojectBand(self, data, md, dtype = 2) 
             
         return data
 
@@ -764,17 +762,17 @@ def improveMask(data, res, cloud_buffer = 180):
     Args:
         data: A mask from sen2cor
         res: Integer of resolution to be processed (i.e. 10 m, 20 m, 60 m). This should match the resolution of the mask.
-        cloud_buffer: Buffer to place around clouds, in meters
+        cloud_buffer: Buffer to place around clouds, in metres
     
     Returns:
         A numpy array of the SCL mask with modifications.
     """
-        
+    
     # Make a copy of the original classification mask
     data_orig = data.copy()
     
     # Change pixels labelled as 'dark features' to cloud shadows
-    data[data==2] = 3
+    # data[data==2] = 3
     
     # Change cloud shadows not within 1800 m of a cloud pixel to water
     iterations = 1800/res
@@ -782,31 +780,35 @@ def improveMask(data, res, cloud_buffer = 180):
     # Identify pixels proximal to any measure of cloud cover
     cloud_dilated = scipy.ndimage.morphology.binary_dilation((np.logical_or(data==8, data==9)).astype(np.int), iterations = iterations)
     
-    data[np.logical_and(data == 3, cloud_dilated == 0)] = 6
+    data[np.logical_and(np.logical_or(data == 2, data == 3), cloud_dilated == 0)] = 7
         
-    # Dilate cloud shadows, med clouds and high clouds by 180 m.
+    # Dilate cloud shadows, med clouds and high clouds by cloud_buffer metres.
     iterations = int(round(cloud_buffer / res, 0))
     
     # Make a temporary dataset to prevent dilated masks overwriting each other
-    data_temp = data.copy()
+    data_temp = data_orig.copy()
     
-    for i in [3,8,9]:
+    for i in [2,3,8,9]:
+        
         # Grow the area of each input class
         mask_dilate = scipy.ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
         
-        # Set dilated area to the same value as input class
-        data_temp[mask_dilate] = i
+        # Set dilated area to the same value as input class (except for high probability cloud, set to medium)
+        data_temp[np.logical_and(mask_dilate, np.isin(data_orig,[2,3,8,9]) == False)] = 7#if i is not 9 else 8 #(i*10) + 1 #
         
     data = data_temp
-
+    
     # Erode outer 0.6 km of image tile (should retain overlap)
     iterations = 600/res 
     
-    # Shrink the area of measured pixels (everything that is not equal to 0)
-    mask_erode = scipy.ndimage.morphology.binary_erosion((data_orig != 0).astype(np.int), iterations=iterations)
+    # Grow the area of nodata pixels (everything that is equal to 0)
+    mask_erode = scipy.ndimage.morphology.binary_dilation((data_orig == 0).astype(np.int), iterations=iterations)
     
     # Set these eroded areas to 0
-    data[mask_erode == False] = 0
+    data[mask_erode == True] = 0
+    
+    #import matplotlib.pyplot as plt
+    #pdb.set_trace()
     
     return data
 
@@ -865,6 +867,42 @@ def histogram_match(source, reference):
         target.fill_value = source.fill_value
 
     return target.reshape(orig_shape)
+
+
+def colourBalance(image, reference, verbose = False):
+    '''
+    Perform colour balancing between a new and reference image
+    '''
+    
+    # Calculate overlap with other images
+    overlap = np.logical_and(image.mask == False, reference.mask == False)
+    
+    # Calculate percent overlap between images
+    this_overlap = float(overlap.sum()) / (image.mask == False).sum()
+    
+    colour_balance = 'AGGRESSIVE'
+    
+    if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'AGGRESSIVE':
+        
+        if verbose: print '        scaling'
+                
+        # Gain compensation (simple inter-scene correction)                    
+        this_intensity = np.mean(image[overlap])
+        ref_intensity = np.mean(reference[overlap])
+        
+        image[image.mask == False] = np.round(image[image.mask == False] * (ref_intensity/this_intensity),0).astype(np.uint16)
+        
+    elif this_overlap > 0.5:
+        
+        if verbose: print '        matching'
+        
+        image = histogram_match(image, reference).data
+        
+    else:
+        
+        if verbose: print '        adding'
+    
+    return image
 
 
 if __name__ == '__main__':

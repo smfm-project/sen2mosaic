@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import glob
+import multiprocessing
 import numpy as np
 import os
 from scipy import ndimage
@@ -18,260 +19,7 @@ try:
 except ImportError:
     import xml.etree.ElementTree as ET
 
-
-
-def _updateMaskArrays(scl_out, scl_resampled, image_n, n, algorithm = 'TEMP_HOMOGENEITY'):
-    '''
-    Function to update contents of scl and image_n arrays.
-    
-    Args:
-        scl_out: A numpy array representing the mask to be output. Should be initialised to an array of 0s.
-        scl_resampled: A numpy array containing resampled data to be added to the scl_out.
-        image_n: A numpy array to record the image number for each pixel.
-        n: An integer describing the image number (first image = 1, second image = 2 etc.)
-    
-    Returns:
-        The scl_out array with pixels from scl_resampled added.
-        The image_n array describing which image each pixel is sources from.
-    '''
-    
-    assert algorithm in ['MOST_RECENT', 'MOST_DISTANT', 'TEMP_HOMOGENEITY'], "Compositing algorithm (%s) not recognised."%str(algorithm)
-    
-    # Keep pixels where the mask has a value 4 to 6
-    good_px = np.logical_and(scl_resampled >= 4, scl_resampled <= 6)
-    #other_px = np.logical_and(scl_resampled > 0, good_px == False)
-    
-    if algorithm == 'MOST_RECENT':
-        
-        # Select all pixels that have data in this image, or some usable data where no good data already exist
-        selection = good_px
-        #selection = np.logical_or(good_px, np.logical_and(other_px, np.logical_or(scl_out < 4, scl_out > 6)))
-        
-    elif algorithm == 'MOST_DISTANT':
-        
-        # Select only pixels which have new data, and have not already had data allocated
-        selection = np.logical_and(np.logical_or(scl_out < 4, scl_out > 6), good_px)
-        #selection = np.logical_or(selection, np.logical_and(other_px, scl_out == 0))
-        
-    
-    elif algorithm == 'TEMP_HOMOGENEITY':
-        
-        # Replace any unmeasured pixels with 'good' values
-        selection = np.logical_and(good_px, image_n == 0)
-                
-        # Also replace pixels where sum of current good pixels greater than those already in the output for a given tile
-        _, counts = np.unique(image_n[np.logical_and(image_n > 0, scl_resampled != 0)], return_counts = True)
-        
-        # For every image past the first, replace all pixels with good_px if the result is a more homogenous image
-        if counts.size != 0:
-            if np.sum(good_px) > counts.max():
-                selection = np.logical_or(selection, good_px)
-                        
-    else:
-        raise
-    
-    # Update SCL code in each newly assigned pixel
-    scl_out[selection] = scl_resampled[selection]
-    
-    # Update the image each pixel has come from
-    image_n[selection] = n
-    
-    # Set unfilled pixels to zero
-    image_n[np.logical_or(scl_out < 4, scl_out > 6)] = 0
-    
-    return scl_out, image_n
-
-
-def _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled):
-    '''
-    Function to update contents of output array based on image_n array.
-    
-    Args:
-        data_out: A numpy array representing the band data to be output.
-        data_resampled: A numpy array containing resampled band data to be added to data_out.
-        image_n: A numpy array representing the image number from _updateMaskArrays().
-        n: An integer describing the image number (first image = 1, second image = 2 etc.).
-        scl_resampled: A numpy array representing the SCL mask for data_resampled
-    
-    Returns:
-        The data_out array with pixels from data_resampled added.
-        
-    '''
-                
-    # Find pixels that can be replaced in this image
-    selection = image_n == n
-    
-    # Add good data to data_out array
-    data_out[selection] = data_resampled[selection]
-    
-    return data_out
-
-
-def generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', correct_mask = True, verbose = False):
-    '''generateSCLArray(scenes, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', algorithm = 'TEMP_HOMOGENEITY', verbose = False)
-    
-    Function which generates an mask GeoTiff file from list of level 2A source files for a specified output band and extent, and an array desciribing which source_image each pixel comes from
-
-    Args:
-        scenes: A list of level 2A inputs (of class LoadScene).
-        md_dest: Metadata class from utilities.Metadata() containing output projection details.
-        output_dir: Optionally specify directory for output file. Defaults to current working directory.
-        output_name: Optionally specify a string to prepend to output files. Defaults to 'mosaic'.
-        algorithm: Image compositing algorithm. Choose from 'MOST_RECENT', 'MOST_DISTANT', and 'TEMP_HOMOGENEITY'. Defaults to TEMP_HOMOGENEITY.
-        verbose: Set True for printed updates.
-
-    Returns:
-        A numpy array containing mosaic data for the input band.
-        A numpy array describing the image number each pixel is sourced from. 0 = No data, 1 = first scene, 2 = second scene etc.
-    '''
-    
-    # Sort input scenes
-    scenes = utilities.sortScenes(scenes)
-    
-    # Create array to contain output classified cloud mask array
-    scl_out = md_dest.createBlankArray(dtype = np.uint8)
-    
-    # Create array to contain record of the number of source image
-    image_n = md_dest.createBlankArray(dtype = np.uint8)
-    
-    for n, scene in enumerate(scenes):
-        
-        if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
-        
-        # Reproject mask
-        #scl_resampled = loadMask(scene, md_dest, correct = correct_mask)
-        scl_resampled = scene.getMask(correct = correct_mask, md = md_dest)
-        
-        # Add reprojected data to SCL output array
-        scl_out, image_n = _updateMaskArrays(scl_out, scl_resampled, image_n, n + 1, algorithm = algorithm)
-        
-    if verbose: print 'Outputting mask'
-    
-    # Write output cloud mask to disk for each resolution
-    ds_out = utilities.createGdalDataset(md_dest, data_out = scl_out,
-                               filename = '%s/%s_R%sm_SCL.tif'%(output_dir, output_name, str(scene.resolution)),
-                               driver='GTiff', dtype = 1, options = ['COMPRESS=LZW'])
-    
-    ds_out = utilities.createGdalDataset(md_dest, data_out = image_n,
-                               filename = '%s/%s_R%sm_imageN.tif'%(output_dir, output_name, str(scene.resolution)),
-                               driver='GTiff', dtype = 2, options = ['COMPRESS=LZW'])
-
-    return scl_out, image_n
-
-
-def generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', colour_balance = 'NONE', verbose = False):
-    """generateBandArray(scenes, image_n, band, scl_out, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
-    
-    Function which generates an output GeoTiff file from list of level 3B source files for a specified output band and extent.
-
-    Args:
-        scenes: A list of level 2A inputs (of class LoadScene).
-        image_n: An array of integers from generateSCLArray(), which describes the scene that each pixel should come from. 0 = No data, 1 = first scene, 2 = second scene etc.
-        band: String describing bad to process. e.g. B02, B03, B8A....
-        scl_out: Numpy array with mask from generateSCLArray().
-        md_dest: Metadata class from utilities.Metadata() containing output projection details.
-        output_dir: Optionally specify directory for output file. Defaults to current working directory.
-        output_name: Optionally specify a string to prepend to output files. Defaults to 'mosaic'.
-        
-    Returns:
-        A numpy array containing mosaic data for the input band.
-    """
-    
-    
-    # Create array to contain output array for this band
-    data_out = md_dest.createBlankArray(dtype = np.uint16)
-    
-    # Get data for each image_n
-    dates = [scene.datetime.date() for scene in scenes]
-    
-    # For each source file that contributes pixels
-    for n in _getImageOrder(scenes, image_n): #tile_number[tile_count[tile_number-1] > 0]:
-                
-        # Select scene
-        scene = scenes[n-1]
-                
-        if verbose: print '    Getting pixels from %s'%scene.filename.split('/')[-1]
-        
-        # Load data and mask
-        #data_resampled = loadBand(scene, band, md_dest)
-        #scl_resampled = loadMask(scene, md_dest, correct = True)
-        data_resampled = scene.getBand(band, md = md_dest)
-        scl_resampled = scene.getMask(correct = True, md = md_dest)
-        
-        # Perform colour balancing by histogram matching and inter-scene compensation
-        if colour_balance != 'NONE':
-            
-            # Skip first image
-            if data_out.sum() != 0:
-                
-                # Add mask to data_resampled
-                data_resampled_ma = np.ma.array(data_resampled, mask = np.logical_or(scl_resampled < 4, scl_resampled > 6))
-                
-                # Calculate overlap with other images
-                overlap = np.logical_and(data_resampled_ma.mask == False, data_out != 0)
-                
-                # Calculate percent overlap between images
-                this_overlap = float(overlap.sum()) / (data_resampled_ma.mask ==False).sum()
-                                
-                if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'AGGRESSIVE':
-                    
-                    if verbose: print '        scaling'
-                                                            
-                    sel = np.logical_and(data_resampled_ma.mask == False, scl_resampled != 6)
-                    
-                    # Gain compensation (simple inter-scene correction)                    
-                    this_intensity = np.mean(data_resampled[overlap])
-                    ref_intensity = np.mean(data_out[overlap])
-                    
-                    data_resampled[sel] = np.round(data_resampled[sel] * (ref_intensity/this_intensity),0).astype(np.uint16)
-                    
-                elif this_overlap > 0.5:
-                    
-                    if verbose: print '        matching'
-                    
-                    data_resampled = utilities.histogram_match(data_resampled_ma, np.ma.array(data_out, mask = data_out == 0)).data
-                    
-                else:
-                    
-                    if verbose: print '        adding'
-                
-                
-        # Add reprojected data to band output array at appropriate image_n
-        data_out = _updateBandArray(data_out, data_resampled, image_n, n, scl_resampled)
-        
-        
-    if verbose: print 'Outputting band %s'%band
-    
-    # Write output for this band to disk
-    ds_out = utilities.createGdalDataset(md_dest, data_out = data_out,
-                                filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band),
-                                driver='GTiff', dtype = 2, options = ['COMPRESS=LZW'])
-
-    return data_out
-
-
-def buildVRT(red_band, green_band, blue_band, output_path):
-    """
-    Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.
-    
-    Args:
-        red_band: Filename to add to red band
-        green_band: Filename to add to green band
-        blue_band: Filename to add to blue band
-        output_name: Path to output file
-    """
-    
-    # Remove trailing / from output directory name if present
-    output_path = output_path.rstrip('/')
-    
-    # Ensure output name is a VRT
-    if output_path[-4:] != '.vrt':
-        output_path += '.vrt'
-    
-    command = ['gdalbuildvrt', '-separate', '-overwrite']
-    command += [output_path, red_band, green_band, blue_band]
-    
-    subprocess.call(command)
+global scenes_tile
 
 
 def _getBands(resolution):
@@ -356,10 +104,231 @@ def _getImageOrder(scenes, image_n):
     tile_number = tile_number[tile_count[tile_number-1] > 0]
     
     return tile_number
- 
 
-def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, correct_mask = True, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
-    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), algorithm = 'TEMP_HOMOGENEITY', colour_balance = 'none', resolution = 0, correct_mask = True, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
+
+
+
+def _nan_percentile(arr, q):
+    """
+    Function to calculate a percentile along the first axis of a 3d array, much faster than np.nanpercentile.
+    From: https://krstn.eu/np.nanpercentile()-there-has-to-be-a-faster-way/
+    
+    Args:
+        arr: Three dimensional numpy array (first dimension to be reduced)
+        q: Percentile, in percent
+    Returns:
+        A two dimensional numpy array containing data from percentile q
+    """
+
+    def _zvalue_from_index(arr, ind):
+        """private helper function to work around the limitation of np.choose() by employing np.take()
+        arr has to be a 3D array
+        ind has to be a 2D array containing values for z-indicies to take from arr
+        See: http://stackoverflow.com/a/32091712/4169585
+        This is faster and more memory efficient than using the ogrid based solution with fancy indexing.
+        """
+        # get number of columns and rows
+        _,nC,nR = arr.shape
+        
+        # get linear indices and extract elements with np.take()
+        #idx = nC*nR*ind + nC*np.arange(min(nC,nR))[:,None] + np.arange(max(nC,nR))
+        idx = np.arange(nC*nR).reshape((nC,nR))
+        return np.take(arr, idx)
+        
+    # valid (non NaN) observations along the first axis
+    valid_obs = np.sum(np.isfinite(arr), axis=0)
+    # replace NaN with maximum
+    max_val = np.nanmax(arr)
+    arr[np.isnan(arr)] = max_val
+    # sort - former NaNs will move to the end
+    arr = np.sort(arr, axis=0)
+
+    # loop over requested quantiles
+    if type(q) is list:
+        qs = []
+        qs.extend(q)
+    else:
+        qs = [q]
+    if len(qs) < 2:
+        quant_arr = np.zeros(shape=(arr.shape[1], arr.shape[2]))
+    else:
+        quant_arr = np.zeros(shape=(len(qs), arr.shape[1], arr.shape[2]))
+
+    result = []
+    for i in range(len(qs)):
+        quant = qs[i]
+        # desired positi (e.g. 'B02'),on as well as floor and ceiling of it
+        k_arr = (valid_obs - 1) * (quant / 100.0)
+        f_arr = np.floor(k_arr).astype(np.int32)
+        c_arr = np.ceil(k_arr).astype(np.int32)
+        fc_equal_k_mask = f_arr == c_arr
+
+        # linear interpolation (like numpy percentile) takes the fractional part of desired position
+        floor_val = _zvalue_from_index(arr=arr, ind=f_arr) * (c_arr - k_arr)
+        ceil_val = _zvalue_from_index(arr=arr, ind=c_arr) * (k_arr - f_arr)
+
+        quant_arr = floor_val + ceil_val
+        quant_arr[fc_equal_k_mask] = _zvalue_from_index(arr=arr, ind=k_arr.astype(np.int32))[fc_equal_k_mask]  # if floor == ceiling take floor value
+
+        result.append(quant_arr)
+
+    return result
+
+
+def _makeBlocks(band, scene, step = 2000, percentile = 25., cloud_buffer = 180):
+    '''
+    Function to build a series of blocks of size (step, step) to enable multiprocessing and prevent overloading memory
+    
+    Args:
+        band: Image band (e.g. 'B02')
+        scene: An example Sentinel-2 LoadScene() object
+        step: Step size, an integer determining block size
+        percentile: Percentile of reflectance to take from valid pixels
+        cloud_buffer: Buffer to place around cloud pixels in meters
+    
+    Returns:
+        A list of blocks to be processed by _doComposite()
+    '''
+    
+    blocks = []
+    
+    for col in np.arange(0, scene.metadata.ncols, step):
+        col_step = step if col + step <= scene.metadata.ncols else scene.metadata.ncols - col
+        for row in np.arange(0, scene.metadata.nrows, step):
+            row_step = step if row + step <= scene.metadata.nrows else scene.metadata.nrows - row
+            
+            blocks.append([band, col, col_step, row, row_step, percentile, cloud_buffer])
+    
+    return blocks
+
+def _doComposite(input_list):
+    '''
+    Function to build a cloud-free composite image for a block based on a percentile of surface reflectance.
+    Internal function for buildMosaic.
+    
+    Args:
+        input_list: A list containing band, col, col_step, row, row_step from _makeBlocks(), and percentile, cloud_buffer
+    Returns:
+        A composite image for input block
+    '''
+    
+    band, col, col_step, row, row_step, percentile, cloud_buffer = input_list
+
+    # Mask stack
+    m = np.zeros((len(scenes_tile), col_step, row_step), dtype = np.uint8)
+    b = np.zeros((len(scenes_tile), col_step, row_step), dtype = np.float32)
+    
+    for n, scene in enumerate(scenes_tile):
+        
+        m[n,:,:] = scene.getMask(correct = True, chunk = (row,col,row_step,col_step), cloud_buffer = cloud_buffer)
+        
+        if m[n,:,:] .sum() == 0: continue
+        
+        b[n,:,:] = scene.getBand(band, chunk = (row,col,row_step,col_step))
+    
+    # If nodata in the entire chuck, skip processing
+    if m.sum() == 0: return b
+    
+    bm = np.ma.array(b, mask = np.ones_like(m,dtype=np.bool))
+    
+    # Add pixels in order of desirability
+    nodata = np.ones_like(b[0,:,:], dtype = np.bool)
+    quality = np.zeros_like(b[0,:,:], dtype = np.uint8)
+    
+    for n, vals in enumerate([[4,5,6],[7],[1,2,3,11],[10],[8,9]]):#[[4,5,6],[1,2],[7,11],[12],[3],[10],[8],[9]]):
+        
+        bm[:,nodata] = np.ma.array(b, mask = np.isin(m, vals) == False)[:,nodata]
+        
+        quality[nodata] = n + 1
+        
+        nodata = (bm.mask == False).sum(axis=0) == 0
+       
+    bm = np.ma.filled(bm, np.nan)
+    bm = _nan_percentile(bm, percentile)[0]
+    
+    return bm, quality
+       
+
+def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, cloud_buffer = 180, processes = 1, percentile = 25., colour_balance = False, verbose = False):
+    """
+    """
+    
+    global scenes_tile
+    
+    # Sort scenes to minimise artefacts
+    scenes_sorted = utilities.sortScenes(scenes)
+        
+    composite_out = md_dest.createBlankArray(dtype = np.uint16)
+    quality_out = md_dest.createBlankArray(dtype = np.uint8)
+    
+    # Process one Sentinel-2 tile at a time
+    for tile in np.unique([s.tile for s in scenes_sorted]):
+        
+        scenes_tile = np.array(scenes_sorted)[np.array([s.tile for s in scenes_sorted]) == tile]
+        
+        scene = scenes_tile[0]
+                
+        composite = np.zeros((scene.metadata.ncols, scene.metadata.nrows), dtype = np.uint16)
+        quality = np.zeros((scene.metadata.ncols, scene.metadata.nrows), dtype = np.uint8)
+        
+        blocks = _makeBlocks(band, scene, step = step, percentile = percentile, cloud_buffer = cloud_buffer)
+        
+        if processes == 1:
+            composite_parts = [_doComposite(block) for block in blocks]
+        else:
+            pool = multiprocessing.Pool(processes)
+            composite_parts = pool.map(_doComposite, blocks)
+            pool.close()
+        
+        # Reconsitute image
+        for n, block in enumerate(blocks):
+            band, col, col_step, row, row_step, _, _ = block
+            composite[col:col+col_step,row:row+row_step] = composite_parts[n][0]
+            quality[col:col+col_step,row:row+row_step] = composite_parts[n][1]
+        
+        # Reproject to match output array
+        composite_rep = utilities.reprojectBand(scene, composite, md_dest, dtype = 3, resampling = 0)
+        quality_rep = utilities.reprojectBand(scene, quality, md_dest, dtype = 1, resampling = 0)
+        
+        # Do optional colour balancing
+        if colour_balance: composite_rep = utilities.colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose).data
+        
+        composite_out[composite_rep != 0] = composite_rep[composite_rep != 0]
+        quality_out[quality_rep != 0] = quality_rep[quality_rep != 0]
+        
+    utilities.createGdalDataset(md_dest, data_out = composite_out, filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band), driver='GTiff', options = ['COMPRESS=LZW'])        
+    
+    utilities.createGdalDataset(md_dest, data_out = quality_out, filename = '%s/%s_R%sm_%s_QA.tif'%(output_dir, output_name, str(scene.resolution), band), driver='GTiff', options = ['COMPRESS=LZW'])        
+    
+    return composite_out, quality_out
+        
+
+def buildVRT(red_band, green_band, blue_band, output_path):
+    """
+    Builds a three band RGB vrt for image visualisation. Outputs a .VRT file.
+    
+    Args:
+        red_band: Filename to add to red band
+        green_band: Filename to add to green band
+        blue_band: Filename to add to blue band
+        output_name: Path to output file
+    """
+    
+    # Remove trailing / from output directory name if present
+    output_path = output_path.rstrip('/')
+    
+    # Ensure output name is a VRT
+    if output_path[-4:] != '.vrt':
+        output_path += '.vrt'
+    
+    command = ['gdalbuildvrt', '-separate', '-overwrite']
+    command += [output_path, red_band, green_band, blue_band]
+    
+    subprocess.call(command)
+
+
+def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, cloud_buffer = 180., processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
+    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
     
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
         
@@ -369,10 +338,9 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         EPSG_dest: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.
         start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
         end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
-        algorithm: Image compositing algorithm. Choose from 'MOST_RECENT', 'MOST_DISTANT', and 'TEMP_HOMOGENEITY'. Defaults to TEMP_HOMOGENEITY.
-        colour_balance: Set to 'NONE', 'SIMPLE' or 'AGGRESSIVE'
         resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
         correct_mask: Set True to apply improvements to mask from sen2cor.
+        processes: Number of processes to run similtaneously. Defaults to 1.
         output_dir: Optionally specify an output directory.
         output_name: Optionally specify a string to precede output file names. Defaults to 'mosaic'.
         verbose: Make script verbose (set True).
@@ -381,49 +349,45 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
     assert len(source_files) >= 1, "No source files in specified location."
     assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
-    assert colour_balance in ['NONE', 'SIMPLE', 'AGGRESSIVE'], "colour_balance must be 'NONE', 'SIMPLE', or 'AGGRESSIVE'."
     assert type(correct_mask) == bool, "correct_mask can only be set to True or False."
     
     # Test that output directory is writeable
     output_dir = os.path.abspath(os.path.expanduser(output_dir))
     assert os.path.exists(output_dir), "Output directory (%s) does not exist."%output_dir
-    assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory"%output_dir
+    assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory, or changing permissions with chmod."%output_dir
     
     res_list, band_list = _getBands(resolution)
     
     # For each of the input resolutions
     for res in np.unique(res_list)[::-1]:
-                
+        
         # Load metadata for all Sentinel-2 datasets
-        scenes = [utilities.LoadScene(source_file, resolution = res) for source_file in source_files]
+        scenes = []
+        for source_file in source_files:
+            try:
+                scenes.append(utilities.LoadScene(source_file, resolution = res))
+            except:
+                print 'WARNING: Error in loading scene %s. Continuing.'%source_file
+        
+        assert len(scenes) > 0, "Failed to load any scenes for resolution %sm. Check input scenes."%str(res)
         
         # Build metadata of output object
         md_dest = utilities.Metadata(extent_dest, res, EPSG_dest)
         
         # Reduce the pool of scenes to only those that overlap with output tile
-        scenes_tile = utilities.getSourceFilesInTile(scenes, md_dest, start = start, end = end, verbose = verbose)       
+        scenes_reduced = utilities.getSourceFilesInTile(scenes, md_dest, start = start, end = end, verbose = verbose)       
         
         # It's only worth processing a tile if at least one input image is inside tile
-        if len(scenes_tile) == 0:
-            print "    No data inside specified tile for resolution %s. Skipping."%str(res)
+        if len(scenes_reduced) == 0:
+            print "    No data inside specified output area for resolution %s. Skipping."%str(res)
             continue
         
-        # Sort scenes to minimise artefacts
-        scenes_tile = utilities.sortScenes(scenes_tile)
-        
-        if verbose: print 'Building mask at %s m resolution'%str(res)
-        
-        # Generate a classified mask
-        scl_out, image_n = generateSCLArray(scenes_tile, md_dest, output_dir = output_dir, output_name = output_name, algorithm = algorithm, correct_mask = correct_mask, verbose = verbose)
-
-        # Process images for each band
         for band in band_list[res_list==res]:
             
             if verbose: print 'Building band %s at %s m resolution'%(band, str(res))
             
-            # Using image_n, combine pixels into outputs images for each band
-            band_out = generateBandArray(scenes_tile, image_n, band, scl_out, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, verbose = verbose)
-    
+            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = True, cloud_buffer = cloud_buffer, processes = processes, step = 2000, verbose = verbose)            
+           
         # Build VRT output files for straightforward visualisation
         if verbose: print 'Building .VRT images for visualisation'
         
@@ -437,7 +401,6 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
             buildVRT('%s/%s_R%sm_B8A.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B04.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B03.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_NIR.vrt'%(output_dir, output_name, str(res)))
         
     print 'Processing complete!'
-
 
 
 if __name__ == "__main__":
@@ -460,9 +423,8 @@ if __name__ == "__main__":
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
-    optional.add_argument('-a', '--algorithm', type=str, metavar='NAME', default = 'TEMP_HOMOGENEITY', help="Specify an image compositing algorithm ('MOST_RECENT', 'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to 'TEMP_HOMOGENEITY'.")
-    optional.add_argument('-b', '--balance', type=str, default='NONE', metavar='NAME', help="Perform colour balancing when generating composite images ('NONE', 'SIMPLE' or 'AGGRESSIVE'). Defaults to 'NONE'.")
-    optional.add_argument('-c', '--correct_mask', action='store_true', default = False, help = "Apply improvements to sen2cor cloud mask.")
+    optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 1080, help = "Apply improvements to sen2cor cloud mask by applying a buffer. Defaults to 1080 metres.")
+    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
@@ -474,10 +436,10 @@ if __name__ == "__main__":
     
     # Get absolute path of input .safe files.
     infiles = [os.path.abspath(i) for i in args.infiles]
-        
+    
     # Find all matching granule files
     infiles = utilities.prepInfiles(infiles, args.level)
     
-    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, algorithm = args.algorithm, colour_balance = args.balance, correct_mask = args.correct_mask, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
+    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, cloud_buffer = args.cloud_buffer, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
     
     
