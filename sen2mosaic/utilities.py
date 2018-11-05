@@ -771,32 +771,46 @@ def improveMask(data, res, cloud_buffer = 180):
     # Make a copy of the original classification mask
     data_orig = data.copy()
     
-    # Change pixels labelled as 'dark features' to cloud shadows
-    # data[data==2] = 3
+    # Change cloud shadow to dark areas
+    data[data == 3] = 2
     
-    # Change cloud shadows not within 1800 m of a cloud pixel to water
+    # Change cloud shadows not within 1800 m of a cloud pixel to dark pixels
     iterations = 1800/res
     
     # Identify pixels proximal to any measure of cloud cover
     cloud_dilated = scipy.ndimage.morphology.binary_dilation((np.logical_or(data==8, data==9)).astype(np.int), iterations = iterations)
     
-    data[np.logical_and(np.logical_or(data == 2, data == 3), cloud_dilated == 0)] = 7
-        
+    # Set these to dark features
+    data[np.logical_and(np.logical_or(data == 2, data == 3), cloud_dilated)] = 3
+    
+    #import matplotlib.pyplot as plt
+    
+    # Don't grow clouds near oceans or large water bodies. First erode away rivers, then grow remainder
+    iterations = int(round(1440/res,0))
+    coastal = scipy.ndimage.morphology.binary_erosion((data==6).astype(np.int), iterations = int(round(60/res,0))) * 1
+    coastal = scipy.ndimage.morphology.binary_dilation((coastal==1).astype(np.int), iterations = iterations)
+    
     # Dilate cloud shadows, med clouds and high clouds by cloud_buffer metres.
     iterations = int(round(cloud_buffer / res, 0))
     
     # Make a temporary dataset to prevent dilated masks overwriting each other
-    data_temp = data_orig.copy()
+    data_temp = data.copy()
     
-    for i in [2,3,8,9]:
+    for i in [3,8,9]:
+        
+        # Erode small clouds at coasts (probable false positives)
+        if i in [8,9]:
+            iterations_erode = 1 # int(round(60/res,0))
+            mask_erode = scipy.ndimage.morphology.binary_erosion((data==i).astype(np.int), iterations = iterations_erode)
+            data[np.logical_and(np.logical_and(data == i, coastal), mask_erode == False)] = 7
         
         # Grow the area of each input class
         mask_dilate = scipy.ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
         
         # Set dilated area to the same value as input class (except for high probability cloud, set to medium)
-        data_temp[np.logical_and(mask_dilate, np.isin(data_orig,[2,3,8,9]) == False)] = 7#if i is not 9 else 8 #(i*10) + 1 #
+        data_temp[mask_dilate] = i if i is not 9 else 8
         
-    data = data_temp
+    data = data_temp.copy()
     
     # Erode outer 0.6 km of image tile (should retain overlap)
     iterations = 600/res 
@@ -806,10 +820,7 @@ def improveMask(data, res, cloud_buffer = 180):
     
     # Set these eroded areas to 0
     data[mask_erode == True] = 0
-    
-    #import matplotlib.pyplot as plt
-    #pdb.set_trace()
-    
+                
     return data
 
 

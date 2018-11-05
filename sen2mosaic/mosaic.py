@@ -106,8 +106,6 @@ def _getImageOrder(scenes, image_n):
     return tile_number
 
 
-
-
 def _nan_percentile(arr, q):
     """
     Function to calculate a percentile along the first axis of a 3d array, much faster than np.nanpercentile.
@@ -132,7 +130,7 @@ def _nan_percentile(arr, q):
         
         # get linear indices and extract elements with np.take()
         #idx = nC*nR*ind + nC*np.arange(min(nC,nR))[:,None] + np.arange(max(nC,nR))
-        idx = np.arange(nC*nR).reshape((nC,nR))
+        idx = nC*nR*ind + np.arange(nC*nR).reshape((nC,nR))
         return np.take(arr, idx)
         
     # valid (non NaN) observations along the first axis
@@ -153,11 +151,11 @@ def _nan_percentile(arr, q):
         quant_arr = np.zeros(shape=(arr.shape[1], arr.shape[2]))
     else:
         quant_arr = np.zeros(shape=(len(qs), arr.shape[1], arr.shape[2]))
-
+    
     result = []
     for i in range(len(qs)):
         quant = qs[i]
-        # desired positi (e.g. 'B02'),on as well as floor and ceiling of it
+        # desired position as well as floor and ceiling of it
         k_arr = (valid_obs - 1) * (quant / 100.0)
         f_arr = np.floor(k_arr).astype(np.int32)
         c_arr = np.ceil(k_arr).astype(np.int32)
@@ -235,7 +233,7 @@ def _doComposite(input_list):
     nodata = np.ones_like(b[0,:,:], dtype = np.bool)
     quality = np.zeros_like(b[0,:,:], dtype = np.uint8)
     
-    for n, vals in enumerate([[4,5,6],[7],[1,2,3,11],[10],[8,9]]):#[[4,5,6],[1,2],[7,11],[12],[3],[10],[8],[9]]):
+    for n, vals in enumerate([[4,5,6],[1,2,3,7,11],[8,10],[9]]):#[[4,5,6],[1,2],[7,11],[12],[3],[10],[8],[9]]):
         
         bm[:,nodata] = np.ma.array(b, mask = np.isin(m, vals) == False)[:,nodata]
         
@@ -244,6 +242,7 @@ def _doComposite(input_list):
         nodata = (bm.mask == False).sum(axis=0) == 0
        
     bm = np.ma.filled(bm, np.nan)
+    
     bm = _nan_percentile(bm, percentile)[0]
     
     return bm, quality
@@ -386,7 +385,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
             
             if verbose: print 'Building band %s at %s m resolution'%(band, str(res))
             
-            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = True, cloud_buffer = cloud_buffer, processes = processes, step = 2000, verbose = verbose)            
+            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = True, cloud_buffer = cloud_buffer, percentile = 25., processes = processes, step = 2000, verbose = verbose)            
            
         # Build VRT output files for straightforward visualisation
         if verbose: print 'Building .VRT images for visualisation'
@@ -423,7 +422,7 @@ if __name__ == "__main__":
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
-    optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 1080, help = "Apply improvements to sen2cor cloud mask by applying a buffer. Defaults to 1080 metres.")
+    optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 180, help = "Apply improvements to sen2cor cloud mask by applying a buffer. Defaults to 180 metres.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
