@@ -233,7 +233,7 @@ def _doComposite(input_list):
     nodata = np.ones_like(b[0,:,:], dtype = np.bool)
     quality = np.zeros_like(b[0,:,:], dtype = np.uint8)
     
-    for n, vals in enumerate([[4,5,6],[1,2,3,7,11],[8,10],[9]]):#[[4,5,6],[1,2],[7,11],[12],[3],[10],[8],[9]]):
+    for n, vals in enumerate([[4,5,6],[2,7,11],[1,3,8,10],[9]]):#[[4,5,6],[1,2],[7,11],[12],[3],[10],[8],[9]]):
         
         bm[:,nodata] = np.ma.array(b, mask = np.isin(m, vals) == False)[:,nodata]
         
@@ -290,10 +290,12 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         quality_rep = utilities.reprojectBand(scene, quality, md_dest, dtype = 1, resampling = 0)
         
         # Do optional colour balancing
-        if colour_balance: composite_rep = utilities.colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose).data
+        if colour_balance: composite_rep = utilities.colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose)
         
-        composite_out[composite_rep != 0] = composite_rep[composite_rep != 0]
-        quality_out[quality_rep != 0] = quality_rep[quality_rep != 0]
+        # Add pixels to the output mosaic
+        sel = np.logical_and(composite_rep != 0, composite_rep.mask == False)
+        composite_out[sel] = composite_rep.data[sel]
+        quality_out[sel] = quality_rep[sel]
         
     utilities.createGdalDataset(md_dest, data_out = composite_out, filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band), driver='GTiff', options = ['COMPRESS=LZW'])        
     
@@ -326,8 +328,8 @@ def buildVRT(red_band, green_band, blue_band, output_path):
     subprocess.call(command)
 
 
-def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, cloud_buffer = 180., processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
-    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False)
+def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, cloud_buffer = 0., colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
+    """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, cloud_buffer = 0., colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
     
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
         
@@ -385,7 +387,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
             
             if verbose: print 'Building band %s at %s m resolution'%(band, str(res))
             
-            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = True, cloud_buffer = cloud_buffer, percentile = 25., processes = processes, step = 2000, verbose = verbose)            
+            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, cloud_buffer = cloud_buffer, percentile = 25., processes = processes, step = 2000, verbose = verbose)            
            
         # Build VRT output files for straightforward visualisation
         if verbose: print 'Building .VRT images for visualisation'
@@ -422,7 +424,8 @@ if __name__ == "__main__":
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
-    optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 180, help = "Apply improvements to sen2cor cloud mask by applying a buffer. Defaults to 180 metres.")
+    optional.add_argument('-b', '--colour_balance', action='store_true', default = False, help = "Perform colour balancing between scenes. Defaults to False.")
+    optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 0, help = "Apply improvements to sen2cor cloud mask by applying a buffer. Defaults to no buffer.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
@@ -439,6 +442,6 @@ if __name__ == "__main__":
     # Find all matching granule files
     infiles = utilities.prepInfiles(infiles, args.level)
     
-    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, cloud_buffer = args.cloud_buffer, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
+    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, cloud_buffer = args.cloud_buffer, colour_balance = args.colour_balance, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, verbose = args.verbose)
     
     

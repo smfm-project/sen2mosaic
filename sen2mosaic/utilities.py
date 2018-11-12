@@ -786,31 +786,32 @@ def improveMask(data, res, cloud_buffer = 180):
     #import matplotlib.pyplot as plt
     
     # Don't grow clouds near oceans or large water bodies. First erode away rivers, then grow remainder
-    iterations = int(round(1440/res,0))
-    coastal = scipy.ndimage.morphology.binary_erosion((data==6).astype(np.int), iterations = int(round(60/res,0))) * 1
-    coastal = scipy.ndimage.morphology.binary_dilation((coastal==1).astype(np.int), iterations = iterations)
+    #iterations = int(round(1440/res,0))
+    #coastal = scipy.ndimage.morphology.binary_erosion((data==6).astype(np.int), iterations = int(round(60/res,0))) * 1
+    #coastal = scipy.ndimage.morphology.binary_dilation((coastal==1).astype(np.int), iterations = iterations)
     
-    # Dilate cloud shadows, med clouds and high clouds by cloud_buffer metres.
-    iterations = int(round(cloud_buffer / res, 0))
-    
-    # Make a temporary dataset to prevent dilated masks overwriting each other
-    data_temp = data.copy()
-    
-    for i in [3,8,9]:
+    if cloud_buffer > 0:
+        # Dilate cloud shadows, med clouds and high clouds by cloud_buffer metres.
+        iterations = int(round(cloud_buffer / res, 0))
         
-        # Erode small clouds at coasts (probable false positives)
-        if i in [8,9]:
-            iterations_erode = 1 # int(round(60/res,0))
-            mask_erode = scipy.ndimage.morphology.binary_erosion((data==i).astype(np.int), iterations = iterations_erode)
-            data[np.logical_and(np.logical_and(data == i, coastal), mask_erode == False)] = 7
+        # Make a temporary dataset to prevent dilated masks overwriting each other
+        data_temp = data.copy()
+            
+        for i in [3,8,9]:
+            
+            # Erode small clouds at coasts (probable false positives)
+            #if i in [8,9]:
+            #    iterations_erode = 1 # int(round(60/res,0))
+            #    mask_erode = scipy.ndimage.morphology.binary_erosion((data==i).astype(np.int), iterations = iterations_erode)
+            #    data[np.logical_and(np.logical_and(data == i, coastal), mask_erode == False)] = 7
+            
+            # Grow the area of each input class
+            mask_dilate = scipy.ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
+            
+            # Set dilated area to the same value as input class (except for high probability cloud, set to medium)
+            data_temp[mask_dilate] = i if i is not 9 else 8
         
-        # Grow the area of each input class
-        mask_dilate = scipy.ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
-        
-        # Set dilated area to the same value as input class (except for high probability cloud, set to medium)
-        data_temp[mask_dilate] = i if i is not 9 else 8
-        
-    data = data_temp.copy()
+        data = data_temp.copy()
     
     # Erode outer 0.6 km of image tile (should retain overlap)
     iterations = 600/res 
@@ -837,7 +838,7 @@ def histogram_match(source, reference):
     Returns:
         target: A numpy array array with the same shape as source
     """
-    
+        
     orig_shape = source.shape
     source = source.ravel()
 
@@ -847,8 +848,7 @@ def histogram_match(source, reference):
         reference = reference.ravel()
 
     # Get the set of unique pixel values
-    s_values, s_idx, s_counts = np.unique(
-        source, return_inverse=True, return_counts=True)
+    s_values, s_idx, s_counts = np.unique(source, return_inverse=True, return_counts=True)
     
     # and those to match to
     r_values, r_counts = np.unique(reference, return_counts=True)
@@ -907,7 +907,7 @@ def colourBalance(image, reference, verbose = False):
         
         if verbose: print '        matching'
         
-        image = histogram_match(image, reference).data
+        image = histogram_match(image, reference)
         
     else:
         

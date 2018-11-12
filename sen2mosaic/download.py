@@ -195,15 +195,15 @@ def decompress(tile, dataloc = os.getcwd(), remove = False):
             if remove: _removeZip(zip_file)
     
 
-def main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
-    """main(username, password, tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)
+def main(username, password, tiles, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
+    """main(username, password, tiles, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)
     
     Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover. This is the function that is initiated from the command line.
     
     Args:
         username: Scihub username. Sign up at https://scihub.copernicus.eu/.
         password: Scihub password.
-        tile: A string containing the name of the tile to to download.
+        tiles: A string containing the name of the tile to to download, or a list of tiles.
         start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.
         end: End date for search in format YYYYMMDD. Defaults to today's date.
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
@@ -214,16 +214,21 @@ def main(username, password, tile, start = '20161206', end = datetime.datetime.t
     
     # Connect to API
     connectToAPI(username, password)
+    
+    # Allow download of single tile
+    if type(tiles) == str: tiles = [tiles]
+    
+    for tile in tiles:
         
-    # Search for files, return a data frame containing details of matching Sentinel-2 images
-    products = search(tile, start = start, end = end, maxcloud = maxcloud, minsize = minsize)
+        # Search for files, return a data frame containing details of matching Sentinel-2 images
+        products = search(tile, start = start, end = end, maxcloud = maxcloud, minsize = minsize)
 
-    # Download products
-    download(products, output_dir = output_dir)
-    
-    # Decompress data
-    decompress(tile, dataloc = output_dir, remove = remove)
-    
+        # Download products
+        download(products, output_dir = output_dir)
+        
+        # Decompress data
+        decompress(tile, dataloc = output_dir, remove = remove)
+        
 
 
 if __name__ == '__main__':
@@ -238,7 +243,7 @@ if __name__ == '__main__':
     # Required arguments
     required.add_argument('-u', '--user', type = str, required = True, help = "Scihub username")
     required.add_argument('-p', '--password', type = str, metavar = 'PASS', required = True, help = "Scihub password")
-    required.add_argument('-t', '--tile', type = str, required = True, help = "Sentinel 2 tile name, in format ##XXX")
+    required.add_argument('-t', '--tiles', type = str, required = True, nargs = '*', help = "Sentinel 2 tile name, in format ##XXX")
     
     # Optional arguments
     optional.add_argument('-s', '--start', type = str, default = '20161206', help = "Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.")
@@ -253,4 +258,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     # Run through entire processing sequence
-    main(args.user, args.password, args.tile, start = args.start, end = args.end, maxcloud = args.cloud, minsize = args.minsize, output_dir = args.output_dir, remove = args.remove)
+    main(args.user, args.password, args.tiles, start = args.start, end = args.end, maxcloud = args.cloud, minsize = args.minsize, output_dir = args.output_dir, remove = args.remove)
