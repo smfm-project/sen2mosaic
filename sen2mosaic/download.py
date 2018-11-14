@@ -11,6 +11,8 @@ import time
 import sentinelsat
 import zipfile
 
+import pdb
+
 
 def _removeZip(zip_file):
     """
@@ -84,14 +86,14 @@ def _get_filesize(products_df):
     return np.array(size_mb)
     
 
-def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize = 25.):
+def search(tile, start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize = 25.):
     """search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize_mb = 25.)
     
     Searches for images from a single Sentinel-2 Granule that meet conditions of date range and cloud cover.
     
     Args:
         tile: A string containing the name of the tile to to download.
-        start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.
+        start: Start date for search in format YYYYMMDD. Defaults to 20150523.
         end: End date for search in format YYYYMMDD. Defaults to today's date.
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
         minsize: A float with the minimum filesize to download in MB. Defaults to 25 MB.  Be aware, file sizes smaller than this can result sen2three crashing.
@@ -115,14 +117,16 @@ def search(tile, start = '20161206', end = datetime.datetime.today().strftime('%
                          platformname = 'Sentinel-2',
                          cloudcoverpercentage = (0,maxcloud),
                          filename = '*T%s*'%tile)
-
+    
     # convert to Pandas DataFrame, which can be searched modified before commiting to download()
     products_df = scihub_api.to_dataframe(products)
         
     products_df['filesize_mb'] = _get_filesize(products_df)
     
     products_df = products_df[products_df['filesize_mb'] >= float(minsize)]
-
+    
+    print 'Found %s matching images'%str(len(products_df))
+    
     return products_df
 
 
@@ -140,8 +144,11 @@ def download(products_df, output_dir = os.getcwd()):
     
     if products_df.empty == True:
         print 'WARNING: No products found to download. Check your search terms.'
+        raise
         
     else:
+        
+        downloaded_files = []
         
         for uuid, filename in zip(products_df['uuid'], products_df['filename']):
             
@@ -157,46 +164,45 @@ def download(products_df, output_dir = os.getcwd()):
                 # Download selected product
                 print 'Downloading %s...'%filename
                 scihub_api.download(uuid, output_dir)
+                
+                downloaded_files.append(('%s/%s'%(output_dir.rstrip('/'), filename)).replace('.SAFE','.zip'))
+    
+    return downloaded_files
 
-
-def decompress(tile, dataloc = os.getcwd(), remove = False):
-    '''decompress(tile, dataloc = os.getcwd(), remove = False)
+def decompress(zip_files, output_dir = os.getcwd(), remove = False):
+    '''decompress(zip_files, output_dir = os.getcwd(), remove = False
     
     Decompresses .zip files downloaded from SciHub, and optionally removes original .zip file.
     
     Args:
-        tile: A string containing the name of the tile to to download.
-        dataloc: The directory of level 1C Sentinel-2 .SAFE files. Defaults to current working directory.
+        zip_files: A list of .zip files to decompress.
+        output_dir: Optionally specify an output directory. Defaults to the present working directory.
         remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.
     '''
 
-    # Validate tile input format for file search
-    assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
+    if type(zip_files) == str: zip_files = [zip_files]
     
-    # Remove trailing slash to directory name where included
-    dataloc = dataloc.rstrip('/')
+    for zip_file in zip_files:
+        assert zip_file[-4:] == '.zip', "Files to decompress must be .zip format."
     
-    # Get a list of zip files matching the Level 1C file pattern
-    zip_files = glob.glob('%s/*_MSIL1C_*_T%s_*.zip'%(dataloc,tile))
-        
     # Decompress each zip file
     for zip_file in zip_files:
         
         # Skip those files that have already been extracted
-        if os.path.exists('%s/%s'%(dataloc, zip_file[:-4]+'.SAFE')):
-            print 'Skipping extraction of %s, as it has already been extracted in directory %s. If you want to re-extract it, delete the .SAFE file.'%(zip_file, dataloc)
+        if os.path.exists('%s/%s'%(output_dir, zip_file.split('/')[-1].replace('.zip', '.SAFE'))):
+            print 'Skipping extraction of %s, as it has already been extracted in directory %s. If you want to re-extract it, delete the .SAFE file.'%(zip_file, output_dir)
         
         else:     
             print 'Extracting %s'%zip_file
             with zipfile.ZipFile(zip_file) as obj:
-                obj.extractall(dataloc)
+                obj.extractall(output_dir)
             
             # Delete zip file
             if remove: _removeZip(zip_file)
     
 
-def main(username, password, tiles, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
-    """main(username, password, tiles, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)
+def main(username, password, tiles, start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
+    """main(username, password, tiles, start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)
     
     Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover. This is the function that is initiated from the command line.
     
@@ -204,7 +210,7 @@ def main(username, password, tiles, start = '20161206', end = datetime.datetime.
         username: Scihub username. Sign up at https://scihub.copernicus.eu/.
         password: Scihub password.
         tiles: A string containing the name of the tile to to download, or a list of tiles.
-        start: Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.
+        start: Start date for search in format YYYYMMDD. Defaults to '20150523'.
         end: End date for search in format YYYYMMDD. Defaults to today's date.
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
         minsize: A float with the minimum filesize to download in MB. Defaults to 25 MB.  Be aware, file sizes smaller than this can result sen2three crashing.
@@ -222,12 +228,12 @@ def main(username, password, tiles, start = '20161206', end = datetime.datetime.
         
         # Search for files, return a data frame containing details of matching Sentinel-2 images
         products = search(tile, start = start, end = end, maxcloud = maxcloud, minsize = minsize)
-
+        
         # Download products
-        download(products, output_dir = output_dir)
+        zip_files = download(products, output_dir = output_dir)
         
         # Decompress data
-        decompress(tile, dataloc = output_dir, remove = remove)
+        decompress(zip_files, output_dir = output_dir, remove = remove)
         
 
 
@@ -246,7 +252,7 @@ if __name__ == '__main__':
     required.add_argument('-t', '--tiles', type = str, required = True, nargs = '*', help = "Sentinel 2 tile name, in format ##XXX")
     
     # Optional arguments
-    optional.add_argument('-s', '--start', type = str, default = '20161206', help = "Start date for search in format YYYYMMDD. Start date may not precede 20161206, the date where the format of Sentinel-2 files was simplified. Defaults to 20161206.")
+    optional.add_argument('-s', '--start', type = str, default = '20150523', help = "Start date for search in format YYYYMMDD. Defaults to 20150523.")
     optional.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
     optional.add_argument('-c', '--cloud', type = int, default = 100, metavar = '%', help = "Maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).")
     optional.add_argument('-m', '--minsize', type = int, default = 25., metavar = 'MB', help = "Minimum file size to download in MB. Defaults to 25 MB.")
