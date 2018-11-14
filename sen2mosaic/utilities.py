@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
+import copy
 import cv2
 import datetime
 import glob
 import numpy as np
 import os
-from osgeo import gdal
+from osgeo import gdal, osr
 import re
 import scipy.ndimage
 import skimage.measure
@@ -267,7 +268,7 @@ class LoadScene(object):
         
         return mask == 1
                 
-    def getMask(self, correct = False, chunk = None, cloud_buffer = 180):
+    def getMask(self, correct = False, md = None, chunk = None, cloud_buffer = 180):
         '''
         Load the mask to a numpy array.
         
@@ -307,13 +308,18 @@ class LoadScene(object):
             if self.metadata.res == 10:
                 mask = scipy.ndimage.zoom(mask, 2, order = 0)
         
+        # Enhance mask?
         if correct and mask.sum() > 0:
             mask = improveMask(mask, self.resolution, cloud_buffer = cloud_buffer)
+
+        # Reproject?        
+        if md is not None:
+             mask = reprojectBand(self, mask, md, dtype = 1)
         
         return mask
     
     
-    def getBand(self, band, chunk = None):
+    def getBand(self, band, md = None, chunk = None):
         '''
         Load a Sentinel-2 band to a numpy array.
         '''
@@ -370,7 +376,11 @@ class LoadScene(object):
             data = scipy.ndimage.zoom(data, zoom, order = 0)
         if zoom < 1:
             data = np.round(skimage.measure.block_reduce(data, block_size = (int(1./zoom), int(1./zoom)), func = np.mean), 0).astype(np.int)
-            
+
+        # Reproject?
+        if md is not None:
+            data = reprojectBand(self, data, md, dtype = 2)
+        
         return data
 
 
@@ -460,13 +470,42 @@ def reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
     
     from osgeo import gdal
     
+    def _copyds(ds):
+        '''
+        Build a copy of an input ds, where performing fix on nodata values
+        '''
+        
+        proj = osr.SpatialReference(wkt=ds.GetProjection())
+        proj.AutoIdentifyEPSG()
+        epsg = int(proj.GetAttrValue('AUTHORITY',1))
+                
+        geo_t = ds.GetGeoTransform()
+        ulx = geo_t[0]
+        lrx = geo_t[0] + (geo_t[1] * ds.RasterXSize)
+        lry = geo_t[3] + (geo_t[5] * ds.RasterYSize)
+        uly = geo_t[3]
+        
+        extent = [ulx, lry, lrx, uly]
+                
+        md = Metadata(extent, ds.GetGeoTransform()[1], epsg)
+        return createGdalDataset(md, dtype = 1)
+    
     proj_source = md_source.proj.ExportToWkt()
     proj_dest = md_dest.proj.ExportToWkt()
     
     # Reproject source into dest project coordinates
-    gdal.ReprojectImage(ds_source, ds_dest, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
+    gdal.ReprojectImage(ds_source, ds_dest, proj_source, proj_dest, resampling)
             
     ds_resampled = ds_dest.GetRasterBand(1).ReadAsArray()
+    
+    # As GDAL fills in all nodata pixels as zero, re-do transfromation with array of ones and re-allocate zeros to nodata. Only run where a nodata value has been assigned to ds_source.
+    if ds_source.GetRasterBand(1).GetNoDataValue() is not None:
+        
+        ds_source_mask = _copyds(ds_source)
+        ds_dest_mask = _copyds(ds_dest)
+        ds_source_mask.GetRasterBand(1).WriteArray(np.ones_like(ds_source.GetRasterBand(1).ReadAsArray()))
+        gdal.ReprojectImage(ds_source_mask, ds_dest_mask, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
+        ds_resampled[ds_dest_mask.GetRasterBand(1).ReadAsArray() == 0] = ds_source.GetRasterBand(1).GetNoDataValue()
     
     return ds_resampled
 
