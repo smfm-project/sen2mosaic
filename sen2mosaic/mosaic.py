@@ -293,8 +293,8 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         if colour_balance: composite_rep = utilities.colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose)
         
         # Add pixels to the output mosaic
-        sel = np.logical_and(composite_rep != 0, composite_rep.mask == False)
-        composite_out[sel] = composite_rep.data[sel]
+        sel = composite_rep!=0
+        composite_out[sel] = composite_rep[sel]
         quality_out[sel] = quality_rep[sel]
         
     utilities.createGdalDataset(md_dest, data_out = composite_out, filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band), driver='GTiff', options = ['COMPRESS=LZW'])        
