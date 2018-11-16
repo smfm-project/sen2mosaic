@@ -290,7 +290,9 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         quality_rep = utilities.reprojectBand(scene, quality, md_dest, dtype = 1, resampling = 0)
         
         # Do optional colour balancing
-        if colour_balance: composite_rep = utilities.colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose)
+        if colour_balance:
+            composite_rep = utilities.colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose)
+            composite_rep = composite_rep.filled(0)
         
         # Add pixels to the output mosaic
         sel = composite_rep!=0
