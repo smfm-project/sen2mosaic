@@ -275,7 +275,7 @@ class LoadScene(object):
         Args:
             correct: Set to True to apply improvements to the Sentinel-2 mask (recommended)
         '''
-        
+       
         if self.level == '1C':
             
             # Rasterize and load GML cloud mask for L1C data
@@ -297,11 +297,14 @@ class LoadScene(object):
             else:
                 # In case of 10 m image, use 20 m mask
                 image_path = self.__getImagePath('SCL', resolution = 20)
-            
+                
             # Load the image (.jp2 format)
             if chunk is None:
                 mask = gdal.Open(image_path, 0).ReadAsArray()
             else:
+                if self.resolution == 10:
+                    # Correct chunk size for loading 10 m band
+                    chunk = [np.int(np.round(chunk[0]/2.)), np.int(np.round(chunk[1]/2.)), np.int(np.round(chunk[2]/2.)), np.int(np.round(chunk[3]/2.))]
                 mask = gdal.Open(image_path, 0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
             
             # Expand 20 m resolution mask to match 10 metre image resolution if required
