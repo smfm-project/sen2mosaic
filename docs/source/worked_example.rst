@@ -74,6 +74,9 @@ Atmopsheric correction and cloud masking
 
 The next step is to perform atmospheric correction (removes the effects of the atmosphere on refectance values of images) and cloud masking (identifies clouds in images.) to generate Sentinel-2 level 2A data. We do this with the ESA program ``sen2cor``.
 
+.. note::
+    As of Q4 2018, ESA is producing the L2A product systematically and making it available for download. If you download the L2A data directly, this preprocessing step can be skipped.
+
 To perform atmospheric correction and cloud masking we call the tool ``preprocess.py``. We need to specify Sentinel-2 level 1C input files, a directory containing level 1C files, or a single tile within a .SAFE file ``*.SAFE/GRANULE/*``).
 
 To process all .SAFE files for the tile 36KWA (in the current working directory) at 20 m resolution, we can submit the following line:
