@@ -86,13 +86,14 @@ def _get_filesize(products_df):
     return np.array(size_mb)
     
 
-def search(tile, start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize = 25.):
+def search(tile, level = '1C', start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize = 25.):
     """search(tile, start = '20161206', end = datetime.datetime.today().strftime('%Y%m%d'),  maxcloud = 100, minsize_mb = 25.)
     
     Searches for images from a single Sentinel-2 Granule that meet conditions of date range and cloud cover.
     
     Args:
         tile: A string containing the name of the tile to to download.
+        level: Download level '1C' (default) or '2A' data.
         start: Start date for search in format YYYYMMDD. Defaults to 20150523.
         end: End date for search in format YYYYMMDD. Defaults to today's date.
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
@@ -108,25 +109,31 @@ def search(tile, start = '20150523', end = datetime.datetime.today().strftime('%
     # Validate tile input format for search
     assert _validateTile(tile), "The tile name input (%s) does not match the format ##XXX (e.g. 36KWA)."%tile
     
+    assert level in ['1C', '2A'], "Level must be '1C' or '2A'."
+    
     # Set up start and end dates
     startdate = sentinelsat.format_query_date(start)
     enddate = sentinelsat.format_query_date(end)
-
+    
     # Search data, filtering by options.
     products = scihub_api.query(beginposition = (startdate,enddate),
                          platformname = 'Sentinel-2',
+                         producttype = 'S2MSI%s'%level,
                          cloudcoverpercentage = (0,maxcloud),
                          filename = '*T%s*'%tile)
     
     # convert to Pandas DataFrame, which can be searched modified before commiting to download()
     products_df = scihub_api.to_dataframe(products)
-        
+    
+    print 'Found %s matching images'%str(len(products_df))
+
+    # Where no results for tile    
+    if len(products_df) == 0: return products_df
+    
     products_df['filesize_mb'] = _get_filesize(products_df)
     
     products_df = products_df[products_df['filesize_mb'] >= float(minsize)]
-    
-    print 'Found %s matching images'%str(len(products_df))
-    
+        
     return products_df
 
 
@@ -201,8 +208,8 @@ def decompress(zip_files, output_dir = os.getcwd(), remove = False):
             if remove: _removeZip(zip_file)
     
 
-def main(username, password, tiles, start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
-    """main(username, password, tiles, start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)
+def main(username, password, tiles, level = '1C', start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
+    """main(username, password, tiles, level = '1C', start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)
     
     Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a particular tile, date ranges and degrees of cloud cover. This is the function that is initiated from the command line.
     
@@ -210,6 +217,7 @@ def main(username, password, tiles, start = '20150523', end = datetime.datetime.
         username: Scihub username. Sign up at https://scihub.copernicus.eu/.
         password: Scihub password.
         tiles: A string containing the name of the tile to to download, or a list of tiles.
+        level: Download level '1C' (default) or '2A' data.
         start: Start date for search in format YYYYMMDD. Defaults to '20150523'.
         end: End date for search in format YYYYMMDD. Defaults to today's date.
         maxcloud: An integer of maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).
@@ -227,7 +235,10 @@ def main(username, password, tiles, start = '20150523', end = datetime.datetime.
     for tile in tiles:
         
         # Search for files, return a data frame containing details of matching Sentinel-2 images
-        products = search(tile, start = start, end = end, maxcloud = maxcloud, minsize = minsize)
+        products = search(tile, level = level, start = start, end = end, maxcloud = maxcloud, minsize = minsize)
+        
+        # Where no data
+        if len(products) == 0: continue
         
         # Download products
         zip_files = download(products, output_dir = output_dir)
@@ -252,16 +263,16 @@ if __name__ == '__main__':
     required.add_argument('-t', '--tiles', type = str, required = True, nargs = '*', help = "Sentinel 2 tile name, in format ##XXX")
     
     # Optional arguments
+    optional.add_argument('-l', '--level', type = str, default = '1C', help = "Set to search and download level '1C' (default) or '2A' data. Note that L2A data may not be available at all locations.")
     optional.add_argument('-s', '--start', type = str, default = '20150523', help = "Start date for search in format YYYYMMDD. Defaults to 20150523.")
     optional.add_argument('-e', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for search in format YYYYMMDD. Defaults to today's date.")
     optional.add_argument('-c', '--cloud', type = int, default = 100, metavar = '%', help = "Maximum percentage of cloud cover to download. Defaults to 100 %% (download all images, regardless of cloud cover).")
     optional.add_argument('-m', '--minsize', type = int, default = 25., metavar = 'MB', help = "Minimum file size to download in MB. Defaults to 25 MB.")
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'PATH', default = os.getcwd(), help = "Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-r', '--remove', action='store_true', default = False, help = "Remove level 1C .zip files after decompression.")
-    
-    
+        
     # Get arguments from command line
     args = parser.parse_args()
     
     # Run through entire processing sequence
-    main(args.user, args.password, args.tiles, start = args.start, end = args.end, maxcloud = args.cloud, minsize = args.minsize, output_dir = args.output_dir, remove = args.remove)
+    main(args.user, args.password, args.tiles, level = args.level, start = args.start, end = args.end, maxcloud = args.cloud, minsize = args.minsize, output_dir = args.output_dir, remove = args.remove)
