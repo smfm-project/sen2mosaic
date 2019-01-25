@@ -126,6 +126,8 @@ The pre-processing script supports parallel processing of L1C files. Be aware th
 Processing to a mosaic
 ----------------------
 
+.. warning:: Be aware that documentation for the mosaicking script is currently a little out-dated. Use the --help flags to confirm available options. We recommend not using the --colour_balance or --cloud_mask options in general use for the best outputs.
+
 The final ``sen2mosaic`` processing step creates a composite image of multiple Sentinel-2 level 2A images in user-specified tiling grid. This script takes L2A data as input, selects the tiles that fall within the specified spatial extent, and mosaics available data into single-band GeoTiff files for easy use in classification systems.
 
 ``mosaic.py`` takes a directory containing level 2A .SAFE files, an output image extent (xmin, ymin, xmax, ymax) and projection EPSG code as inputs, along with a series of options to modify the compositing approach.
