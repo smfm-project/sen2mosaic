@@ -262,7 +262,7 @@ def _doComposite(input_list):
     return bm, slc
        
 
-def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, cloud_buffer = 0, processes = 1, percentile = 25., colour_balance = False, masked_vals = [0,1,2,3,7,8,9,10,11], verbose = False):
+def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, cloud_buffer = 0, processes = 1, percentile = 25., colour_balance = False, masked_vals = [0,1,2,3,7,8,9,10,11], verbose = False, resampling = 0):
     """
     """
         
@@ -303,7 +303,7 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
             slc[col:col+col_step,row:row+row_step] = composite_parts[n][1]
         
         # Reproject to match output array
-        composite_rep = utilities.reprojectBand(scene, composite, md_dest, dtype = 3, resampling = 0)
+        composite_rep = utilities.reprojectBand(scene, composite, md_dest, dtype = 3, resampling = resampling)
         slc_rep = utilities.reprojectBand(scene, slc, md_dest, dtype = 1, resampling = 0)
         
         # Do optional colour balancing
