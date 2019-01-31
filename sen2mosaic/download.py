@@ -50,9 +50,12 @@ def connectToAPI(username, password):
         username: Scihub username. Sign up at https://scihub.copernicus.eu/.
         password: Scihub password.        
     '''
-    
+        
     # Let API be accessed by other functions
     global scihub_api
+    
+    # Disconnect from any previous session
+    scihub_api = None
     
     # Connect to Sentinel API
     scihub_api = sentinelsat.SentinelAPI(username, password, 'https://scihub.copernicus.eu/dhus')
@@ -226,14 +229,14 @@ def main(username, password, tiles, level = '1C', start = '20150523', end = date
         remove: Boolean value, which when set to True deletes level 1C .zip files after decompression is complete. Defaults to False.
     """
     
-    # Connect to API
-    connectToAPI(username, password)
-    
     # Allow download of single tile
     if type(tiles) == str: tiles = [tiles]
     
     for tile in tiles:
-        
+                
+        # Connect to API (or reconnect, after timeout)
+        connectToAPI(username, password)
+    
         # Search for files, return a data frame containing details of matching Sentinel-2 images
         products = search(tile, level = level, start = start, end = end, maxcloud = maxcloud, minsize = minsize)
         
