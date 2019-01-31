@@ -368,6 +368,8 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     """
     
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
+    assert extent_dest[0] < extent_dest[2], "Output extent xmin must be lower than xmax."
+    assert extent_dest[1] < extent_dest[3], "Output extent ymin must be lower than ymax."
     assert len(source_files) >= 1, "No source files in specified location."
     assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
     assert type(correct_mask) == bool, "correct_mask can only be set to True or False."
