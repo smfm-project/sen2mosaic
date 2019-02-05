@@ -139,6 +139,9 @@ class LoadScene(object):
         # Define source metadata
         self.metadata = Metadata(self.extent, self.resolution, self.EPSG)
         
+        # Test that all expected images are present
+        self.__checkFilesPresent()
+        
         
     def __checkFilename(self, filename):
         '''
@@ -210,7 +213,7 @@ class LoadScene(object):
         # Identify source file following the standardised file pattern
         
         if self.level == '2A':
-            
+                        
             image_path = glob.glob(self.filename + '/IMG_DATA/R%sm/*%s*%sm.jp2'%(str(resolution), band, str(resolution)))
             
             # In old files the mask can be in the base folder
@@ -225,7 +228,7 @@ class LoadScene(object):
         
         return image_path[0]
     
-    
+
     def __findGML(self, variety, band = 'B02'):
         '''
         '''
@@ -243,7 +246,7 @@ class LoadScene(object):
         assert len(gml_path) > 0, "No GML file found for file %s"%self.filename
         
         return gml_path[0]
-
+    
 
     def __loadGML(self, gml_path):
         '''
@@ -267,7 +270,36 @@ class LoadScene(object):
             mask = np.zeros((int((self.metadata.extent[3] - self.metadata.extent[1]) / self.metadata.res), int((self.metadata.extent[2] - self.metadata.extent[0]) / self.metadata.res))) + 1
         
         return mask == 1
+
+    def __checkFilesPresent(self):
+        '''
+        Test that all expected images are present.
+        '''
+        
+        # Get a list of expected bands
+        bands = ['B02', 'B03', 'B04']
+        
+        if self.resolution == 10:
+            bands.extend(['B08'])
+        else:
+            bands.extend(['B05', 'B06', 'B07', 'B8A', 'B11', 'B12'])
+        
+        if self.resolution == 60: bands.extend(['B01', 'B09', 'B10'])
+        
+        if self.level == '2A': bands.extend(['SCL'])
                 
+        # Test that each is present as expected
+        for band in bands:
+            file_path = self.__getImagePath(band, resolution = self.resolution)
+        
+        # For case of L1C data        
+        if self.level == '1C':
+            mask_types = ['CLOUDS', 'DEFECT', 'DETFOO', 'NODATA', 'SATURA', 'TECQUA']
+            for mask_type in mask_types:
+                for band in bands:
+                    file_path = self.__findGML(mask_type, band)
+        
+        
     def getMask(self, correct = False, md = None, chunk = None, cloud_buffer = 180):
         '''
         Load the mask to a numpy array.

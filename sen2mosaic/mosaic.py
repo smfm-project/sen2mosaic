@@ -368,8 +368,8 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     """
     
     assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
-    assert extent_dest[0] < extent_dest[2], "Output extent xmin must be lower than xmax."
-    assert extent_dest[1] < extent_dest[3], "Output extent ymin must be lower than ymax."
+    assert extent_dest[0] < extent_dest[2], "Output extent incorrectly specified: xmin must be lower than xmax."
+    assert extent_dest[1] < extent_dest[3], "Output extent incorrectly specified: ymin must be lower than ymax."
     assert len(source_files) >= 1, "No source files in specified location."
     assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
     assert type(correct_mask) == bool, "correct_mask can only be set to True or False."
@@ -406,7 +406,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         
         # It's only worth processing a tile if at least one input image is inside tile
         if len(scenes_reduced) == 0:
-            print "    No data inside specified output area for resolution %s. Skipping."%str(res)
+            print "    No data inside specified output area for resolution %s. make sure you specified your bouding box in the correct order (i.e. xmin ymin xmax ymax) and EPSG code correctly. Continuing."%str(res)
             continue
         
         for band in band_list[res_list==res]:
@@ -439,28 +439,31 @@ if __name__ == "__main__":
     parser._action_groups.pop()
     required = parser.add_argument_group('required arguments')
     optional = parser.add_argument_group('optional arguments')
+    positional = parser.add_argument_group('positional arguments')
 
     # Required arguments
-    required.add_argument('-te', '--target_extent', nargs = 4, metavar = ('XMIN', 'YMIN', 'XMAX', 'YMAX'), type = float, help = "Extent of output image tile, in format <xmin, ymin, xmax, ymax>.")
-    required.add_argument('-e', '--epsg', type=int, help="EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.")
+    required.add_argument('-te', '--target_extent', nargs = 4, metavar = ('XMIN', 'YMIN', 'XMAX', 'YMAX'), type = float, required = True, help = "Extent of output image tile, in format <xmin, ymin, xmax, ymax>.")
+    required.add_argument('-e', '--epsg', metavar = 'EPSG', type=int, required = True, help="EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.")
     
     # Optional arguments
-    optional.add_argument('infiles', metavar = 'PATH', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C/2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to processing all granules in current working directory.')
     optional.add_argument('-l', '--level', type=str, metavar='1C/2A', default = '2A', help = "Choose input image level, '1C' or '2A'. Defaults to '2A'.")
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
     optional.add_argument('-m', '--masked_vals', metavar = 'N', type=str, nargs='*', default = ['auto'], help="Specify SLC values to not include in the mosaic (e.g. -m 7 8 9). See http://step.esa.int/main/third-party-plugins-2/sen2cor/ for description of sen2cor mask values. Defaults to 'auto', which masks values [0, 1, 2, 3, 7, 8, 9, 10, 11]. Also accepts 'none'.")
-    optional.add_argument('-b', '--colour_balance', action='store_true', default = False, help = "Perform colour balancing between tiles. Defaults to False.")
+    optional.add_argument('-b', '--colour_balance', action='store_true', default = False, help = "Perform colour balancing between tiles. Defaults to False. Not generally recommended, particularly where working over large areas.")
     optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 0, help = "Apply improvements to sen2cor cloud mask by applying a buffer around cloudy pixels (in meters). Not generally recommended, except in cloudy areas or where a very conservative mask is desired. Defaults to no buffer.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
+    # Positional arguments
+    positional.add_argument('infiles', metavar = 'PATH', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C/2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to processing all granules in current working directory.')
+    
     # Get arguments
     args = parser.parse_args()
-    
+        
     assert args.level in ['1C', '2A'], "Input level much be '1C' or '2A'."
     
     # Convert masked_vals to integers, where specified
@@ -470,7 +473,7 @@ if __name__ == "__main__":
         masked_vals = args.masked_vals[0]
     
     # Get absolute path of input .safe files.
-    infiles = [os.path.abspath(i) for i in args.infiles]
+    infiles = sorted([os.path.abspath(i) for i in args.infiles])
     
     # Find all matching granule files
     infiles = utilities.prepInfiles(infiles, args.level)
