@@ -379,7 +379,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     assert os.path.exists(output_dir), "Output directory (%s) does not exist."%output_dir
     assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory, or changing permissions with chmod."%output_dir
     
-    if masked_vals == 'auto': masked_vals = [0,1,2,3,7,8,9,10,11]
+    if masked_vals == 'auto': masked_vals = [0,9]#[0,1,2,3,7,8,9,10,11]
     if masked_vals == 'none': masked_vals = []
     assert type(masked_vals) == list, "Masked values must be a list of integers, or set to 'auto' or 'none'."
     
@@ -393,7 +393,8 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         for source_file in source_files:
             try:
                 scenes.append(utilities.LoadScene(source_file, resolution = res))
-            except:
+            except Exception as e:
+                print e
                 print 'WARNING: Error in loading scene %s. Continuing.'%source_file
         
         assert len(scenes) > 0, "Failed to load any scenes for resolution %sm. Check input scenes."%str(res)
@@ -450,7 +451,7 @@ if __name__ == "__main__":
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
-    optional.add_argument('-m', '--masked_vals', metavar = 'N', type=str, nargs='*', default = ['auto'], help="Specify SLC values to not include in the mosaic (e.g. -m 7 8 9). See http://step.esa.int/main/third-party-plugins-2/sen2cor/ for description of sen2cor mask values. Defaults to 'auto', which masks values [0, 1, 2, 3, 7, 8, 9, 10, 11]. Also accepts 'none'.")
+    optional.add_argument('-m', '--masked_vals', metavar = 'N', type=str, nargs='*', default = ['auto'], help="Specify SLC values to not include in the mosaic (e.g. -m 7 8 9). See http://step.esa.int/main/third-party-plugins-2/sen2cor/ for description of sen2cor mask values. Defaults to 'auto', which masks values 0 and 9. Also accepts 'none'.")
     optional.add_argument('-b', '--colour_balance', action='store_true', default = False, help = "Perform colour balancing between tiles. Defaults to False. Not generally recommended, particularly where working over large areas.")
     optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 0, help = "Apply improvements to sen2cor cloud mask by applying a buffer around cloudy pixels (in meters). Not generally recommended, except in cloudy areas or where a very conservative mask is desired. Defaults to no buffer.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")

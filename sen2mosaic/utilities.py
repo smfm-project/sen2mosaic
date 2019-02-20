@@ -127,7 +127,7 @@ class LoadScene(object):
         # Save satellite name
         self.satellite = 'S2'
         
-        # Save image type (S1_single, S1_dual, S2)
+        # Save image type (deprecated)
         self.image_type = 'S2'
 
         self.level = self.__getLevel()
@@ -162,10 +162,11 @@ class LoadScene(object):
         '''
         
         if self.filename.split('/')[-3].split('.')[-1] == 'SAFE':
-            return 'SAFE'
-
-        else:
-            raise IOError('File %s does not match any expected file pattern'%self.filename)
+            file_type = 'SAFE'
+        
+        assert file_type == 'SAFE', 'File %s does not match any expected file pattern'%self.filename
+        
+        return file_type
         
     def __getLevel(self):
         '''
@@ -202,8 +203,11 @@ class LoadScene(object):
         '''
         Extract metadata from the Sentinel-2 file.
         '''
-                
-        self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = getS2Metadata(self.filename, self.resolution, level = self.level)
+        
+        try:
+            self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = getS2Metadata(self.filename, self.resolution, level = self.level)
+        except:
+            print 'Failed to load metadata.'
     
     def __getImagePath(self, band, resolution = 20):
         '''
@@ -405,7 +409,7 @@ class LoadScene(object):
             data = gdal.Open(image_path, 0).ReadAsArray()
         else:
             data = gdal.Open(image_path, 0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
-         
+                
         # Expand coarse resolution band to match image resolution if required
         if zoom > 1:
             data = scipy.ndimage.zoom(data, zoom, order = 0)
