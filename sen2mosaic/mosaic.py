@@ -64,8 +64,8 @@ def _getImageOrder(scenes, image_n):
         tx = osr.CoordinateTransformation(ref_scene.metadata.proj, scene.metadata.proj)
         
         # And translate the source coordinates
-        x_min, y_min, z = tx.TransformPoint(scene.extent[0], scene.extent[1])
-        x_max, y_max, z = tx.TransformPoint(scene.extent[2], scene.extent[3])
+        x_min, y_min, z = tx.TransformPoint(scene.metadata.extent[0], scene.metadata.extent[1])
+        x_max, y_max, z = tx.TransformPoint(scene.metadata.extent[2], scene.metadata.extent[3])
         
         return ((y_max - y_min) / 2.) + y_min, ((x_max - x_min) / 2.) + x_min
         
