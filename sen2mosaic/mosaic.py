@@ -220,7 +220,7 @@ def _doComposite(input_list):
         b[n,:,:] = scene.getBand(band, chunk = (row,col,row_step,col_step))
     
     # If nodata in the entire chunk, skip processing
-    if m.sum() == 0: return b
+    if m.sum() == 0: return np.zeros_like(b).astype(np.uint16), np.zeros_like(b).astype(np.uint8)
     
     bm = np.ma.array(b, mask = np.ones_like(m,dtype=np.bool))
     
@@ -258,7 +258,7 @@ def _doComposite(input_list):
     
     # Set nodata to 0
     bm[nodata] = 0
-                
+    
     return bm, slc
        
 
@@ -288,6 +288,7 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         slc = np.zeros((scene.metadata.ncols, scene.metadata.nrows), dtype = np.uint8)
         
         blocks = _makeBlocks(band, scene, step = step, percentile = percentile, cloud_buffer = cloud_buffer, masked_vals = masked_vals)
+        
         
         if processes == 1:
             composite_parts = [_doComposite(block) for block in blocks]
