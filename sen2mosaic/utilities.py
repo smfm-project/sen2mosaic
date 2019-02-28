@@ -14,6 +14,10 @@ import tempfile
 
 import pdb
 
+# Test alternate loading of lxml
+import lxml.etree as ET
+
+
 # This module contains functions to help in image mosaicking, masking, preparation and loading. It is used by sen2mosaic, and deforest tools.
 
 
@@ -753,8 +757,6 @@ def getS2Metadata(granule_file, resolution = 20, level = '2A', tile = ''):
         A list describing the extent of the .SAFE file granule, in the format [xmin, ymin, xmax, ymax].
         EPSG code of the coordinate reference system of the granule
     '''
-
-    import lxml.etree as ET
     
     assert resolution in [10, 20, 60], "Resolution must be 10, 20 or 60 m."
     assert level in ['1C', '2A'], "Product level must be either '1C' or '2A'."
