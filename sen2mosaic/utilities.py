@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import copy
 import cv2
 import datetime
@@ -206,7 +205,8 @@ class LoadScene(object):
         
         try:
             self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = getS2Metadata(self.filename, self.resolution, level = self.level)
-        except:
+        except Exception as e:
+            print str(e)
             print 'Failed to load metadata.'
     
     def __getImagePath(self, band, resolution = 20):
