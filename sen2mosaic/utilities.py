@@ -295,10 +295,13 @@ class LoadScene(object):
         if self.resolution == 60: bands.extend(['B01', 'B09', 'B10'])
         
         if self.level == '2A': bands.extend(['SCL'])
-                
+            
         # Test that each is present as expected
         for band in bands:
-            file_path = self.__getImagePath(band, resolution = self.resolution)
+            if band == 'SCL' and self.resolution == 10:
+                file_path = self.__getImagePath(band, resolution = 20)
+            else:
+                file_path = self.__getImagePath(band, resolution = self.resolution)
         
         # For case of L1C data        
         if self.level == '1C':
@@ -332,6 +335,7 @@ class LoadScene(object):
             
         # Load mask at appropriate resolution
         elif self.level == '2A':
+            
             if self.metadata.res in [20, 60]:
                 image_path = self.__getImagePath('SCL', resolution = self.resolution)
             else:
