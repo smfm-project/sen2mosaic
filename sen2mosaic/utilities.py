@@ -292,7 +292,7 @@ class LoadScene(object):
         else:
             bands.extend(['B05', 'B06', 'B07', 'B8A', 'B11', 'B12'])
         
-        if self.resolution == 60: bands.extend(['B01', 'B09', 'B10'])
+        if self.resolution == 60: bands.extend(['B01', 'B09'])
         
         if self.level == '2A': bands.extend(['SCL'])
             
@@ -373,7 +373,7 @@ class LoadScene(object):
         
         bands_10 = ['B02', 'B03', 'B04', 'B08']            
         bands_20 = ['B05', 'B06', 'B07', 'B8A', 'B11', 'B12']
-        bands_60 = ['B01', 'B09', 'B10']
+        bands_60 = ['B01', 'B09']
         
         # Default size
         zoom = 1
