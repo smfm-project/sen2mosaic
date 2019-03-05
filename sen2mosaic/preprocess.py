@@ -256,7 +256,10 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     Returns:
         Absolute file path to the output file.
     """
-        
+    
+    # At present, L2A_Process cannot just process at 10 m resolution
+    if resolution == 10: resolution = 0
+ 
     # Test that input file is in .SAFE format
     assert '_MSIL1C_' in infile.split('/')[-3], "Input files must be in level 1C format."
     
@@ -408,7 +411,7 @@ if __name__ == '__main__':
     optional.add_argument('-t', '--tile', type = str, default = '', help = 'Specify a specific Sentinel-2 tile to process. If omitted, all tiles in L1C_FILES will be processed.')
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
-    optional.add_argument('-res', '--resolution', type = int, metavar = '10/20/60', default = 0, help = "Process only one of the Sentinel-2 resolutions, with options of 10, 20, or 60 m. Defaults to processing all three.")
+    optional.add_argument('-res', '--resolution', type = int, metavar = '10/20/60', default = 0, help = "Process only one of the Sentinel-2 resolutions, with options of 10, 20, or 60 m. Defaults to processing all three. N.B It is not currently possible to only the 10 m resolution, an input of 10 m will instead process all resolutions.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
