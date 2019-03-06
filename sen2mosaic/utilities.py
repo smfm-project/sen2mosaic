@@ -256,12 +256,12 @@ class LoadScene(object):
         return gml_path[0]
     
 
-    def __loadGML(self, gml_path):
+    def __loadGML(self, gml_path, chunk = None):
         '''
-        Loads a cloud mask from the Sentinel-1 level 1C data product
+        Loads a cloud mask from the Sentinel-2 level 1C data product
         '''
-                        
-         # Generate a temporary output file
+                     
+        # Generate a temporary output file
         temp_tif = tempfile.mktemp(suffix='.tif')
         
         # Rasterize to temp file
@@ -271,11 +271,18 @@ class LoadScene(object):
             # Load vector mask, rasterize with gdal_rasterize, and load into memory
             with open(os.devnull, 'w') as devnull:
                 gdal_output = subprocess.check_output(' '.join(cmd), shell = True, stderr=devnull)              
-                mask = gdal.Open(temp_tif,0).ReadAsArray()       
+                if chunk is not None:
+                    mask = gdal.Open(temp_tif,0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
+                else:
+                    mask = gdal.Open(temp_tif,0).ReadAsArray()
+                # Delete temo fuke
                 gdal_removed = subprocess.check_output('rm ' + temp_tif, shell = True, stderr=devnull)
         except:
             # Occasionally the mask GML file is empty. Assume all pixels should be masked in this case
             mask = np.zeros((int((self.metadata.extent[3] - self.metadata.extent[1]) / self.metadata.res), int((self.metadata.extent[2] - self.metadata.extent[0]) / self.metadata.res))) + 1
+            # Mimics behaviour of gdal.Open where chunk is larger than image
+            if chunk is not None and mask.shape[0] > chunk[2] - chunk[0]:
+                mask = np.zeros((chunk[2] - chunk[0], chunk[3] - chunk[1])) #Untested
         
         return mask == 1
 
@@ -318,16 +325,16 @@ class LoadScene(object):
         Args:
             correct: Set to True to apply improvements to the Sentinel-2 mask (recommended)
         '''
-       
+        
         if self.level == '1C':
             
             # Rasterize and load GML cloud mask for L1C data
             gml_path = self.__findGML('CLOUDS')
-            mask_clouds = self.__loadGML(gml_path)
-            
+            mask_clouds = self.__loadGML(gml_path, chunk = chunk)
+             
             # Get area outside of satellite overpass using B02
-            mask_nodata = self.getBand('B02') == 0
-            
+            mask_nodata = self.getBand('B02', chunk = chunk) == 0
+             
             # Initiate mask to pass all (4 = vegetation)
             mask = np.zeros_like(mask_clouds, dtype = np.int) + 4
             mask[mask_clouds] = 9
@@ -362,7 +369,7 @@ class LoadScene(object):
         # Reproject?        
         if md is not None:
              mask = reprojectBand(self, mask, md, dtype = 1)
-        
+         
         return mask
     
     
@@ -412,15 +419,18 @@ class LoadScene(object):
             else:
                 image_path = self.__getImagePath(band, resolution = 60)
         
+        # Re-cast chunk based on upcoming zoom factor
+        chunk = tuple(np.round(np.array(chunk) / float(zoom),0).astype(np.int))
+        
         # Load the image (.jp2 format)
         if chunk is None:
             data = gdal.Open(image_path, 0).ReadAsArray()
         else:
             data = gdal.Open(image_path, 0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
-                
+        
         # Expand coarse resolution band to match image resolution if required
         if zoom > 1:
-            data = scipy.ndimage.zoom(data, zoom, order = 0)
+             data = scipy.ndimage.zoom(data, zoom, order = 0)
         if zoom < 1:
             data = np.round(skimage.measure.block_reduce(data, block_size = (int(1./zoom), int(1./zoom)), func = np.mean), 0).astype(np.int)
 
