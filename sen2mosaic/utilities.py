@@ -281,9 +281,8 @@ class LoadScene(object):
             # Occasionally the mask GML file is empty. Assume all pixels should be masked in this case
             mask = np.zeros((int((self.metadata.extent[3] - self.metadata.extent[1]) / self.metadata.res), int((self.metadata.extent[2] - self.metadata.extent[0]) / self.metadata.res))) + 1
             # Mimics behaviour of gdal.Open where chunk is larger than image
-            if chunk is not None and mask.shape[0] > chunk[2] - chunk[0]:
-                mask = np.zeros((chunk[2] - chunk[0], chunk[3] - chunk[1])) #Untested
-        
+            if chunk is not None:
+                mask = np.zeros((chunk[3], chunk[2])) #Untested
         return mask == 1
 
     def __checkFilesPresent(self):
@@ -330,6 +329,7 @@ class LoadScene(object):
             
             # Rasterize and load GML cloud mask for L1C data
             gml_path = self.__findGML('CLOUDS')
+            
             mask_clouds = self.__loadGML(gml_path, chunk = chunk)
              
             # Get area outside of satellite overpass using B02

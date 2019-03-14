@@ -189,9 +189,9 @@ def _makeBlocks(band, scene, step = 2000, percentile = 25., cloud_buffer = 0, ma
         col_step = step if col + step <= scene.metadata.ncols else scene.metadata.ncols - col
         for row in np.arange(0, scene.metadata.nrows, step):
             row_step = step if row + step <= scene.metadata.nrows else scene.metadata.nrows - row
-            
+            if row_step ==0 or col_step ==0: pdb.set_trace()
             blocks.append([band, col, col_step, row, row_step, percentile, cloud_buffer, masked_vals])
-    
+     
     return blocks
 
 def _doComposite(input_list):
@@ -212,7 +212,7 @@ def _doComposite(input_list):
     b = np.zeros((len(scenes_tile), col_step, row_step), dtype = np.float32)
     
     for n, scene in enumerate(scenes_tile):
-        
+               
         m[n,:,:] = scene.getMask(correct = True, chunk = (row,col,row_step,col_step), cloud_buffer = cloud_buffer)
         
         if m[n,:,:] .sum() == 0: continue
@@ -287,8 +287,7 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         composite = np.zeros((scene.metadata.ncols, scene.metadata.nrows), dtype = np.uint16)
         slc = np.zeros((scene.metadata.ncols, scene.metadata.nrows), dtype = np.uint8)
         
-        blocks = _makeBlocks(band, scene, step = step, percentile = percentile, cloud_buffer = cloud_buffer, masked_vals = masked_vals)
-        
+        blocks = _makeBlocks(band, scene, step = step, percentile = percentile, cloud_buffer = cloud_buffer, masked_vals = masked_vals)        
         
         if processes == 1:
             composite_parts = [_doComposite(block) for block in blocks]
