@@ -256,13 +256,13 @@ class LoadScene(object):
         return gml_path[0]
     
 
-    def __loadGML(self, gml_path, chunk = None):
+    def __loadGML(self, gml_path, chunk = None, temp_dir = '/tmp'):
         '''
         Loads a cloud mask from the Sentinel-2 level 1C data product
         '''
                      
         # Generate a temporary output file
-        temp_tif = tempfile.mktemp(suffix='.tif')
+        temp_tif = tempfile.mktemp(suffix='.tif', dir=temp_dir)
         
         # Rasterize to temp file
         cmd = ['gdal_rasterize', '-burn', '1' ,'-of', 'GTiff', '-te', str(self.extent[0]), str(self.extent[1]), str(self.extent[2]), str(self.extent[3]), '-tr', str(self.resolution), str(self.resolution), gml_path, temp_tif]
@@ -275,7 +275,7 @@ class LoadScene(object):
                     mask = gdal.Open(temp_tif,0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
                 else:
                     mask = gdal.Open(temp_tif,0).ReadAsArray()
-                # Delete temo fuke
+                # Delete temp file
                 gdal_removed = subprocess.check_output('rm ' + temp_tif, shell = True, stderr=devnull)
         except:
             # Occasionally the mask GML file is empty. Assume all pixels should be masked in this case
@@ -317,7 +317,7 @@ class LoadScene(object):
                     file_path = self.__findGML(mask_type, band)
         
         
-    def getMask(self, correct = False, md = None, chunk = None, cloud_buffer = 180):
+    def getMask(self, correct = False, md = None, chunk = None, cloud_buffer = 180, temp_dir = '/tmp'):
         '''
         Load the mask to a numpy array.
         
@@ -330,7 +330,7 @@ class LoadScene(object):
             # Rasterize and load GML cloud mask for L1C data
             gml_path = self.__findGML('CLOUDS')
             
-            mask_clouds = self.__loadGML(gml_path, chunk = chunk)
+            mask_clouds = self.__loadGML(gml_path, chunk = chunk, temp_dir = temp_dir)
              
             # Get area outside of satellite overpass using B02
             mask_nodata = self.getBand('B02', chunk = chunk) == 0

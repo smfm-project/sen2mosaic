@@ -168,7 +168,7 @@ def _nan_percentile(arr, quant):
     return np.round(quant_arr,0).astype(np.uint16)
 
 
-def _makeBlocks(band, scene, step = 2000, percentile = 25., cloud_buffer = 0, masked_vals = []):
+def _makeBlocks(band, scene, step = 2000, percentile = 25., cloud_buffer = 0, masked_vals = [], temp_dir = '/tmp'):
     '''
     Function to build a series of blocks of size (step, step) to enable multiprocessing and prevent overloading memory
     
@@ -190,7 +190,7 @@ def _makeBlocks(band, scene, step = 2000, percentile = 25., cloud_buffer = 0, ma
         for row in np.arange(0, scene.metadata.nrows, step):
             row_step = step if row + step <= scene.metadata.nrows else scene.metadata.nrows - row
             if row_step ==0 or col_step ==0: pdb.set_trace()
-            blocks.append([band, col, col_step, row, row_step, percentile, cloud_buffer, masked_vals])
+            blocks.append([band, col, col_step, row, row_step, percentile, cloud_buffer, masked_vals, temp_dir])
      
     return blocks
 
@@ -205,7 +205,7 @@ def _doComposite(input_list):
         A composite image for input block
     '''
     
-    band, col, col_step, row, row_step, percentile, cloud_buffer, masked_vals = input_list
+    band, col, col_step, row, row_step, percentile, cloud_buffer, masked_vals, temp_dir = input_list
 
     # Mask stack
     m = np.zeros((len(scenes_tile), col_step, row_step), dtype = np.uint8)
@@ -213,7 +213,7 @@ def _doComposite(input_list):
     
     for n, scene in enumerate(scenes_tile):
                
-        m[n,:,:] = scene.getMask(correct = True, chunk = (row,col,row_step,col_step), cloud_buffer = cloud_buffer)
+        m[n,:,:] = scene.getMask(correct = True, chunk = (row,col,row_step,col_step), cloud_buffer = cloud_buffer, temp_dir = temp_dir)
         
         if m[n,:,:] .sum() == 0: continue
         
@@ -262,7 +262,7 @@ def _doComposite(input_list):
     return bm, slc
        
 
-def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, cloud_buffer = 0, processes = 1, percentile = 25., colour_balance = False, masked_vals = [0,1,2,3,7,8,9,10,11], verbose = False, resampling = 0):
+def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, cloud_buffer = 0, processes = 1, percentile = 25., colour_balance = False, masked_vals = [0,1,2,3,7,8,9,10,11], temp_dir = '/tmp', verbose = False, resampling = 0):
     """
     """
         
@@ -287,7 +287,7 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         composite = np.zeros((scene.metadata.ncols, scene.metadata.nrows), dtype = np.uint16)
         slc = np.zeros((scene.metadata.ncols, scene.metadata.nrows), dtype = np.uint8)
         
-        blocks = _makeBlocks(band, scene, step = step, percentile = percentile, cloud_buffer = cloud_buffer, masked_vals = masked_vals)        
+        blocks = _makeBlocks(band, scene, step = step, percentile = percentile, cloud_buffer = cloud_buffer, masked_vals = masked_vals, temp_dir = temp_dir)        
         
         if processes == 1:
             composite_parts = [_doComposite(block) for block in blocks]
@@ -347,7 +347,7 @@ def buildVRT(red_band, green_band, blue_band, output_path):
     subprocess.call(command)
 
 
-def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, cloud_buffer = 0., colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', masked_vals = 'auto', verbose = False):
+def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, cloud_buffer = 0., colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', masked_vals = 'auto', temp_dir = '/tmp', verbose = False):
     """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, correct_mask = True, cloud_buffer = 0., colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', verbose = False):
     
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
@@ -364,6 +364,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         output_dir: Optionally specify an output directory.
         output_name: Optionally specify a string to precede output file names. Defaults to 'mosaic'.
         masked_vals: List of SLC mask values to not include in the final mosaic. Defaults to 'auto', which masks everything except [4,5,6]
+        temp_dir: Directory to temporarily write L1C mask files. Defaults to /tmp
         verbose: Make script verbose (set True).
     """
     
@@ -414,7 +415,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
             
             if verbose: print 'Building band %s at %s m resolution'%(band, str(res))
             
-            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, cloud_buffer = cloud_buffer, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, verbose = verbose)            
+            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, cloud_buffer = cloud_buffer, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, temp_dir = temp_dir, verbose = verbose)            
            
         # Build VRT output files for straightforward visualisation
         if verbose: print 'Building .VRT images for visualisation'
@@ -457,6 +458,7 @@ if __name__ == "__main__":
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
+    optional.add_argument('-t', '--temp_dir', type=str, metavar = 'DIR', default = '/tmp', help="Directory to write temporary files, only required for L1C data. Defaults to '/tmp'.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
     
     # Positional arguments
@@ -479,6 +481,6 @@ if __name__ == "__main__":
     # Find all matching granule files
     infiles = utilities.prepInfiles(infiles, args.level)
     
-    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, cloud_buffer = args.cloud_buffer, colour_balance = args.colour_balance, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, masked_vals = masked_vals, verbose = args.verbose)
+    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, cloud_buffer = args.cloud_buffer, colour_balance = args.colour_balance, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, masked_vals = masked_vals, temp_dir = args.temp_dir, verbose = args.verbose)
     
     
