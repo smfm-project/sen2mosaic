@@ -298,7 +298,7 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         
         # Reconsitute image
         for n, block in enumerate(blocks):
-            band, col, col_step, row, row_step, _, _, _ = block
+            band, col, col_step, row, row_step, _, _, _, _ = block
             composite[col:col+col_step,row:row+row_step] = composite_parts[n][0]
             slc[col:col+col_step,row:row+row_step] = composite_parts[n][1]
         
