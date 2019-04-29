@@ -8,6 +8,7 @@ This toolset is written for use in Linux.
 
 You will need access to a PC or server with at least:
 
+* Python 3
 * 8 GB of RAM to run sen2cor.
 
 Installing Anaconda Python
@@ -19,9 +20,9 @@ To install Anaconda Python, open a terminal window, change directory to the loca
 
 .. code-block:: console
     
-    wget https://repo.anaconda.com/archive/Anaconda2-5.1.0-Linux-x86_64.sh
-    chmod +x Anaconda2-5.1.0-Linux-x86_64.sh 
-    ./Anaconda2-5.1.0-Linux-x86_64.sh 
+    wget https://repo.anaconda.com/archive/Anaconda3-2019.03-Linux-x86_64.sh
+    chmod +x Anaconda3-2019.03-Linux-x86_64.sh
+    ./AAnaconda3-2019.03-Linux-x86_64.sh
 
 If this has functioned, on executing ``python`` in a terminal window, you should ssee the following:
 
@@ -32,19 +33,22 @@ If this has functioned, on executing ``python`` in a terminal window, you should
     Type "help", "copyright", "credits" or "license" for more information.
     >>> 
 
-sen2mosaic requires two further modules to operate (gdal and opencv). At the time of writing, these can be installed using the commands:
+Setting up your Anaconda environment
+------------------------------------
+
+.. note:: The Anaconda environment required for sen1mosaic and sen2mosaic is identical. If you already have a sen1mosaic environment set up, it can be used in place of a new environment.
+
+To ensure you are working with the appropriate version of Python as well as the correct modules, we recommend that you create an Anaconda virtual environment set up for running ``sen2mosaic``. This is done by running the following commands in your terminal or the Anaconda prompt (recommended procedure):
 
 .. code-block:: console
     
-    conda install -c anaconda gdal
-    conda install -c conda-forge opencv
+    conda create -n sen2mosaic -c conda-forge python=3.7 scipy pandas psutil scikit-image gdal opencv
 
-If successful, on opening a new terminal and running ``python`` you should be able to import the two modules without error:
+Activate the ``sen2mosaic`` environment whenever opening a new terminal window by running this command:
 
-.. code-block:: python
-
-    >>> from osgeo import gdal
-    >>> import cv2
+.. code-block:: console
+    
+    conda activate sen2mosaic
 
 Installing sen2cor
 ------------------
@@ -67,7 +71,6 @@ Once complete, you need to reference this software in your .bashrc file as follo
     
     echo "source ~/Sen2Cor-02.05.05-Linux64/L2A_Bashrc" >> ~/.bashrc
     exec -l $SHELL
-
 
 To test the installation, type ``L2A_Process --help`` in a terminal window to show running instructions. You should see something that looks like the following:
 
@@ -117,7 +120,6 @@ At the time of writing, the installation process is as follows:
 
     pip install sentinelsat
 
-
 Installing sen2mosaic
 ---------------------
 
@@ -126,6 +128,12 @@ sen2mosaic can be downloaded to a machine from its `repository<https://bitbucket
 .. code-block:: console
 
     git clone https://sambowers@bitbucket.org/sambowers/sen2mosaic.git
+
+To install sen2mosaic, navigate to the sen2mosaic directory and run the following within your sen2mosaic environment.
+
+.. code-block:: console
+    
+    python setup.py install
     
 To avoid having to reference the full path of the Python scripts in sen2mosaic, it's a good idea add the following line to your ``.bashrc`` file:
 
@@ -133,7 +141,11 @@ To avoid having to reference the full path of the Python scripts in sen2mosaic, 
 
     echo "alias s2m='_s2m() { python ~/sen2mosaic/sen2mosaic/\"\$1\".py \$(shift; echo \"\$@\") ;}; _s2m'" >> ~/.bashrc
    
+Is there a Dockerfile?
+----------------------
 
+Coming soon!
+   
 Where do I get help?
 --------------------
 

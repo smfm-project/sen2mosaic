@@ -15,10 +15,12 @@ import tempfile
 import pdb
 
 # Test alternate loading of lxml
-import lxml.etree as ET
+import xml.etree.ElementTree as ET
+
+#import lxml.etree as ET
 
 
-# This module contains functions to help in image mosaicking, masking, preparation and loading. It is used by sen2mosaic, and deforest tools.
+# This module contains functions to help in image mosaicking, masking, preparation and loading. It is used by sen2mosaic, sen1mosaic, and deforest tools.
 
 
 class Metadata(object):
@@ -66,9 +68,7 @@ class Metadata(object):
     def __getProjection(self):
         '''
         '''
-        
-        from osgeo import osr
-        
+                
         # Get GDAL projection string
         proj = osr.SpatialReference()
         proj.ImportFromEPSG(self.EPSG_code)
@@ -210,8 +210,8 @@ class LoadScene(object):
         try:
             self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = getS2Metadata(self.filename, self.resolution, level = self.level)
         except Exception as e:
-            print str(e)
-            print 'Failed to load metadata.'
+            print(str(e))
+            print('Failed to load metadata.')
     
     def __getImagePath(self, band, resolution = 20):
         '''
@@ -260,9 +260,13 @@ class LoadScene(object):
         '''
         Loads a cloud mask from the Sentinel-2 level 1C data product
         '''
-                     
+        
+        
         # Generate a temporary output file
-        temp_tif = tempfile.mktemp(suffix='.tif', dir=temp_dir)
+        try:
+            temp_tif = tempfile.mktemp(suffix='.tif', dir=temp_dir)
+        except:
+            raise IOError("Failed to write temporary mask file. Temp directory (%s) probably lacks write permission. Try setting a different output directory, or changing permissions with chmod."%temp_dir)
         
         # Rasterize to temp file
         cmd = ['gdal_rasterize', '-burn', '1' ,'-of', 'GTiff', '-te', str(self.extent[0]), str(self.extent[1]), str(self.extent[2]), str(self.extent[3]), '-tr', str(self.resolution), str(self.resolution), gml_path, temp_tif]
@@ -348,15 +352,23 @@ class LoadScene(object):
             else:
                 # In case of 10 m image, use 20 m mask
                 image_path = self.__getImagePath('SCL', resolution = 20)
-                
+            
             # Load the image (.jp2 format)
             if chunk is None:
+                
+                # Load mask into memory
                 mask = gdal.Open(image_path, 0).ReadAsArray()
+                
             else:
                 if self.resolution == 10:
+                    
                     # Correct chunk size for loading 10 m band
-                    chunk = [np.int(np.round(chunk[0]/2.)), np.int(np.round(chunk[1]/2.)), np.int(np.round(chunk[2]/2.)), np.int(np.round(chunk[3]/2.))]
-                mask = gdal.Open(image_path, 0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
+                    chunk = [int(round(c / 2.)) for c in chunk]
+                    
+                    #[int(round(chunk[0]/2.)), int(round(chunk[1]/2.)), int(round(chunk[2]/2.)), int(round(chunk[3]/2.))]
+                
+                # Load mask into memory
+                mask = gdal.Open(image_path, 0).ReadAsArray(*chunk)
             
             # Expand 20 m resolution mask to match 10 metre image resolution if required
             if self.metadata.res == 10:
@@ -420,13 +432,13 @@ class LoadScene(object):
                 image_path = self.__getImagePath(band, resolution = 60)
         
         # Re-cast chunk based on upcoming zoom factor
-        chunk = tuple(np.round(np.array(chunk) / float(zoom),0).astype(np.int))
+        chunk = np.round(np.array(chunk) / float(zoom),0).astype(np.int).tolist()
         
         # Load the image (.jp2 format)
         if chunk is None:
             data = gdal.Open(image_path, 0).ReadAsArray()
         else:
-            data = gdal.Open(image_path, 0).ReadAsArray(chunk[0], chunk[1], chunk[2], chunk[3])
+            data = gdal.Open(image_path, 0).ReadAsArray(*chunk)
         
         # Expand coarse resolution band to match image resolution if required
         if zoom > 1:
@@ -705,7 +717,7 @@ def getSourceFilesInTile(scenes, md_dest, start = '20150101', end = datetime.dat
         return False
         
     # Determine which images are within specified tile bounds
-    if verbose: print 'Searching for source files within specified tile...'
+    if verbose: print('Searching for source files within specified tile...')
     
     do_tile = []
 
@@ -720,7 +732,7 @@ def getSourceFilesInTile(scenes, md_dest, start = '20150101', end = datetime.dat
             do_tile.append(False)
             continue
         
-        if verbose: print '    Found one: %s'%scene.filename
+        if verbose: print('    Found one: %s'%scene.filename)
         do_tile.append(True)
     
     # Get subset of scenes in specified tile
@@ -869,7 +881,7 @@ def improveMask(data, res, cloud_buffer = 180):
     data[data == 3] = 2
     
     # Change cloud shadows not within 1800 m of a cloud pixel to dark pixels
-    iterations = 1800/res
+    iterations = int(round(1800/res))
     
     # Identify pixels proximal to any measure of cloud cover
     cloud_dilated = scipy.ndimage.morphology.binary_dilation((np.logical_or(data==8, data==9)).astype(np.int), iterations = iterations)
@@ -892,13 +904,7 @@ def improveMask(data, res, cloud_buffer = 180):
         data_temp = data.copy()
             
         for i in [3,8,9]:
-            
-            # Erode small clouds at coasts (probable false positives)
-            #if i in [8,9]:
-            #    iterations_erode = 1 # int(round(60/res,0))
-            #    mask_erode = scipy.ndimage.morphology.binary_erosion((data==i).astype(np.int), iterations = iterations_erode)
-            #    data[np.logical_and(np.logical_and(data == i, coastal), mask_erode == False)] = 7
-            
+                        
             # Grow the area of each input class
             mask_dilate = scipy.ndimage.morphology.binary_dilation((data==i).astype(np.int), iterations = iterations)
             
@@ -908,7 +914,7 @@ def improveMask(data, res, cloud_buffer = 180):
         data = data_temp.copy()
     
     # Erode outer 0.6 km of image tile (should retain overlap)
-    iterations = 600/res 
+    iterations = int(round(600/res))
     
     # Grow the area of nodata pixels (everything that is equal to 0)
     mask_erode = scipy.ndimage.morphology.binary_dilation((data_orig == 0).astype(np.int), iterations=iterations)
@@ -974,9 +980,9 @@ def histogram_match(source, reference):
     return target.reshape(orig_shape)
 
 
-def colourBalance(image, reference, verbose = False):
+def colourBalance(image, reference, aggressive = True, verbose = False):
     '''
-    Perform colour balancing between a new and reference image
+    Perform colour balancing between a new and reference image. Experimental.
     '''
     
     # Calculate overlap with other images
@@ -984,12 +990,10 @@ def colourBalance(image, reference, verbose = False):
     
     # Calculate percent overlap between images
     this_overlap = float(overlap.sum()) / (image.mask == False).sum()
-    
-    colour_balance = 'AGGRESSIVE'
-    
-    if this_overlap > 0.02 and this_overlap <= 0.5 and colour_balance == 'AGGRESSIVE':
         
-        if verbose: print '        scaling'
+    if this_overlap > 0.02 and this_overlap <= 0.5 and aggressive:
+        
+        if verbose: print('        scaling')
                 
         # Gain compensation (simple inter-scene correction)                    
         this_intensity = np.mean(image[overlap])
@@ -999,13 +1003,13 @@ def colourBalance(image, reference, verbose = False):
         
     elif this_overlap > 0.5:
         
-        if verbose: print '        matching'
+        if verbose: print('        matching')
         
         image = histogram_match(image, reference)
         
     else:
         
-        if verbose: print '        adding'
+        if verbose: print('        adding')
     
     return image
 

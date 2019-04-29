@@ -10,14 +10,15 @@ from scipy import ndimage
 from scipy import interpolate
 import subprocess
 
-import utilities
-
-import pdb
-
 try:
     import xml.etree.cElementTree as ET
 except ImportError:
     import xml.etree.ElementTree as ET
+
+import utilities
+
+import pdb
+
 
 global scenes_tile
 
@@ -185,9 +186,9 @@ def _makeBlocks(band, scene, step = 2000, percentile = 25., cloud_buffer = 0, ma
     
     blocks = []
     
-    for col in np.arange(0, scene.metadata.ncols, step):
+    for col in range(0, scene.metadata.ncols, step):
         col_step = step if col + step <= scene.metadata.ncols else scene.metadata.ncols - col
-        for row in np.arange(0, scene.metadata.nrows, step):
+        for row in range(0, scene.metadata.nrows, step):
             row_step = step if row + step <= scene.metadata.nrows else scene.metadata.nrows - row
             if row_step ==0 or col_step ==0: pdb.set_trace()
             blocks.append([band, col, col_step, row, row_step, percentile, cloud_buffer, masked_vals, temp_dir])
@@ -212,12 +213,12 @@ def _doComposite(input_list):
     b = np.zeros((len(scenes_tile), col_step, row_step), dtype = np.float32)
     
     for n, scene in enumerate(scenes_tile):
-               
-        m[n,:,:] = scene.getMask(correct = True, chunk = (row,col,row_step,col_step), cloud_buffer = cloud_buffer, temp_dir = temp_dir)
+        
+        m[n,:,:] = scene.getMask(correct = True, chunk = [row,col,row_step,col_step], cloud_buffer = cloud_buffer, temp_dir = temp_dir)
         
         if m[n,:,:] .sum() == 0: continue
         
-        b[n,:,:] = scene.getBand(band, chunk = (row,col,row_step,col_step))
+        b[n,:,:] = scene.getBand(band, chunk = [row,col,row_step,col_step])
     
     # If nodata in the entire chunk, skip processing
     if m.sum() == 0: return np.zeros_like(b).astype(np.uint16), np.zeros_like(b).astype(np.uint8)
@@ -262,7 +263,7 @@ def _doComposite(input_list):
     return bm, slc
        
 
-def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, cloud_buffer = 0, processes = 1, percentile = 25., colour_balance = False, masked_vals = [0,1,2,3,7,8,9,10,11], temp_dir = '/tmp', verbose = False, resampling = 0):
+def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, cloud_buffer = 0, processes = 1, percentile = 25., colour_balance = False, masked_vals = [0,1,2,3,7,8,9,10,11], output_mask = True, temp_dir = '/tmp', verbose = False, resampling = 0):
     """
     """
         
@@ -270,7 +271,7 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
     
     for m in masked_vals:
         assert type(m) == int, "Masked values must all be integers."
-    
+        
     # Sort scenes for tidiness
     scenes_sorted = utilities.sortScenes(scenes)
         
@@ -315,10 +316,13 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         sel = composite_rep!=0
         composite_out[sel] = composite_rep[sel]
         slc_out[sel] = slc_rep[sel]
-        
+    
+    # Output composite image
     utilities.createGdalDataset(md_dest, data_out = composite_out, filename = '%s/%s_R%sm_%s.tif'%(output_dir, output_name, str(scene.resolution), band), driver='GTiff', nodata = 0, options = ['COMPRESS=LZW'])        
     
-    utilities.createGdalDataset(md_dest, data_out = slc_out, filename = '%s/%s_R%sm_%s_SLC.tif'%(output_dir, output_name, str(scene.resolution), band), driver='GTiff', options = ['COMPRESS=LZW'])        
+    # Output mask
+    if output_mask:
+        utilities.createGdalDataset(md_dest, data_out = slc_out, filename = '%s/%s_R%sm_SLC.tif'%(output_dir, output_name, str(scene.resolution)), driver='GTiff', options = ['COMPRESS=LZW'])        
     
     return composite_out, slc_out
         
@@ -379,7 +383,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
     output_dir = os.path.abspath(os.path.expanduser(output_dir))
     assert os.path.exists(output_dir), "Output directory (%s) does not exist."%output_dir
     assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory, or changing permissions with chmod."%output_dir
-    
+        
     if masked_vals == 'auto': masked_vals = [0,9]#[0,1,2,3,7,8,9,10,11]
     if masked_vals == 'none': masked_vals = []
     assert type(masked_vals) == list, "Masked values must be a list of integers, or set to 'auto' or 'none'."
@@ -395,8 +399,8 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
             try:
                 scenes.append(utilities.LoadScene(source_file, resolution = res))
             except Exception as e:
-                print e
-                print 'WARNING: Error in loading scene %s. Continuing.'%source_file
+                print(e)
+                print('WARNING: Error in loading scene %s. Continuing.'%source_file)
         
         assert len(scenes) > 0, "Failed to load any scenes for resolution %sm. Check input scenes."%str(res)
         
@@ -408,17 +412,22 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         
         # It's only worth processing a tile if at least one input image is inside tile
         if len(scenes_reduced) == 0:
-            print "    No data inside specified output area for resolution %s. make sure you specified your bouding box in the correct order (i.e. xmin ymin xmax ymax) and EPSG code correctly. Continuing."%str(res)
+            print("    No data inside specified output area for resolution %s. make sure you specified your bouding box in the correct order (i.e. xmin ymin xmax ymax) and EPSG code correctly. Continuing."%str(res))
             continue
         
+        
+        output_mask = True
         for band in band_list[res_list==res]:
             
-            if verbose: print 'Building band %s at %s m resolution'%(band, str(res))
+            if verbose: print('Building band %s at %s m resolution'%(band, str(res)))
             
-            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, cloud_buffer = cloud_buffer, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, temp_dir = temp_dir, verbose = verbose)            
-           
+            band_out, QA_out = buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, cloud_buffer = cloud_buffer, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, output_mask = output_mask, temp_dir = temp_dir, verbose = verbose)            
+            
+            # Only output mask on first iteration
+            output_mask = False
+            
         # Build VRT output files for straightforward visualisation
-        if verbose: print 'Building .VRT images for visualisation'
+        if verbose: print('Building .VRT images for visualisation')
         
         # Natural colour image (10 m)
         buildVRT('%s/%s_R%sm_B04.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B03.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B02.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_RGB.vrt'%(output_dir, output_name, str(res)))
@@ -429,41 +438,41 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         else:
             buildVRT('%s/%s_R%sm_B8A.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B04.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B03.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_NIR.vrt'%(output_dir, output_name, str(res)))
         
-    print 'Processing complete!'
+    print('Processing complete!')
 
 
 if __name__ == "__main__":
     
     # Set up command line parser    
 
-    parser = argparse.ArgumentParser(description = "Process Sentinel-2 level 2A data to a composite mosaic product. This script mosaics data into a customisable grid square, based on specified UTM coordinate bounds. Data are output as GeoTiff files for each spectral band, with .vrt files for ease of visualisation.")
+    parser = argparse.ArgumentParser(description = "Process Sentinel-2 data to a composite mosaic product to a customisable grid square, based on specified UTM coordinate bounds. Data are output as GeoTiff files for each spectral band, with .vrt files for ease of visualisation.")
 
     parser._action_groups.pop()
+    positional = parser.add_argument_group('positional arguments')
     required = parser.add_argument_group('required arguments')
     optional = parser.add_argument_group('optional arguments')
-    positional = parser.add_argument_group('positional arguments')
-
+    
+    # Positional arguments
+    positional.add_argument('infiles', metavar = 'PATH', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C/2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*), or a file containing a list of input files. Leave blank to process files in current working directoy. All granules that match input conditions will be included.')
+    
     # Required arguments
     required.add_argument('-te', '--target_extent', nargs = 4, metavar = ('XMIN', 'YMIN', 'XMAX', 'YMAX'), type = float, required = True, help = "Extent of output image tile, in format <xmin, ymin, xmax, ymax>.")
     required.add_argument('-e', '--epsg', metavar = 'EPSG', type=int, required = True, help="EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.")
     
     # Optional arguments
-    optional.add_argument('-l', '--level', type=str, metavar='1C/2A', default = '2A', help = "Choose input image level, '1C' or '2A'. Defaults to '2A'.")
+    optional.add_argument('-l', '--level', type=str, metavar='1C/2A', default = '2A', help = "Input image processing level, '1C' or '2A'. Defaults to '2A'.")
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
-    optional.add_argument('-m', '--masked_vals', metavar = 'N', type=str, nargs='*', default = ['auto'], help="Specify SLC values to not include in the mosaic (e.g. -m 7 8 9). See http://step.esa.int/main/third-party-plugins-2/sen2cor/ for description of sen2cor mask values. Defaults to 'auto', which masks values 0 and 9. Also accepts 'none'.")
+    optional.add_argument('-m', '--masked_vals', metavar = 'N', type=str, nargs='*', default = ['auto'], help="Specify SLC values to not include in the mosaic (e.g. -m 7 8 9). See http://step.esa.int/main/third-party-plugins-2/sen2cor/ for description of sen2cor mask values. Defaults to 'auto', which masks values 0 and 9. Also accepts 'none', to include all values.")
     optional.add_argument('-b', '--colour_balance', action='store_true', default = False, help = "Perform colour balancing between tiles. Defaults to False. Not generally recommended, particularly where working over large areas.")
-    optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 0, help = "Apply improvements to sen2cor cloud mask by applying a buffer around cloudy pixels (in meters). Not generally recommended, except in cloudy areas or where a very conservative mask is desired. Defaults to no buffer.")
-    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
+    optional.add_argument('-c', '--cloud_buffer', type=int, metavar = 'M', default = 0, help = "Apply improvements to sen2cor cloud mask by applying a buffer around cloudy pixels (in meters). Not generally recommended, except where a very conservative mask is desired. Defaults to no buffer.")
+    optional.add_argument('-t', '--temp_dir', type=str, metavar = 'DIR', default = '/tmp', help="Directory to write temporary files, only required for L1C data. Defaults to '/tmp'.")
     optional.add_argument('-o', '--output_dir', type=str, metavar = 'DIR', default = os.getcwd(), help="Specify an output directory. Defaults to the present working directory.")
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
-    optional.add_argument('-t', '--temp_dir', type=str, metavar = 'DIR', default = '/tmp', help="Directory to write temporary files, only required for L1C data. Defaults to '/tmp'.")
+    optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
-    
-    # Positional arguments
-    positional.add_argument('infiles', metavar = 'PATH', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C/2A) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to processing all granules in current working directory.')
-    
+
     # Get arguments
     args = parser.parse_args()
         

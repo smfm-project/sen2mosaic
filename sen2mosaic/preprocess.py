@@ -3,108 +3,21 @@
 import argparse
 import functools
 import glob
-import multiprocessing
 import numpy as np
 import os
+import psutil
 import re
 from scipy import ndimage
 import shutil
-import signal
-import subprocess
 import tempfile
 import time
 import xml.etree.ElementTree as ET
 
+import multiprocess
 import utilities
 
 import pdb
 
-
-
-### Functions to enable command line interface with multiprocessing
-
-def _do_work(job_queue, counter=None):
-    """
-    Processes jobs from  the multiprocessing queue until all jobs are finished
-    Adapted from: https://github.com/ikreymer/cdx-index-client
-    
-    Args:
-        job_queue: multiprocessing.Queue() object
-        counter: multiprocessing.Value() object
-    """
-    
-    import Queue
-        
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    while not job_queue.empty():
-        try:
-            job = job_queue.get_nowait()
-            
-            main_partial(job)
-
-            num_done = 0
-            with counter.get_lock():
-                counter.value += 1
-                num_done = counter.value
-                
-        except Queue.Empty:
-            pass
-
-        except KeyboardInterrupt:
-            break
-
-        except Exception:
-            if not job:
-                raise
-
-
-def _run_workers(n_processes, jobs):
-    """
-    This script is a queuing system that respects KeyboardInterrupt.
-    Adapted from: https://github.com/ikreymer/cdx-index-client
-    Which in turn was adapted from: http://bryceboe.com/2012/02/14/python-multiprocessing-pool-and-keyboardinterrupt-revisited/
-    
-    Args:
-        n_processes: Number of parallel processes
-        jobs: List of input tiles for sen2cor
-    """
-    
-    import psutil 
-    
-    # Queue up all jobs
-    job_queue = multiprocessing.Queue()
-    counter = multiprocessing.Value('i', 0)
-    
-    for job in jobs:
-        job_queue.put(job)
-    
-    workers = []
-    
-    for i in xrange(0, n_processes):
-        
-        tmp = multiprocessing.Process(target=_do_work, args=(job_queue, counter))
-        tmp.daemon = True
-        tmp.start()
-        workers.append(tmp)
-
-    try:
-        
-        for worker in workers:
-            worker.join()
-            
-    except KeyboardInterrupt:
-        for worker in workers:
-            print 'Keyboard interrupt (ctrl-c) detected. Exiting all processes.'
-            # This is an impolite way to kill sen2cor, but it otherwise does not listen.
-            parent = psutil.Process(worker.pid)
-            children = parent.children(recursive=True)
-            parent.send_signal(signal.SIGKILL)
-            for process in children:
-                process.send_signal(signal.SIGKILL)
-            worker.terminate()
-            worker.join()
-            
-        raise
 
 
 def _which(program):
@@ -177,46 +90,6 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
 
 
 
-def _runCommand(command, verbose = False):
-    """
-    Function to capture KeyboardInterrupt.
-    Idea from: https://stackoverflow.com/questions/38487972/target-keyboardinterrupt-to-subprocess
-
-    Args:
-        command: A list containing a command for subprocess.Popen().
-    """
-    
-    try:
-        p = None
-
-        # Register handler to pass keyboard interrupt to the subprocess
-        def handler(sig, frame):
-            if p:
-                p.send_signal(signal.SIGINT)
-            else:
-                raise KeyboardInterrupt
-                
-        signal.signal(signal.SIGINT, handler)
-        
-        p = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-        
-        if verbose:
-            for stdout_line in iter(p.stdout.readline, ""):
-                print stdout_line
-        
-        text = p.communicate()[0]
-                
-        if p.wait():
-            raise Exception('Command failed: %s'%' '.join(command))
-        
-    finally:
-        # Reset handler
-        signal.signal(signal.SIGINT, signal.SIG_DFL)
-    
-    return text.decode('utf-8').split('/n')
-
-
-
 def getL2AFile(L1C_file, output_dir = os.getcwd(), SAFE = False):
     """
     Determine the level 2A tile path name from an input file (level 1C) tile.
@@ -279,7 +152,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     
     # Check if output file already exists
     if os.path.exists(outpath):
-      print 'The output file %s already exists! Delete it to run L2_Process.'%outpath
+      print('The output file %s already exists! Delete it to run L2_Process.'%outpath)
       return outpath
     
     # Get location of exemplar gipp file for modification
@@ -295,12 +168,12 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     else:
         command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
     
-    # Print command for user info
-    if verbose: print ' '.join(command)
+    # print(command for user info
+    if verbose: print(' '.join(command))
        
     # Do the processing, and capture exceptions
     try:
-        output_text = _runCommand(command, verbose = verbose)
+        output_text = multiprocess.runCommand(command, verbose = verbose)
     except Exception as e:
         # Tidy up temporary options file
         os.remove(temp_gipp)
@@ -380,7 +253,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), resolution = 0, verbose 
         output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
     """
     
-    if verbose: print 'Processing %s'%infile.split('/')[-1]
+    if verbose: print('Processing %s'%infile.split('/')[-1])
     
     try:
         L2A_file = processToL2A(infile, gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
@@ -389,7 +262,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), resolution = 0, verbose 
                 
     # Test for completion, and report back
     if testCompletion(infile, output_dir = output_dir, resolution = resolution) == False:    
-        print 'WARNING: %s did not complete processing.'%infile
+        print('WARNING: %s did not complete processing.'%infile)
     
 
 if __name__ == '__main__':
@@ -402,12 +275,13 @@ if __name__ == '__main__':
     
     parser._action_groups.pop()
     required = parser.add_argument_group('Required arguments')
+    positional = parser.add_argument_group('Positional arguments')
     optional = parser.add_argument_group('Optional arguments')
-
+    
     # Required arguments
     
     # Optional arguments
-    optional.add_argument('infiles', metavar = 'L1C_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*), or a file containing a list of input files. All granules that match input conditions will be atmospherically corrected.')
+    positional.add_argument('infiles', metavar = 'L1C_FILES', type = str, default = [os.getcwd()], nargs = '*', help = 'Sentinel 2 input files (level 1C) in .SAFE format. Specify one or more valid Sentinel-2 .SAFE, a directory containing .SAFE files, a Sentinel-2 tile or multiple granules through wildcards (e.g. *.SAFE/GRANULE/*), or a file containing a list of input files. Leave blank to process files in current working directoy. All granules that match input conditions will be atmospherically corrected.')
     optional.add_argument('-t', '--tile', type = str, default = '', help = 'Specify a specific Sentinel-2 tile to process. If omitted, all tiles in L1C_FILES will be processed.')
     optional.add_argument('-g', '--gipp', type = str, default = None, help = 'Specify a custom L2A_Process settings file (default = sen2cor/cfg/L2A_GIPP.xml).')
     optional.add_argument('-o', '--output_dir', type = str, metavar = 'DIR', default = os.getcwd(), help = "Specify a directory to output level 2A files. If not specified, atmospherically corrected images will be written to the same directory as input files.")
@@ -429,7 +303,7 @@ if __name__ == '__main__':
         outpath = getL2AFile(infile, output_dir = args.output_dir)
         
         if os.path.exists(outpath):
-            print 'WARNING: The output file %s already exists! Skipping file.'%outpath
+            print('WARNING: The output file %s already exists! Skipping file.'%outpath)
     
     if len(infiles) == 0: raise ValueError('No level 1C Sentinel-2 files detected in input directory that match specification.')
         
@@ -445,18 +319,18 @@ if __name__ == '__main__':
         # Set up function with multiple arguments, and run in parallel
         main_partial = functools.partial(main, gipp = args.gipp, output_dir = args.output_dir, resolution = args.resolution, verbose = args.verbose)
     
-        _run_workers(args.n_processes, infiles)
+        multiprocess.runWorkers(main_partial, args.n_processes, infiles)
     
     # Test for completion
     completion = np.array([testCompletion(infile, output_dir = args.output_dir, resolution = args.resolution) for infile in infiles])
     
     # Report back
-    if completion.sum() > 0: print 'Successfully processed files:'
+    if completion.sum() > 0: print('Successfully processed files:')
     for infile in np.array(infiles)[completion == True]:
-        print infile 
-    if (completion == False).sum() > 0: print 'Files that failed:'
+        print(infile)
+    if (completion == False).sum() > 0: print('Files that failed:')
     for infile in np.array(infiles)[completion == False]:
-        print infile 
+        print(infile)
 
     
     

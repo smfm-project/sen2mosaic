@@ -11,7 +11,7 @@ Getting L1C data
 
 Data from Sentinel-2 are available from the `Copernicus Open Access Data Hub <https://scihub.copernicus.eu/>`_, which has a graphical interface to download scenes from selected areas. Whilst useful for smaller areas, generating mosaics at national scales requires a volume of data which makes this extremely labour intensive.
 
-.. note:: If you already have access to Sentinel-2 data, you can skip straight to L2A.py. This may be the case if you're using a cloud platform where Sentinel-2 data archives are stored at the same location as servers.
+.. note:: If you already have access to Sentinel-2 data, you can skip straight to ``preprocess.py``. This may be the case if you're using a cloud platform where Sentinel-2 data archives are stored at the same location as servers.
 
 The alternative is to download data using the `API Hub <https://scihub.copernicus.eu/twiki/do/view/SciHubWebPortal/APIHubDescription>`_. This system allows users to search for files using conditions on the command line, and automatically download files. To interface with the API hub, we use an excellent open source utility called `Sentinelsat <https://sentinelsat.readthedocs.io/en/v0.12/>`_. This operates both as a command line tool, and as a Python API, which we use here. You will need to sign up for an account at `Scihub <https://scihub.copernicus.eu/>`_.
 
@@ -54,11 +54,11 @@ For example, to download all data for tile 36KWA between for May and June 2017, 
 
 .. code-block:: console
     
-    s2m download -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30 -r -o ~/path/to/36KWA_data/
+    s2m download -u user.name -p supersecret -t 36KWA -s 20170501 -e 20170630 -c 30 -r -o /path/to/DATA_dir/
 
 .. note:: **What if I want data before 6th December 2016?**. 
    
-    The format in which Sentinel-2 data is distributed was modified in December 2016, and the earlier format is nto well supported. As there is a limited volume of data from before this date, we recommend downloading the data from `Scihub <https://scihub.copernicus.eu/>`_.
+    The format in which Sentinel-2 data is distributed was modified in December 2016, and the earlier format is not well supported. As there is a limited volume of data from before this date, we recommend downloading the data from `Scihub <https://scihub.copernicus.eu/>`_.
     
     A nice tool to help out with this is `aria2 <https://aria2.github.io/>`_. After adding products to your basket at Sentinelhub, you'll download a metadata file called ``products.meta4``. Use aria2 to download the file's contents as follows:
     
@@ -70,6 +70,8 @@ Processing to L2A
 -----------------
 
 Once you have Sentinel-2 (Level 1C) data, the next step is to perform atmospheric correction and identify clouds and cloud shadows. This step is based on `sen2cor <http://step.esa.int/main/third-party-plugins-2/sen2cor/>`_.
+
+.. note:: If you already have access to Sentinel-2 L2A, skip straight to ``mosaic.py``. This may be the case if you're using a cloud platform where Sentinel-2 data archives are stored at the same location as servers. You can also skip this step if you're happy to build a mosaic using L1C data, but be aware that the output will be of lower quality.
 
 ``preprocess.py`` takes a list of level 1C .SAFE files as input, initiates sen2cor, and performs simple modifications to improve the quality of it's cloud and cloud shadow mask.
 
@@ -86,13 +88,17 @@ Help for ``preprocess.py`` can be viewed by typing ``s2m preprocess --help``:
     generate a cloud mask. This script also performs simple improvements to the
     cloud mask.
 
-    Optional arguments:
+    Positional arguments:
     L1C_FILES             Sentinel 2 input files (level 1C) in .SAFE format.
                             Specify one or more valid Sentinel-2 .SAFE, a
                             directory containing .SAFE files, a Sentinel-2 tile or
                             multiple granules through wildcards (e.g.
-                            *.SAFE/GRANULE/*). All granules that match input
+                            *.SAFE/GRANULE/*), or a file containing a list of
+                            input files. Leave blank to process files in current
+                            working directoy. All granules that match input
                             conditions will be atmospherically corrected.
+
+    Optional arguments:
     -t TILE, --tile TILE  Specify a specific Sentinel-2 tile to process. If
                             omitted, all tiles in L1C_FILES will be processed.
     -g GIPP, --gipp GIPP  Specify a custom L2A_Process settings file (default =
@@ -104,47 +110,58 @@ Help for ``preprocess.py`` can be viewed by typing ``s2m preprocess --help``:
     -res 10/20/60, --resolution 10/20/60
                             Process only one of the Sentinel-2 resolutions, with
                             options of 10, 20, or 60 m. Defaults to processing all
-                            three.
+                            three. N.B It is not currently possible to only the 10
+                            m resolution, an input of 10 m will instead process
+                            all resolutions.
     -p N, --n_processes N
                             Specify a maximum number of tiles to process in
                             paralell. Bear in mind that more processes will
                             require more memory. Defaults to 1.
     -v, --verbose         Make script verbose.
 
-For example, to run preprocess.py on a set of level 1C Sentinel-2 files in a directory, processing only 20 m resolution data, use the following command:
+For example, to run ``preprocess.py`` on a set of level 1C Sentinel-2 files in a directory, processing only 20 m resolution data, use the following command:
 
 .. code-block:: console
     
-    s2m preprocess -res 20 /path/to/36KWA_data
+    s2m preprocess -res 20 /path/to/DATA_dir/
 
 The pre-processing script supports parallel processing of L1C files. Be aware that this will entail greater processing and memory requirements than are available on most standard desktop PCs. To parallel process 3 tiles for the 20 m resolution, input:
 
 .. code-block:: console
     
-    s2m preprocess -res 20 -n 3 /path/to/36KWA_data
+    s2m preprocess -res 20 -n 3 /path/to/DATA_dir/
     
 Processing to a mosaic
 ----------------------
 
-.. warning:: Be aware that documentation for the mosaicking script is currently a little out-dated. Use the --help flags to confirm available options. We recommend not using the --colour_balance or --cloud_mask options in general use for the best outputs.
+The final ``sen2mosaic`` processing step creates a composite image of multiple Sentinel-2 level 2A images in user-specified tiling grid. This script takes L2A data as input, identifies the tiles that fall within the specified spatial extent, and builds a composite image using available data to produce single-band GeoTiff files for easy use in classification systems.
 
-The final ``sen2mosaic`` processing step creates a composite image of multiple Sentinel-2 level 2A images in user-specified tiling grid. This script takes L2A data as input, selects the tiles that fall within the specified spatial extent, and mosaics available data into single-band GeoTiff files for easy use in classification systems.
+.. note:: You can also build a mosaic using L1C data, but be aware that the output will be of lower quality.
 
-``mosaic.py`` takes a directory containing level 2A .SAFE files, an output image extent (xmin, ymin, xmax, ymax) and projection EPSG code as inputs, along with a series of options to modify the compositing approach.
+``mosaic.py`` takes a directory containing Sentinel-2 .SAFE files, an output image extent (xmin, ymin, xmax, ymax) and projection EPSG code as inputs, along with a series of options to modify the compositing approach.
 
 Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
 
 .. code-block:: console
     
-    usage: mosaic.py [-h] [-te XMIN YMIN XMAX YMAX] [-e EPSG] [-st START]
-                    [-en END] [-r 10/20/60] [-a NAME] [-b NAME] [-c] [-o DIR]
-                    [-n NAME] [-v]
-                    [L2A_FILES [L2A_FILES ...]]
+    usage: mosaic.py [-h] -te XMIN YMIN XMAX YMAX -e EPSG [-l 1C/2A] [-st START]
+                    [-en END] [-res 10/20/60] [-m [N [N ...]]] [-b] [-c M]
+                    [-t DIR] [-o DIR] [-n NAME] [-p N] [-v]
+                    [PATH [PATH ...]]
 
-    Process Sentinel-2 level 2A data to a composite mosaic product. This script
-    mosaics data into a customisable grid square, based on specified UTM
-    coordinate bounds. Data are output as GeoTiff files for each spectral band,
-    with .vrt files for ease of visualisation.
+    Process Sentinel-2 data to a composite mosaic product to a customisable grid
+    square, based on specified UTM coordinate bounds. Data are output as GeoTiff
+    files for each spectral band, with .vrt files for ease of visualisation.
+
+    positional arguments:
+    PATH                  Sentinel 2 input files (level 1C/2A) in .SAFE format.
+                            Specify one or more valid Sentinel-2 .SAFE, a
+                            directory containing .SAFE files, a Sentinel-2 tile or
+                            multiple granules through wildcards (e.g.
+                            *.SAFE/GRANULE/*), or a file containing a list of
+                            input files. Leave blank to process files in current
+                            working directoy. All granules that match input
+                            conditions will be included.
 
     required arguments:
     -te XMIN YMIN XMAX YMAX, --target_extent XMIN YMIN XMAX YMAX
@@ -155,11 +172,9 @@ Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
                             .epsg-registry.org/.
 
     optional arguments:
-    L2A_FILES             Sentinel 2 input files (level 2A) in .SAFE format.
-                            Specify one or more valid Sentinel-2 .SAFE, a
-                            directory containing .SAFE files, or multiple granules
-                            through wildcards (e.g. *.SAFE/GRANULE/*). Defaults to
-                            processing all granules in current working directory.
+    -l 1C/2A, --level 1C/2A
+                            Input image processing level, '1C' or '2A'. Defaults
+                            to '2A'.
     -st START, --start START
                             Start date for tiles to include in format YYYYMMDD.
                             Defaults to processing all dates.
@@ -168,33 +183,46 @@ Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
     -res 10/20/60, --resolution 10/20/60
                             Specify a resolution to process (10, 20, 60, or 0 for
                             all).
-    -a NAME, --algorithm NAME
-                            Specify an image compositing algorithm ('MOST_RECENT',
-                            'MOST_DISTANT', 'TEMP_HOMOGENEITY'). Defaults to
-                            'TEMP_HOMOGENEITY'.
-    -b NAME, --balance NAME
-                            Perform colour balancing when generating composite
-                            images ('NONE', 'SIMPLE' or 'AGGRESSIVE'). Defaults to
-                            'NONE'.
-    -c, --correct_mask    Apply improvements to sen2cor cloud mask.
+    -m [N [N ...]], --masked_vals [N [N ...]]
+                            Specify SLC values to not include in the mosaic (e.g.
+                            -m 7 8 9). See http://step.esa.int/main/third-party-
+                            plugins-2/sen2cor/ for description of sen2cor mask
+                            values. Defaults to 'auto', which masks values 0 and
+                            9. Also accepts 'none', to include all values.
+    -b, --colour_balance  Perform colour balancing between tiles. Defaults to
+                            False. Not generally recommended, particularly where
+                            working over large areas.
+    -c M, --cloud_buffer M
+                            Apply improvements to sen2cor cloud mask by applying a
+                            buffer around cloudy pixels (in meters). Not generally
+                            recommended, except where a very conservative mask is
+                            desired. Defaults to no buffer.
+    -t DIR, --temp_dir DIR
+                            Directory to write temporary files, only required for
+                            L1C data. Defaults to '/tmp'.
     -o DIR, --output_dir DIR
                             Specify an output directory. Defaults to the present
                             working directory.
     -n NAME, --output_name NAME
                             Specify a string to precede output filename. Defaults
                             to 'mosaic'.
+    -p N, --n_processes N
+                            Specify a maximum number of tiles to process in
+                            paralell. Bear in mind that more processes will
+                            require more memory. Defaults to 1.
     -v, --verbose         Make script verbose.
 
-Options are available for different compositing algorithms (``-a``), colour balancing options (``-b``), and cloud mask correction (``-c``). The compositing algorithms select which pixels to prioritise in the output mosaic: 'MOST_RECENT' prioritises pixels from the latest images, 'MOST_DISTANT' from the earliest images, and 'TEMP_HOMOGENEITY' prioritises pixels from the tiles that are the most cloud free to produce a consistent image (recommended). Colour balancing alters the pixel values from images captured at different times to reduce the appearance of seam lines between images: 'NONE' does not alter pixel values, 'SIMPLE' performs histogram matching between image composites at the same tile, and 'AGGRESSIVE' aims to match the pixel values of adjacent satellite overpasses based on their overlap. We recommend testing these three approaches to see which is most appropriate for your application. Mask correction adds a buffer around the cloud masks from ``sen2cor`` to remove residual cloud: until ``sen2cor`` is updated we recommend this is always activated.
     
-For example, to run ``mosaic.py`` in the directory ``/path/to/36KWA_data/`` which contains level 2A files to create a 200 x 200 km output tile in the UTM36S projection at 20 m resoluton, input:
+For example, to run ``mosaic.py`` in the directory ``/path/to/DATA_dir/`` which contains level 2A files to create a 200 x 200 km output tile in the UTM36S projection at 20 m resoluton, input:
 
 .. code-block:: console
     
-    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -res 20 /path/to/36KWA_data
+    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -res 20 /path/to/DATA_dir/
 
 To do the same operation, but specifying an output directory, a name to prepend to outputs from this tile, and performing inter-scene colour balancing and corrections to the sen2cor mask, input:
 
 .. code-block:: console
     
-    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -res 20 -o /path/to/output/ -n my_output -b AGGRESSIVE -c /path/to/36KWA_data
+    s2m mosaic -te 700000 7900000 900000 8100000 -e 32736 -res 20 -o /path/to/output/ -n my_output -b -c /path/to/DATA_dir/
+
+

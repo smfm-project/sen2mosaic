@@ -1,5 +1,10 @@
 # README #
 
+### Latest updates ###
+
+* Now compatable with Python 3. It should remain possible to run these scripts with Python 2, but this will no longer be supported.
+* Multiple near-identical mask outputs have been replaced with a single 'SLC' file.
+
 ### What is this repository for? ###
 
 Building cloud-free mosaics of Sentinel-2 data for land cover mapping is difficult, with existing tools still under-development and frequently confusing.

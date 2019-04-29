@@ -75,7 +75,7 @@ Atmopsheric correction and cloud masking
 The next step is to perform atmospheric correction (removes the effects of the atmosphere on refectance values of images) and cloud masking (identifies clouds in images.) to generate Sentinel-2 level 2A data. We do this with the ESA program ``sen2cor``.
 
 .. note::
-    As of Q4 2018, ESA is producing the L2A product systematically and making it available for download. If you download the L2A data directly, this preprocessing step can be skipped.
+    As of Q4 2018, ESA is generating the L2A product systematically and making it available for download. If you download the L2A data directly, this preprocessing step can be skipped.
 
 To perform atmospheric correction and cloud masking we call the tool ``preprocess.py``. We need to specify Sentinel-2 level 1C input files, a directory containing level 1C files, or a single tile within a .SAFE file ``*.SAFE/GRANULE/*``).
 
@@ -117,7 +117,7 @@ Generating a cloud-free mosaic image
 
 Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains masked areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image composed of multiple satellite overpasses. This step also converts data from the Sentinel-2 .SAFE format to the easy to work with GeoTiff format, and allows the specification of a customised tiling grid. We recommend a grid of tiles that's approximately equal to the area of four Sentinel-2 tiles (~200,000 x 200,000 m).
 
-Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration, generating an output with the limits **500,000 - 600,000** m Eastings and **7,500,000 - 7,700,000** m Northings (**UTM 36S**) at **20** m resolution. We'll use 'AGGRESSIVE' colour balancing to produce a good visual output and apply corrections the the cloud mask.
+Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration, generating an output with the limits **500,000 - 600,000** m Eastings and **7,500,000 - 7,700,000** m Northings (**UTM 36S**) at **20** m resolution.
 
 To perform this step we call the tool ``mosaic.py``. We need to specify the location of all input files (with wildcards), the exent of the output image and the EPSG code describing the output coordinate reference system (UTM 36S = 32736). We'll also give output data a name to identfy this tile.
 
@@ -131,7 +131,7 @@ To run ``mosaic.py``,
     
 .. code-block:: console
     
-    s2m mosaic -te 500000 7500000 600000 7700000 -e 32736 -res 20 -n worked_example -b AGGRESSIVE -c -v ./36KW* 
+    s2m mosaic -te 500000 7500000 600000 7700000 -e 32736 -res 20 -n worked_example -v ./36KW* 
 
 Here we didn't specify the ``-o`` (``--output_dir``) option, meaning that results will be output to the current working directory. Once processing is complete, you can use ``ls`` to view the newly created output files:
 
@@ -147,10 +147,9 @@ Here we didn't specify the ``-o`` (``--output_dir``) option, meaning that result
     worked_example_R20m_B11.tif
     worked_example_R20m_B12.tif    
     worked_example_R20m_B8A.tif
-    worked_example_R20m_imageN.tif
-    worked_example_R20m_SCL.tif
+    worked_example_R20m_SLC.tif
 
-The files ``B01`` to ``B12`` represent individual Sentinel-2 spectral bands, ``imageN`` records the L2A image that each pixel was derived from, and ``SCL`` records the mask value for each pixel (generally acceptable values are: 4 = vegetation, 5 = bare soils, 6 = water).    
+The files ``B01`` to ``B12`` represent individual Sentinel-2 spectral bands, `, and ``SCL`` records the mask value for each pixel for each band (generally acceptable values are: 4 = vegetation, 5 = bare soils, 6 = water).    
     
 Viewing data
 ------------

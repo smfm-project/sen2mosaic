@@ -3,7 +3,7 @@
 Worked example in Python
 ========================
 
-[TO COMPLETE]
+[NOT CURRENTLY VALID]
 
 As an example, here's a Python script that can be run to reproduce the results from the command line operations we ran through in the section :ref:`worked_example_commandline`.
 

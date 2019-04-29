@@ -128,7 +128,7 @@ def search(tile, level = '1C', start = '20150523', end = datetime.datetime.today
     # convert to Pandas DataFrame, which can be searched modified before commiting to download()
     products_df = scihub_api.to_dataframe(products)
     
-    print 'Found %s matching images'%str(len(products_df))
+    print('Found %s matching images'%str(len(products_df)))
 
     # Where no results for tile    
     if len(products_df) == 0: return products_df
@@ -153,7 +153,7 @@ def download(products_df, output_dir = os.getcwd()):
     assert os.path.isdir(output_dir), "Output directory doesn't exist."
     
     if products_df.empty == True:
-        print 'WARNING: No products found to download. Check your search terms.'
+        print('WARNING: No products found to download. Check your search terms.')
         raise
         
     else:
@@ -163,16 +163,16 @@ def download(products_df, output_dir = os.getcwd()):
         for uuid, filename in zip(products_df['uuid'], products_df['filename']):
             
             if os.path.exists('%s/%s'%(output_dir, filename)):
-                print 'Skipping file %s, as it has already been downloaded in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir)
+                print('Skipping file %s, as it has already been downloaded in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir))
             
             elif os.path.exists('%s/%s'%(output_dir, filename[:-5] + '.zip')):
                 
-                print 'Skipping file %s, as it has already been downloaded and extracted in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir)
+                print('Skipping file %s, as it has already been downloaded and extracted in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir))
 
             else:
                 
                 # Download selected product
-                print 'Downloading %s...'%filename
+                print('Downloading %s...'%filename)
                 scihub_api.download(uuid, output_dir)
                 
                 downloaded_files.append(('%s/%s'%(output_dir.rstrip('/'), filename)).replace('.SAFE','.zip'))
@@ -200,10 +200,10 @@ def decompress(zip_files, output_dir = os.getcwd(), remove = False):
         
         # Skip those files that have already been extracted
         if os.path.exists('%s/%s'%(output_dir, zip_file.split('/')[-1].replace('.zip', '.SAFE'))):
-            print 'Skipping extraction of %s, as it has already been extracted in directory %s. If you want to re-extract it, delete the .SAFE file.'%(zip_file, output_dir)
+            print('Skipping extraction of %s, as it has already been extracted in directory %s. If you want to re-extract it, delete the .SAFE file.'%(zip_file, output_dir))
         
         else:     
-            print 'Extracting %s'%zip_file
+            print('Extracting %s'%zip_file)
             with zipfile.ZipFile(zip_file) as obj:
                 obj.extractall(output_dir)
             
