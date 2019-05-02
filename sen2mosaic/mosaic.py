@@ -292,7 +292,7 @@ def colourBalance(image, reference, aggressive = True, verbose = False):
         
     if this_overlap > 0.02 and this_overlap <= 0.5 and aggressive:
         
-        if verbose: print('        scaling')
+        if verbose: print('        colour scaling')
                 
         # Gain compensation (simple inter-scene correction)                    
         this_intensity = np.mean(image[overlap])
@@ -302,13 +302,13 @@ def colourBalance(image, reference, aggressive = True, verbose = False):
         
     elif this_overlap > 0.5:
         
-        if verbose: print('        matching')
+        if verbose: print('        colour matching')
         
         image = histogramMatch(image, reference)
         
     else:
         
-        if verbose: print('        adding')
+        if verbose: print('        colour adding')
     
     return image
 
