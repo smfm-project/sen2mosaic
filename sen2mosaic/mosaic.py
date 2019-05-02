@@ -22,8 +22,9 @@ import pdb
 
 global scenes_tile
 
-
-### Functions for Sentinel-2 data compositing and mosaicking
+################################################################
+### Functions for Sentinel-2 data compositing and mosaicking ###
+################################################################
 
 
 ##########################
@@ -122,7 +123,7 @@ def _makeBlocks(band, scene, step = 2000, percentile = 25., improve_mask = False
 def _doComposite(input_list):
     '''
     Function to build a cloud-free composite image for a block based on a percentile of surface reflectance.
-    Internal function for buildMosaic.
+    Internal function for buildComposite.
     
     Args:
         input_list: A list containing band, col, col_step, row, row_step from _makeBlocks(), percentile, improve_mask, and masked_vals 
@@ -131,7 +132,7 @@ def _doComposite(input_list):
     '''
     
     band, col, col_step, row, row_step, percentile, improve_mask, masked_vals, temp_dir = input_list
-
+    
     # Mask stack
     m = np.zeros((len(scenes_tile), col_step, row_step), dtype = np.uint8)
     b = np.zeros((len(scenes_tile), col_step, row_step), dtype = np.float32)
@@ -140,21 +141,22 @@ def _doComposite(input_list):
         
         m[n,:,:] = scene.getMask(improve = improve_mask, chunk = [row,col,row_step,col_step], temp_dir = temp_dir)
         
-        if m[n,:,:] .sum() == 0: continue
+        if m[n,:,:].sum() == 0: continue
         
         b[n,:,:] = scene.getBand(band, chunk = [row,col,row_step,col_step])
     
     # If nodata in the entire chunk, skip processing
-    if m.sum() == 0: return np.zeros_like(b).astype(np.uint16), np.zeros_like(b).astype(np.uint8)
+    if m.sum() == 0: return np.zeros_like(b[0,:,:]).astype(np.uint16), np.zeros_like(b[0,:,:]).astype(np.uint8)
     
     bm = np.ma.array(b, mask = np.ones_like(m,dtype=np.bool))
     
-    # Add pixels in order of desirability
+    # Build output arrays
     nodata = np.ones_like(b[0,:,:], dtype = np.bool)
     slc = np.zeros_like(b[0,:,:], dtype = np.uint8)
     slc_count = np.zeros_like(b[0,:,:], dtype = np.uint8)
     slc_assigned = np.zeros_like(b[0,:,:], dtype = np.bool)
-
+    
+    # Add pixels in order of desirability
     for n, vals in enumerate([[4,5,6], [2,7,11], [1,3,8,10], [9]]):
         
         # Strip masked values from vals
@@ -190,6 +192,37 @@ def _doComposite(input_list):
 ###########################################
 ### Functions to improve mosaic quality ###
 ###########################################
+
+def sortScenes(scenes, by = 'tile'):
+    '''
+    Function to sort a list of scenes by tile, then by date. This reduces some artefacts in mosaics.
+    
+    Args:
+        scenes: A list of utilitites.LoadScene() Sentinel-2 objects
+        by: Set to 'tile' to sort by tile then date, or 'date' to sort by date then tile
+    Returns:
+        A sorted list of scenes
+    '''
+    
+    assert by in ['tile', 'date'], "Sentinel-2 scenes can only be sorted by 'tile' or by 'date'."
+    
+    scenes_out = []
+    
+    scenes = np.array(scenes)
+    
+    dates = np.array([scene.datetime for scene in scenes])
+    tiles = np.array([scene.tile for scene in scenes])
+    
+    if by == 'tile':
+        for tile in np.unique(tiles):
+            scenes_out.extend(scenes[tiles == tile][np.argsort(dates[tiles == tile])].tolist())
+    
+    elif by == 'date':
+        for date in np.unique(dates):
+            scenes_out.extend(scenes[dates == date][np.argsort(tiles[dates == date])].tolist())
+    
+    return scenes_out
+
 
 def histogramMatch(source, reference):
     """       
@@ -284,25 +317,90 @@ def colourBalance(image, reference, aggressive = True, verbose = False):
 ### Primary functions ###
 #########################
 
-def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = 'mosaic', step = 2000, improve_mask = False, processes = 1, percentile = 25., colour_balance = False, masked_vals = [0,1,2,3,7,8,9,10,11], output_mask = True, temp_dir = '/tmp', verbose = False, resampling = 0):
+def buildComposite(source_files, band, md_dest, resolution = 20, level = '2A', output_dir = os.getcwd(), output_name = 'mosaic', start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), step = 2000, improve_mask = False, processes = 1, percentile = 25., colour_balance = False, masked_vals = 'auto', output_mask = True, temp_dir = '/tmp', verbose = False, resampling = 0):
     """
-    """
+    
+    Function to generate seamless mosaics from a list of Sentinel-2 level-1C/2A input files.
         
-    global scenes_tile
+    Args:
+        source_files: A list of level 1C/2A input files.
+        extent_dest: List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax].
+        EPSG_dest: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.
+        level: Sentinel-2 level 1C '1C' or level 2A '2A' input data.
+        start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
+        end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
+        resolution: Resolution band 10, 20, or 60 m band to use. Defaults to 20.
+        improve_mask: Set True to apply improvements Sentinel-2 cloud mask. Not generally recommended.
+        processes: Number of processes to run similtaneously. Defaults to 1.
+        output_dir: Optionally specify an output directory.
+        output_name: Optionally specify a string to precede output file names. Defaults to 'mosaic'.
+        masked_vals: List of SLC mask values to not include in the final mosaic. Defaults to 'auto', which masks everything except [4,5,6]
+        temp_dir: Directory to temporarily write L1C mask files. Defaults to /tmp
+        verbose: Make script verbose (set True).
+    """
+    
+    # Test input formatting
+    assert len(source_files) >= 1, "No level %s source files in specified location."%str(level)
+    assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m."
+    assert type(improve_mask) == bool, "improve_mask can only be set to True or False."
+    assert level in ['1C', '2A'], "Sentinel-2 processing level must be either '1C' or '2A'."
+    assert percentile >=0 and percentile <=100, "Percentile cannot be set less than 0% or greater than 100%."
+            
+    # Set values to be masked
+    if masked_vals == 'auto': masked_vals = [0,9]#[0,1,2,3,7,8,9,10,11]
+    if masked_vals == 'none': masked_vals = []
+    assert type(masked_vals) == list, "Masked values must be a list of integers, or set to 'auto' or 'none'."
+    
+    # Test that output directory is writeable
+    output_dir = os.path.abspath(os.path.expanduser(output_dir))
+    assert os.path.exists(output_dir), "Output directory (%s) does not exist."%output_dir
+    assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory, or changing permissions with chmod."%output_dir
     
     for m in masked_vals:
         assert type(m) == int, "Masked values must all be integers."
+
+    # Load all Sentinel-2 input datasets
+    scenes = []
+    for source_file in source_files:
+        try:
+            scene = sen2mosaic.core.LoadScene(source_file, resolution = resolution)
+            
+            if scene.testInsideTile(md_dest) == False: continue
+            if scene.testInsideDate(start = start, end = end) == False: continue
+            if (scene.level == level) == False: continue
+            
+            scenes.append(scene)
         
+        except Exception as e:
+            print("WARNING: Error in loading scene %s with error '%s'. Continuing."%(source_file,str(e)))   
+
+    # It's only worth processing a tile if at least one input image is inside tile
+    if len(scenes) == 0:
+        raise IOError("No data inside specified output area or date range for resolution %s. Make sure you specified your bouding box in the correct order (i.e. xmin ymin xmax ymax), EPSG code correctly, and that start and end dates are in the format YYYYMMDD. Continuing."%str(resolution))
+    
+    # Print reassuring statement
+    if verbose: print("   Found %s scenes matching output criteria."%str(len(scenes)))
+    
     # Sort scenes for tidiness
-    scenes_sorted = sen2mosaic.utilities.sortScenes(scenes)
+    scenes = sortScenes(scenes)
+    
+    # Reduce the pool of scenes to only those that overlap with output tile and date range
+    #scenes = scenes[np.array(s.testInsideTile(md_dest) for s in scenes)]
+    #scenes = scenes[np.array(s.testInsideDate(start = start, end = end) for s in scenes)]
+    
+    # Reduce list to input data level
+    #scenes = scenes[np.array(s.level == level for s in scenes)]
         
     composite_out = md_dest.createBlankArray(dtype = np.uint16)
     slc_out = md_dest.createBlankArray(dtype = np.uint8)
-    
-    # Process one Sentinel-2 tile at a time
-    for tile in np.unique([s.tile for s in scenes_sorted]):
         
-        scenes_tile = np.array(scenes_sorted)[np.array([s.tile for s in scenes_sorted]) == tile]
+    # Make list of scenes accessible
+    global scenes_tile
+        
+    # Process one Sentinel-2 tile at a time
+    for tile in np.unique([s.tile for s in scenes]):
+        
+        scenes_tile = np.array(scenes)[np.array([s.tile for s in scenes]) == tile]
         
         scene = scenes_tile[0]
                 
@@ -311,12 +409,14 @@ def buildMosaic(scenes, band, md_dest, output_dir = os.getcwd(), output_name = '
         
         blocks = _makeBlocks(band, scene, step = step, percentile = percentile, improve_mask = improve_mask, masked_vals = masked_vals, temp_dir = temp_dir)        
         
+        # Do the compositing
         if processes == 1:
             composite_parts = [_doComposite(block) for block in blocks]
         else:
             pool = multiprocessing.Pool(processes)
             composite_parts = pool.map(_doComposite, blocks)
             pool.close()
+        
         
         # Reconsitute image
         for n, block in enumerate(blocks):

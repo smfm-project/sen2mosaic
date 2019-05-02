@@ -15,7 +15,9 @@ import sen2mosaic.multiprocess
 
 import pdb
 
-### Functions for preprocessing of Sentinel-2 L1C data to L2A
+#################################################################
+### Functions for preprocessing of Sentinel-2 L1C data to L2A ###
+#################################################################
 
 def _which(program):
     '''
@@ -45,7 +47,6 @@ def _which(program):
 
 
 ### Primary functions
-
 
 def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     """
@@ -85,7 +86,6 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     tree.write(temp_gipp)
     
     return temp_gipp
-
 
 
 def getL2AFile(L1C_file, output_dir = os.getcwd(), SAFE = False):

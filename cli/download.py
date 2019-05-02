@@ -8,6 +8,9 @@ import sen2mosaic.download
 
 import pdb
 
+##############################################################
+### Command line interface for downloading Sentinel-2 data ###
+##############################################################
 
 def main(username, password, tiles, level = '1C', start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False):
     """main(username, password, tiles, level = '1C', start = '20150523', end = datetime.datetime.today().strftime('%Y%m%d'), maxcloud = 100, minsize = 25., output_dir = os.getcwd(), remove = False)

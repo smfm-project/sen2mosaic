@@ -44,7 +44,7 @@ class Metadata(object):
         self.yres = float(-res)
         
         # Define image extent data
-        self.extent = extent
+        self.extent = self.__getExtent(extent)
         
         self.ulx = float(extent[0])
         self.lry = float(extent[1])
@@ -61,6 +61,15 @@ class Metadata(object):
         # Define gdal geotransform (Affine)
         self.geo_t = self.__getGeoT()
         
+    def __getExtent(self, extent):
+        '''
+        '''
+        
+        assert len(extent) == 4, "Extent must be specified in the format [xmin, ymin, xmax, ymax]"
+        assert extent[0] < extent[2], "Extent incorrectly specified: xmin must be lower than xmax."
+        assert extent[1] < extent[3], "Extent incorrectly specified: ymin must be lower than ymax."
+        
+        return extent
         
     def __getProjection(self):
         '''
@@ -227,10 +236,10 @@ class LoadScene(object):
         '''
         
         try:
-            self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = sen2mosaic.IO.getMetadata(self.granule, self.resolution, level = self.level)
+            self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = sen2mosaic.IO.loadMetadata(self.granule, self.resolution, level = self.level)
         except Exception as e:
-            print(str(e))
-            print('Failed to load metadata.')
+            print('Failed to load metadata: %s'%str(e))
+            raise
     
     def __getImagePath(self, band, resolution = 20):
         '''

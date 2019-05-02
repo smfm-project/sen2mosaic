@@ -6,11 +6,14 @@ import numpy as np
 import os
 
 import sen2mosaic.core
+import sen2mosaic.IO
 import sen2mosaic.mosaic
-import sen2mosaic.utilities
 
 import pdb
 
+#############################################################
+### Command line interface for mosaicking Sentinel-2 data ###
+#############################################################
 
 def _getBands(resolution):
     '''
@@ -42,18 +45,20 @@ def _getBands(resolution):
 
 
 
-def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, improve_mask = False, colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', masked_vals = 'auto', temp_dir = '/tmp', verbose = False):
+def main(source_files, extent_dest, EPSG_dest, resolution = 0, percentile = 25., level = '1C', start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), improve_mask = False, colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', masked_vals = 'auto', temp_dir = '/tmp', verbose = False):
     """main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), resolution = 0, improve_mask = False, colour_balance = False, processes = 1, output_dir = os.getcwd(), output_name = 'mosaic', masked_vals = 'auto', temp_dir = '/tmp', verbose = False)
     
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
         
     Args:
-        source_files: A list of level 3A input files.
+        source_files: A list of level 1C/2A Sentinel-2 input files.
         extent_dest: List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax].
         EPSG_dest: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.
+        resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
+        percentile: Percentile of reflectance to output. Defaults to 25%, which tends to produce good results.
+        level: Sentinel-2 level 1C '1C' or level 2A '2A' input data.
         start: Start date to process, in format 'YYYYMMDD' Defaults to start of Sentinel-2 era.
         end: End date to process, in format 'YYYYMMDD' Defaults to today's date.
-        resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
         improve_mask: Set True to apply improvements Sentinel-2 cloud mask. Not generally recommended.
         processes: Number of processes to run similtaneously. Defaults to 1.
         output_dir: Optionally specify an output directory.
@@ -63,57 +68,23 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         verbose: Make script verbose (set True).
     """
     
-    # Test input formatting
-    assert len(extent_dest) == 4, "Output extent must be specified in the format [xmin, ymin, xmax, ymax]"
-    assert extent_dest[0] < extent_dest[2], "Output extent incorrectly specified: xmin must be lower than xmax."
-    assert extent_dest[1] < extent_dest[3], "Output extent incorrectly specified: ymin must be lower than ymax."
-    assert len(source_files) >= 1, "No source files in specified location."
-    assert resolution in [0, 10, 20, 60], "Resolution must be 10, 20, or 60 m, or 0 to process all three."
-    assert type(improve_mask) == bool, "improve_mask can only be set to True or False."
-    
-    # Test that output directory is writeable
-    output_dir = os.path.abspath(os.path.expanduser(output_dir))
-    assert os.path.exists(output_dir), "Output directory (%s) does not exist."%output_dir
-    assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory, or changing permissions with chmod."%output_dir
-    
-    # Set values to be masked
-    if masked_vals == 'auto': masked_vals = [0,9]#[0,1,2,3,7,8,9,10,11]
-    if masked_vals == 'none': masked_vals = []
-    assert type(masked_vals) == list, "Masked values must be a list of integers, or set to 'auto' or 'none'."
-    
+    # Get output bands based on input resolution
     res_list, band_list = _getBands(resolution)
     
     # For each of the input resolutions
     for res in np.unique(res_list)[::-1]:
-        
-        # Load metadata for all Sentinel-2 datasets
-        scenes = []
-        for source_file in source_files:
-            try:
-                scenes.append(sen2mosaic.core.LoadScene(source_file, resolution = res))
-            except Exception as e:
-                print(e)
-                print('WARNING: Error in loading scene %s. Continuing.'%source_file)
-        
-        assert len(scenes) > 0, "Failed to load any scenes for resolution %sm. Check input scenes."%str(res)
-        
+
         # Build metadata of output object
         md_dest = sen2mosaic.core.Metadata(extent_dest, res, EPSG_dest)
         
-        # Reduce the pool of scenes to only those that overlap with output tile
-        scenes_reduced = sen2mosaic.utilities.getSourceFilesInTile(scenes, md_dest, start = start, end = end, verbose = verbose)       
-        
-        # It's only worth processing a tile if at least one input image is inside tile
-        if len(scenes_reduced) == 0:
-            print("    No data inside specified output area for resolution %s. make sure you specified your bouding box in the correct order (i.e. xmin ymin xmax ymax) and EPSG code correctly. Continuing."%str(res))
-            continue        
-        
+        # Only output one mask layer
         output_mask = True
         for band in band_list[res_list==res]:
             
             if verbose: print('Building band %s at %s m resolution'%(band, str(res)))
             
-            band_out, QA_out = sen2mosaic.mosaic.buildMosaic(scenes_reduced, band, md_dest, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, improve_mask = improve_mask, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, output_mask = output_mask, temp_dir = temp_dir, verbose = verbose)            
+            # Build composite image for list of input scenes
+            band_out, QA_out = sen2mosaic.mosaic.buildComposite(source_files, band, md_dest, level = level, resolution = resolution, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, improve_mask = improve_mask, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, output_mask = output_mask, temp_dir = temp_dir, verbose = verbose)            
             
             # Only output mask on first iteration
             output_mask = False
@@ -130,7 +101,7 @@ def main(source_files, extent_dest, EPSG_dest, start = '20150101', end = datetim
         else:
             sen2mosaic.mosaic.buildVRT('%s/%s_R%sm_B8A.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B04.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_B03.tif'%(output_dir, output_name, str(res)), '%s/%s_R%sm_NIR.vrt'%(output_dir, output_name, str(res)))
         
-    print('Processing complete!')
+    if verbose: print('Processing complete!')
 
 
 if __name__ == "__main__":
@@ -156,6 +127,7 @@ if __name__ == "__main__":
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
+    optional.add_argument('-pc', '--percentile', metavar = 'PC', type=float, default = 25., help="Specify a percentile of reflectance to output. Defaults to 25 percent, which tends to produce good results.")
     optional.add_argument('-m', '--masked_vals', metavar = 'N', type=str, nargs='*', default = ['auto'], help="Specify SLC values to not include in the mosaic (e.g. -m 7 8 9). See http://step.esa.int/main/third-party-plugins-2/sen2cor/ for description of sen2cor mask values. Defaults to 'auto', which masks values 0 and 9. Also accepts 'none', to include all values.")
     optional.add_argument('-b', '--colour_balance', action='store_true', default = False, help = "Perform colour balancing between tiles. Defaults to False. Not generally recommended, particularly where working over large areas.")
     optional.add_argument('-i', '--improve_mask', action='store_true', default = False, help = "Apply improvements to Sentinel-2 cloud mask. Not generally recommended, except where a very conservative mask is desired. Defaults to no improvement.")
@@ -164,12 +136,10 @@ if __name__ == "__main__":
     optional.add_argument('-n', '--output_name', type=str, metavar = 'NAME', default = 'mosaic', help="Specify a string to precede output filename. Defaults to 'mosaic'.")
     optional.add_argument('-p', '--n_processes', type = int, metavar = 'N', default = 1, help = "Specify a maximum number of tiles to process in paralell. Bear in mind that more processes will require more memory. Defaults to 1.")
     optional.add_argument('-v', '--verbose', action='store_true', default = False, help = "Make script verbose.")
-
+    
     # Get arguments
     args = parser.parse_args()
         
-    assert args.level in ['1C', '2A'], "Input level much be '1C' or '2A'."
-    
     # Convert masked_vals to integers, where specified
     if args.masked_vals != ['auto'] and args.masked_vals != ['none']:
         masked_vals = [int(m) for m in args.masked_vals]
@@ -180,8 +150,8 @@ if __name__ == "__main__":
     infiles = sorted([os.path.abspath(i) for i in args.infiles])
     
     # Find all matching granule files
-    infiles = sen2mosaic.utilities.prepInfiles(infiles, args.level)
+    infiles = sen2mosaic.IO.prepInfiles(infiles, args.level)
     
-    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, start = args.start, end = args.end, improve_mask = args.improve_mask, colour_balance = args.colour_balance, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, masked_vals = masked_vals, temp_dir = args.temp_dir, verbose = args.verbose)
+    main(infiles, args.target_extent, args.epsg, resolution = args.resolution, percentile = args.percentile, level = args.level, start = args.start, end = args.end, improve_mask = args.improve_mask, colour_balance = args.colour_balance, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, masked_vals = masked_vals, temp_dir = args.temp_dir, verbose = args.verbose)
     
     

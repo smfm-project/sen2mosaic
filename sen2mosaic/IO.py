@@ -3,8 +3,9 @@
 import datetime
 import glob
 import numpy as np
+import os
 from osgeo import gdal, osr
-
+import re
 import xml.etree.ElementTree as ET
 
 
@@ -15,77 +16,7 @@ import xml.etree.ElementTree as ET
 ### Geospatial manipulation functions ###
 #########################################
 
-def reprojectBand(scene, data, md_dest, dtype = 2, resampling = 0):
-    """
-    Funciton to load, correct and reproject a Sentinel-2 array
-    
-    Args:
-        scene: A level-2A scene of class utilities.LoadScene().
-        data: The array to reproject
-        md_dest: An object of class utilities.Metadata() to reproject image to.
-    
-    Returns:
-        A numpy array of resampled mask data
-    """
-    
-    # Write mask array to a gdal dataset
-    ds_source = createGdalDataset(scene.metadata, data_out = data, dtype = dtype)
-        
-    # Create an empty gdal dataset for destination
-    ds_dest = createGdalDataset(md_dest, dtype = dtype)
-    
-    # Reproject source to destination projection and extent
-    data_resampled = reprojectImage(ds_source, ds_dest, scene.metadata, md_dest, resampling = resampling)
-    
-    return data_resampled
-
-
-def createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, RasterCount = 1, nodata = None, options = []):
-    '''
-    Function to create an empty gdal dataset with georefence info from metadata dictionary.
-
-    Args:
-        md: Object from Metadata() class.
-        data_out: Optionally specify an array of data to include in the gdal dataset.
-        filename: Optionally specify an output filename, if image will be written to disk.
-        driver: GDAL driver type (e.g. 'MEM', 'GTiff'). By default this function creates an array in memory, but set driver = 'GTiff' to make a GeoTiff. If writing a file to disk, the argument filename must be specified.
-        dtype: Output data type. Default data type is a 16-bit unsigned integer (gdal.GDT_Int16, 3), but this can be specified using GDAL standards.
-        options: A list containing other GDAL options (e.g. for compression, use [compress='LZW'].
-
-    Returns:
-        A GDAL dataset.
-    '''
-    from osgeo import gdal, osr
-        
-    gdal_driver = gdal.GetDriverByName(driver)
-    ds = gdal_driver.Create(filename, md.ncols, md.nrows, RasterCount, dtype, options = options)
-    
-    ds.SetGeoTransform(md.geo_t)
-    
-    proj = osr.SpatialReference()
-    proj.ImportFromEPSG(md.EPSG_code)
-    ds.SetProjection(proj.ExportToWkt())
-    
-    # If a data array specified, add data to the gdal dataset
-    if type(data_out).__module__ == np.__name__:
-        
-        if len(data_out.shape) == 2:
-            data_out = np.ma.expand_dims(data_out,2)
-        
-        for feature in range(RasterCount):
-            ds.GetRasterBand(feature + 1).WriteArray(data_out[:,:,feature])
-            
-            if nodata != None:
-                ds.GetRasterBand(feature + 1).SetNoDataValue(nodata)
-    
-    # If a filename is specified, write the array to disk.
-    if filename != '':
-        ds = None
-    
-    return ds
-
-
-def reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
+def _reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
     '''
     Reprojects a source image to match the coordinates of a destination GDAL dataset.
     
@@ -142,12 +73,84 @@ def reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
 
 
 
+def createGdalDataset(md, data_out = None, filename = '', driver = 'MEM', dtype = 3, RasterCount = 1, nodata = None, options = []):
+    '''
+    Function to create an empty gdal dataset with georefence info from metadata dictionary.
+
+    Args:
+        md: Object from Metadata() class.
+        data_out: Optionally specify an array of data to include in the gdal dataset.
+        filename: Optionally specify an output filename, if image will be written to disk.
+        driver: GDAL driver type (e.g. 'MEM', 'GTiff'). By default this function creates an array in memory, but set driver = 'GTiff' to make a GeoTiff. If writing a file to disk, the argument filename must be specified.
+        dtype: Output data type. Default data type is a 16-bit unsigned integer (gdal.GDT_Int16, 3), but this can be specified using GDAL standards.
+        options: A list containing other GDAL options (e.g. for compression, use [compress='LZW'].
+
+    Returns:
+        A GDAL dataset.
+    '''
+    from osgeo import gdal, osr
+        
+    gdal_driver = gdal.GetDriverByName(driver)
+    ds = gdal_driver.Create(filename, md.ncols, md.nrows, RasterCount, dtype, options = options)
+    
+    ds.SetGeoTransform(md.geo_t)
+    
+    proj = osr.SpatialReference()
+    proj.ImportFromEPSG(md.EPSG_code)
+    ds.SetProjection(proj.ExportToWkt())
+    
+    # If a data array specified, add data to the gdal dataset
+    if type(data_out).__module__ == np.__name__:
+        
+        if len(data_out.shape) == 2:
+            data_out = np.ma.expand_dims(data_out,2)
+        
+        for feature in range(RasterCount):
+            ds.GetRasterBand(feature + 1).WriteArray(data_out[:,:,feature])
+            
+            if nodata != None:
+                ds.GetRasterBand(feature + 1).SetNoDataValue(nodata)
+    
+    # If a filename is specified, write the array to disk.
+    if filename != '':
+        ds = None
+    
+    return ds
+
+
+
+def reprojectBand(scene, data, md_dest, dtype = 2, resampling = 0):
+    """
+    Funciton to load, correct and reproject a Sentinel-2 array
+    
+    Args:
+        scene: A level-2A scene of class utilities.LoadScene().
+        data: The array to reproject
+        md_dest: An object of class utilities.Metadata() to reproject image to.
+    
+    Returns:
+        A numpy array of resampled mask data
+    """
+    
+    # Write mask array to a gdal dataset
+    ds_source = createGdalDataset(scene.metadata, data_out = data, dtype = dtype)
+        
+    # Create an empty gdal dataset for destination
+    ds_dest = createGdalDataset(md_dest, dtype = dtype)
+    
+    # Reproject source to destination projection and extent
+    data_resampled = _reprojectImage(ds_source, ds_dest, scene.metadata, md_dest, resampling = resampling)
+    
+    return data_resampled
+
+
+
 ###########################
 ### Sentinel-2 metadata ###
 ###########################
 
 
-def getMetadata(granule_file, resolution = 20, level = '2A', tile = ''):
+def loadMetadata(granule_file, resolution = 20, level = '2A', tile = ''):
     '''
     Function to extract georefence info from level 1C/2A Sentinel 2 data in .SAFE format.
     
@@ -236,3 +239,60 @@ def getMetadata(granule_file, resolution = 20, level = '2A', tile = ''):
     
     return extent, EPSG, date, tile, nodata_percent
 
+
+
+##############################
+### Sentinel-2 input files ###
+##############################
+
+def prepInfiles(infiles, level, tile = ''):
+    """
+    Function to select input granules from a directory, .SAFE file (with wildcards) or granule, based on processing level and a tile. Used by command line interface to identify input files.
+    
+    Args:
+        infiles: A string or list of input .SAFE files, directories, or granules for Sentinel-2 inputs
+        level: Set to either '1C' or '2A' to select appropriate granules.
+        tile: Optionally filter infiles to return only those matching a particular tile
+    Returns:
+        A list of all matching Sentinel-2 granules in infiles.
+    """
+    
+    assert level in ['1C', '2A'], "Sentinel-2 processing level must be either '1C' or '2A'."
+    assert bool(re.match("[0-9]{2}[A-Z]{3}$",tile)) or tile == '', "Tile format not recognised. It should take the format '##XXX' (e.g. '36KWA')."
+    
+    # Make interable if only one item
+    if not isinstance(infiles, list):
+        infiles = [infiles]
+    
+    # Get absolute path, stripped of symbolic links
+    infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
+    
+    # In case infiles is a list of files
+    if len(infiles) == 1 and os.path.isfile(infiles[0]):
+        with open(infiles[0], 'rb') as infile:
+            infiles = [row.rstrip() for row in infile]
+    
+    # List to collate 
+    infiles_reduced = []
+    
+    for infile in infiles:
+         
+        # Where infile is a directory:
+        infiles_reduced.extend(glob.glob('%s/*_MSIL%s_*/GRANULE/*'%(infile, level)))
+        
+        # Where infile is a .SAFE file
+        if '_MSIL%s_'%level in infile.split('/')[-1]: infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
+        
+        # Where infile is a specific granule 
+        if infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
+    
+    # Strip repeats (in case)
+    infiles_reduced = list(set(infiles_reduced))
+    
+    # Reduce input to infiles that match the tile (where specified)
+    infiles_reduced = [infile for infile in infiles_reduced if ('_T%s'%tile in infile.split('/')[-1])]
+    
+    # Reduce input files to only L1C or L2A files
+    infiles_reduced = [infile for infile in infiles_reduced if ('_MSIL%s_'%level in infile.split('/')[-3])]
+    
+    return infiles_reduced

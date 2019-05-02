@@ -3,7 +3,7 @@ from setuptools import setup
 setup(name='sen2mosaic',
       packages = ['sen2mosaic'],
       data_files=[('./cfg/', ["cfg/L2A_GIPP.xml"])],
-      version='0.1',
+      version='0.2',
       description='Tools to generate cloud-free mosaics of Sentinel-2 data.',
       url='https://bitbucket.org/sambowers/sen2mosaic',
       author='Samuel Bowers',

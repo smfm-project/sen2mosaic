@@ -7,11 +7,12 @@ import os
 import sen2mosaic.core
 import sen2mosaic.multiprocess
 import sen2mosaic.preprocess
-import sen2mosaic.utilities
 
 import pdb
 
-
+####################################################################
+### Command line interface for preprocessing Sentinel-2 L1C data ###
+####################################################################
 
 def main(infile, gipp = None, output_dir = os.getcwd(), resolution = 0, verbose = False):
     """
@@ -68,7 +69,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
         
     # Get all infiles that match tile and file pattern
-    infiles = sen2mosaic.utilities.prepInfiles(args.infiles, '1C', tile = args.tile)
+    infiles = sen2mosaic.IO.prepInfiles(args.infiles, '1C', tile = args.tile)
      
     # Get absolute path for output directory
     args.output_dir = os.path.abspath(args.output_dir)

@@ -13,12 +13,16 @@ import zipfile
 import pdb
 
 
+#########################################################
+### Functions specific to downloading Sentinel-2 data ###
+#########################################################
+
 def _removeZip(zip_file):
     """
     Deletes Level 1C .zip file from disk.
     
     Args:
-        #A Sentinel-2 level 1C .zip file from Copernicus Open Access Data Hub.
+        zip_file: A Sentinel-2 level 1C .zip file from Copernicus Open Access Data Hub.
     """
     
     assert '_MSIL1C_' in zip_file, "removeZip function should only be used to delete Sentinel-2 level 1C compressed .SAFE files"
