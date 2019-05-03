@@ -11,3 +11,4 @@ setup(name='sen2mosaic',
       license='GNU General Public License',
       zip_safe=False)
 
+#      install_requires=['argparse', 'copy', 'datetime', 'functools', 'glob', 'multiprocessing', 'numpy', 'os', 'osgeo', 'pandas', 'pdb', 'psutil', 'queue', 're', 'scipy', 'sentinelsat', 'shutil', 'signal', 'subprocess', 'tempfile', 'time', 'xml', 'zipfile']

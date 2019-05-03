@@ -88,7 +88,7 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     return temp_gipp
 
 
-def getL2AFile(L1C_file, output_dir = os.getcwd(), SAFE = False):
+def getL2AFilename(L1C_file, output_dir = os.getcwd(), SAFE = False):
     """
     Determine the level 2A tile path name from an input file (level 1C) tile.
     
@@ -146,7 +146,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     assert os.access(output_dir, os.W_OK), "Output directory (%s) does not have write permission. Try setting a different output directory"%output_dir
     
     # Determine output filename
-    outpath = getL2AFile(infile, output_dir = output_dir)
+    outpath = getL2AFilename(infile, output_dir = output_dir)
     
     # Check if output file already exists
     if os.path.exists(outpath):
@@ -181,7 +181,7 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
     os.remove(temp_gipp)
     
     # Get path of .SAFE file.
-    outpath_SAFE = getL2AFile(infile, output_dir = output_dir, SAFE = True)
+    outpath_SAFE = getL2AFilename(infile, output_dir = output_dir, SAFE = True)
     
     # Test if AUX_DATA output directory exists. If not, create it, as it's absense crashes sen2three.
     if not os.path.exists('%s/AUX_DATA'%outpath_SAFE):
@@ -206,7 +206,7 @@ def testCompletion(L1C_file, output_dir = os.getcwd(), resolution = 0):
         A boolean describing whether processing completed sucessfully.
     """
       
-    L2A_file = getL2AFile(L1C_file, output_dir = output_dir, SAFE = False)
+    L2A_file = getL2AFilename(L1C_file, output_dir = output_dir, SAFE = False)
     
     failure = False
     

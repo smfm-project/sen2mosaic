@@ -193,38 +193,7 @@ def _doComposite(input_list):
 ### Functions to improve mosaic quality ###
 ###########################################
 
-def sortScenes(scenes, by = 'tile'):
-    '''
-    Function to sort a list of scenes by tile, then by date. This reduces some artefacts in mosaics.
-    
-    Args:
-        scenes: A list of utilitites.LoadScene() Sentinel-2 objects
-        by: Set to 'tile' to sort by tile then date, or 'date' to sort by date then tile
-    Returns:
-        A sorted list of scenes
-    '''
-    
-    assert by in ['tile', 'date'], "Sentinel-2 scenes can only be sorted by 'tile' or by 'date'."
-    
-    scenes_out = []
-    
-    scenes = np.array(scenes)
-    
-    dates = np.array([scene.datetime for scene in scenes])
-    tiles = np.array([scene.tile for scene in scenes])
-    
-    if by == 'tile':
-        for tile in np.unique(tiles):
-            scenes_out.extend(scenes[tiles == tile][np.argsort(dates[tiles == tile])].tolist())
-    
-    elif by == 'date':
-        for date in np.unique(dates):
-            scenes_out.extend(scenes[dates == date][np.argsort(tiles[dates == date])].tolist())
-    
-    return scenes_out
-
-
-def histogramMatch(source, reference):
+def _histogramMatch(source, reference):
     """       
     Adjust the values of a source array so that its histogram matches that of a reference array
     
@@ -279,9 +248,9 @@ def histogramMatch(source, reference):
     return target.reshape(orig_shape)
 
 
-def colourBalance(image, reference, aggressive = True, verbose = False):
+def _colourBalance(image, reference, aggressive = True, verbose = False):
     '''
-    Perform colour balancing between a new and reference image. Experimental.
+    Perform colour balancing between a new and reference image.
     '''
     
     # Calculate overlap with other images
@@ -304,7 +273,7 @@ def colourBalance(image, reference, aggressive = True, verbose = False):
         
         if verbose: print('        colour matching')
         
-        image = histogramMatch(image, reference)
+        image = _histogramMatch(image, reference)
         
     else:
         
@@ -316,6 +285,36 @@ def colourBalance(image, reference, aggressive = True, verbose = False):
 #########################
 ### Primary functions ###
 #########################
+
+def sortScenes(scenes, by = 'tile'):
+    '''
+    Function to sort a list of scenes by tile, then by date. This reduces some artefacts in mosaics.
+    
+    Args:
+        scenes: A list of utilitites.LoadScene() Sentinel-2 objects
+        by: Set to 'tile' to sort by tile then date, or 'date' to sort by date then tile
+    Returns:
+        A sorted list of scenes
+    '''
+    
+    assert by in ['tile', 'date'], "Sentinel-2 scenes can only be sorted by 'tile' or by 'date'."
+    
+    scenes_out = []
+    
+    scenes = np.array(scenes)
+    
+    dates = np.array([scene.datetime for scene in scenes])
+    tiles = np.array([scene.tile for scene in scenes])
+    
+    if by == 'tile':
+        for tile in np.unique(tiles):
+            scenes_out.extend(scenes[tiles == tile][np.argsort(dates[tiles == tile])].tolist())
+    
+    elif by == 'date':
+        for date in np.unique(dates):
+            scenes_out.extend(scenes[dates == date][np.argsort(tiles[dates == date])].tolist())
+    
+    return scenes_out
 
 def buildComposite(source_files, band, md_dest, resolution = 20, level = '2A', output_dir = os.getcwd(), output_name = 'mosaic', start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), step = 2000, improve_mask = False, processes = 1, percentile = 25., colour_balance = False, masked_vals = 'auto', output_mask = True, temp_dir = '/tmp', verbose = False, resampling = 0):
     """
@@ -384,19 +383,13 @@ def buildComposite(source_files, band, md_dest, resolution = 20, level = '2A', o
     # Sort scenes for tidiness
     scenes = sortScenes(scenes)
     
-    # Reduce the pool of scenes to only those that overlap with output tile and date range
-    #scenes = scenes[np.array(s.testInsideTile(md_dest) for s in scenes)]
-    #scenes = scenes[np.array(s.testInsideDate(start = start, end = end) for s in scenes)]
-    
-    # Reduce list to input data level
-    #scenes = scenes[np.array(s.level == level for s in scenes)]
-        
+    # Build blank output images    
     composite_out = md_dest.createBlankArray(dtype = np.uint16)
     slc_out = md_dest.createBlankArray(dtype = np.uint8)
         
     # Make list of scenes accessible
     global scenes_tile
-        
+    
     # Process one Sentinel-2 tile at a time
     for tile in np.unique([s.tile for s in scenes]):
         
@@ -430,7 +423,7 @@ def buildComposite(source_files, band, md_dest, resolution = 20, level = '2A', o
         
         # Do optional colour balancing
         if colour_balance:
-            composite_rep = colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose)
+            composite_rep = _colourBalance(np.ma.array(composite_rep, mask = composite_rep == 0), np.ma.array(composite_out, mask = composite_out == 0), verbose = verbose)
             composite_rep = composite_rep.filled(0)
         
         # Add pixels to the output mosaic

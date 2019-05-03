@@ -1,6 +1,5 @@
 
 import copy
-import cv2
 import datetime
 import glob
 import numpy as np

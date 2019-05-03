@@ -2,6 +2,7 @@
 
 import argparse
 import functools
+import numpy as np
 import os
 
 import sen2mosaic.core
@@ -76,7 +77,7 @@ if __name__ == '__main__':
     
     # Strip the output files already exist.
     for infile in infiles[:]:
-        outpath = sen2mosaic.preprocess.getL2AFile(infile, output_dir = args.output_dir)
+        outpath = sen2mosaic.preprocess.getL2AFilename(infile, output_dir = args.output_dir)
         
         if os.path.exists(outpath):
             print('WARNING: The output file %s already exists! Skipping file.'%outpath)
@@ -98,7 +99,7 @@ if __name__ == '__main__':
         sen2mosaic.multiprocess.runWorkers(main_partial, args.n_processes, infiles)
     
     # Test for completion
-    completion = np.array([testCompletion(infile, output_dir = args.output_dir, resolution = args.resolution) for infile in infiles])
+    completion = np.array([sen2mosaic.preprocess.testCompletion(infile, output_dir = args.output_dir, resolution = args.resolution) for infile in infiles])
     
     # Report back
     if completion.sum() > 0: print('Successfully processed files:')
