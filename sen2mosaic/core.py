@@ -425,7 +425,6 @@ class LoadScene(object):
                 
         return outfile
     
-    
     def testInsideTile(self, md_dest):
         '''
         Function that uses metadata class to test whether any part of a source data falls inside destination tile.

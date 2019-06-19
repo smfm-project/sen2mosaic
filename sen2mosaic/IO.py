@@ -4,10 +4,15 @@ import datetime
 import glob
 import numpy as np
 import os
-from osgeo import gdal, osr
+from osgeo import gdal, gdalnumeric, osr
+from PIL import Image, ImageDraw
 import re
+import shapefile
 import xml.etree.ElementTree as ET
 
+import sen2mosaic
+
+import pdb
 
 ### Functions for data input and output, and image reprojection
 
@@ -21,10 +26,10 @@ def _reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
     Reprojects a source image to match the coordinates of a destination GDAL dataset.
     
     Args:
-        ds_source: A gdal dataset from utilities.createGdalDataset() containing data to be repojected.
-        ds_dest: A gdal dataset from utilities.createGdalDataset(), with destination coordinate reference system and extent.
-        md_source: Metadata class from utilities.Metadata() representing the source image.
-        md_dest: Metadata class from utilities.Metadata() representing the destination image.
+        ds_source: A gdal dataset from sen2mosaic.createGdalDataset() containing data to be repojected.
+        ds_dest: A gdal dataset from sen2mosaic.createGdalDataset(), with destination coordinate reference system and extent.
+        md_source: Metadata class from sen2mosaic.Metadata() representing the source image.
+        md_dest: Metadata class from sen2mosaic.Metadata() representing the destination image.
     
     Returns:
         A GDAL array with resampled data
@@ -49,7 +54,7 @@ def _reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
         
         extent = [ulx, lry, lrx, uly]
                 
-        md = Metadata(extent, ds.GetGeoTransform()[1], epsg)
+        md = sen2mosaic.core.Metadata(extent, ds.GetGeoTransform()[1], epsg)
         return createGdalDataset(md, dtype = 1)
     
     proj_source = md_source.proj.ExportToWkt()
@@ -60,16 +65,20 @@ def _reprojectImage(ds_source, ds_dest, md_source, md_dest, resampling = 0):
             
     ds_resampled = ds_dest.GetRasterBand(1).ReadAsArray()
     
+    """
+    # This may be required again, but for now leave this out, memory requirement is unpredictable.
+    
     # As GDAL fills in all nodata pixels as zero, re-do transfromation with array of ones and re-allocate zeros to nodata. Only run where a nodata value has been assigned to ds_source.
     if ds_source.GetRasterBand(1).GetNoDataValue() is not None:
-        
         ds_source_mask = _copyds(ds_source)
         ds_dest_mask = _copyds(ds_dest)
-        ds_source_mask.GetRasterBand(1).WriteArray(np.ones_like(ds_source.GetRasterBand(1).ReadAsArray()))
+        #ds_source_mask.GetRasterBand(1).WriteArray(np.ones_like(ds_source.GetRasterBand(1).ReadAsArray()))
+        ds_source_mask.GetRasterBand(1).WriteArray(np.ones((ds_source.RasterYSize, ds_source.RasterXSize), dtype = np.bool))
         gdal.ReprojectImage(ds_source_mask, ds_dest_mask, proj_source, proj_dest, gdal.GRA_NearestNeighbour)
         ds_resampled[ds_dest_mask.GetRasterBand(1).ReadAsArray() == 0] = ds_source.GetRasterBand(1).GetNoDataValue()
+    """
     
-    return ds_resampled
+    return np.squeeze(ds_resampled)
 
 
 
@@ -124,9 +133,9 @@ def reprojectBand(scene, data, md_dest, dtype = 2, resampling = 0):
     Funciton to load, correct and reproject a Sentinel-2 array
     
     Args:
-        scene: A level-2A scene of class utilities.LoadScene().
+        scene: A level-2A scene of class sen2mosaic.LoadScene().
         data: The array to reproject
-        md_dest: An object of class utilities.Metadata() to reproject image to.
+        md_dest: An object of class sen2mosaic.Metadata() to reproject image to.
     
     Returns:
         A numpy array of resampled mask data
@@ -143,6 +152,289 @@ def reprojectBand(scene, data, md_dest, dtype = 2, resampling = 0):
     
     return data_resampled
 
+
+
+##########################################
+### Generic raster/vector IO functions ###
+##########################################
+
+def loadShapefile(shp, md_dest, field = '', field_values = ''):
+    """
+    Rasterize polygons from a shapefile to match a specified CRS.
+        
+    Args:
+        shp: Path to a shapefile consisting of points, lines and/or polygons. This does not have to be in the same projection as ds.
+        md_dest: A metadata file from sen2mosaic.core.Metadata().
+        field: Field name to include as part of mask. Defaults to all. If specifying an field, you must also specify an field_value.
+        field_values: Field value or list of values (from 'field') to include in the mask. Defaults to all values. If specifying an field_value, you must also specify a 'field'.
+        
+    Returns:
+        A numpy array with a boolean mask delineating locations inside (True) and outside (False) the shapefile given attribute and attribute_value.
+    """
+    
+    if field != '' or field_values != '':
+        assert field != '' and field_values != '', "Both  `attribute` and `attribute_value` must be specified."
+    
+    shp = os.path.expanduser(shp)
+    assert os.path.exists(shp), "Shapefile %s does not exist in the file system."%shp
+    
+    # Allow input of one or more attribute values
+    if type(field_values) == str: field_values = [field_values]
+    
+    def _coordinateTransformer(shp, EPSG_out):
+        """
+        Generates function to transform coordinates from a source shapefile CRS to EPSG.
+        
+        Args:
+            shp: Path to a shapefile.
+        
+        Returns:
+            A function that transforms shapefile points to EPSG.
+        """
+                
+        driver = ogr.GetDriverByName('ESRI Shapefile')
+        ds = driver.Open(shp)
+        layer = ds.GetLayer()
+        spatialRef = layer.GetSpatialRef()
+        
+        # Create coordinate transformation
+        inSpatialRef = osr.SpatialReference()
+        inSpatialRef.ImportFromWkt(spatialRef.ExportToWkt())
+
+        outSpatialRef = osr.SpatialReference()
+        outSpatialRef.ImportFromEPSG(EPSG_out)
+
+        coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
+        
+        return coordTransform
+
+
+    def _world2Pixel(geo_t, x, y):
+        """
+        Uses a gdal geomatrix (ds.GetGeoTransform()) to calculate the pixel location of a geospatial coordinate.
+        Modified from: http://geospatialpython.com/2011/02/clip-raster-using-shapefile.html.
+        
+        Args:
+            geo_t: A gdal geoMatrix (ds.GetGeoTransform().
+            x: x coordinate in map units.
+            y: y coordinate in map units.
+            buffer_size: Optionally specify a buffer size. This is used when a buffer has been applied to extend all edges of an image, as in rasterizeShapfile().
+        
+        Returns:
+            A tuple with pixel/line locations for each input coordinate.
+        """
+        ulX = geo_t[0]
+        ulY = geo_t[3]
+        xDist = geo_t[1]
+        yDist = geo_t[5]
+        
+        pixel = int((x - ulX) / xDist)
+        line = int((y - ulY) / yDist)
+        
+        return (pixel, line)
+    
+    def _getField(shp, field):
+        '''
+        Get values from a field in a shapefile attribute table.
+
+        Args:
+            shp: A string pointing to a shapefile
+            field: A string with the field name of the attribute of interest
+
+        Retuns:
+            An array containing all the values of the specified attribute
+        '''
+        
+        assert os.path.isfile(shp), "Shapefile %s does not exist."%shp
+
+        # Read shapefile
+        sf = shapefile.Reader(shp)
+
+        # Get the column number of the field of interest
+        for n, this_field in enumerate(sf.fields[1:]):
+
+            fieldname = this_field[0]
+
+            if fieldname == field:
+
+                field_n = n
+
+        assert 'field_n' in locals(), "Attribute %s not found in shapefile."%str(field)
+
+        # Extract data type from shapefile. Interprets N (int), F (float) and C (string), sets others to string.
+        this_dtype = sf.fields[1:][field_n][1]
+
+        if this_dtype == 'N':
+            dtype = np.int
+        elif this_dtype == 'F':
+            dtype = np.float32
+        elif this_dtype == 'C':
+            dtype = np.str
+        else:
+            dtype = np.str
+
+        value_out = []
+
+        # Cycle through records:
+        for s in sf.records():
+            value_out.append(s[field_n])
+
+        return np.array(value_out, dtype = dtype)
+    
+    # Create output image
+    rasterPoly = Image.new("I", (md_dest.ncols , md_dest.nrows), 0)
+    rasterize = ImageDraw.Draw(rasterPoly)
+    
+    # The shapefile may not have the same CRS as the data, so this will generate a function to reproject points.
+    coordTransform = _coordinateTransformer(shp, md_dest.EPSG_code)
+    
+    # Read shapefile
+    sf = shapefile.Reader(shp) 
+    
+    # Get names of fields
+    fields = sf.fields[1:] 
+    field_names = [field[0] for field in fields] 
+    
+    
+    # Get shapes
+    shapes = np.array(sf.shapes())
+
+    # If extracting a mask for just a single field.
+    if field != None:
+
+        shapes = shapes[getField(shp, field) == value]
+    
+    # For each shape in shapefile...
+    # For each shape in shapefile...
+    for n, shape in enumerate(shapes):
+                
+        atr = dict(zip(field_names, r.record))
+        
+        if attribute_value != '' and atr[attribute] not in attribute_values:
+            continue
+        
+        # Get shape bounding box
+        if shape.shapeType == 1 or shape.shapeType == 11:
+            # Points don't have a bbox, calculate manually
+            sxmin = np.min(np.array(shape.points)[:,0])
+            sxmax = np.max(np.array(shape.points)[:,0])
+            symin = np.min(np.array(shape.points)[:,1])
+            symax = np.max(np.array(shape.points)[:,1])
+        else:
+            sxmin, symin, sxmax, symax = shape.bbox
+            
+        
+        # Transform points
+        sxmin, symin, z = coordTransform.TransformPoint(sxmin, symin)
+        sxmax, symax, z = coordTransform.TransformPoint(sxmax, symax)
+                
+        # Go to the next record if out of bounds
+        geo_t = md_dest.geo_t
+        if sxmax < geo_t[0]: continue
+        if sxmin > geo_t[0] + (geo_t[1] * md_dest.ncols): continue
+        if symax < geo_t[3] + (geo_t[5] * md_dest.nrows): continue
+        if symin > geo_t[3]: continue
+        
+        #Separate polygons with list indices
+        n_parts = len(shape.parts) #Number of parts
+        indices = shape.parts #Get indices of shapefile part starts
+        indices.append(len(shape.points)) #Add index of final vertex
+        
+        for part in range(n_parts):
+
+            if shape.shapeType != 1 and shape.shapeType != 11:
+
+                start_index = shape.parts[part]
+                end_index = shape.parts[part+1]
+                points = shape.points[start_index:end_index] #Map coordinates
+
+            pixels = [] #Pixel coordinantes
+
+            # Transform coordinates to pixel values
+            for p in points:
+
+                # First update points from shapefile projection to ALOS mosaic projection
+                lon, lat, z = coordTransform.TransformPoint(p[0], p[1])
+
+                # Then convert map to pixel coordinates using geo transform
+                pixels.append(_world2Pixel(tile.geo_t, lon, lat, buffer_size = buffer_size_degrees))
+
+            # Draw the mask for this shape...
+            # if a point...
+            if shape.shapeType == 0 or shape.shapeType == 1 or shape.shapeType == 11:
+                rasterize.point(pixels, n+1)
+
+            # a line...
+            elif shape.shapeType == 3 or shape.shapeType == 13:
+                rasterize.line(pixels, n+1)
+
+            # or a polygon.
+            elif shape.shapeType == 5 or shape.shapeType == 15:
+                rasterize.polygon(pixels, n+1)
+
+            else:
+                print('Shapefile type %s not recognised!'%(str(shape.shapeType)))
+
+    
+    #Converts a Python Imaging Library array to a gdalnumeric image.
+    mask = gdalnumeric.fromstring(rasterPoly.tobytes(),dtype=np.uint32)
+    mask.shape = rasterPoly.im.size[1], rasterPoly.im.size[0]
+        
+    return mask
+
+
+def loadRaster(raster_file, md_dest = None):
+    '''
+    Load a raster dataset, and optionally reproject
+    
+    Args:
+        raster_file: Path to a GeoTiff or .vrt file.
+        md_dest: A metadata file from sen2mosaic.Metadata().
+    
+    Returns:
+        A numpy array
+    '''
+        
+    # Load landcover map
+    ds_source = gdal.Open(raster_file, 0)
+    
+    # If no reprojection required, return array
+    if md_dest is None:
+        
+        return ds_source.GetRasterBand(1)
+    
+    # Else reproject
+    else:
+        
+        geo_t = ds_source.GetGeoTransform()
+
+        # Get extent and resolution of input raster
+        nrows = ds_source.RasterXSize
+        ncols = ds_source.RasterYSize
+        ulx = float(geo_t[0])
+        uly = float(geo_t[3])
+        xres = float(geo_t[1])
+        yres = float(geo_t[5])
+        lrx = ulx + (xres * ncols)
+        lry = uly + (yres * nrows)
+        extent = [ulx, lry, lrx, uly]
+        
+        # Get EPSG
+        proj = ds_source.GetProjection()
+        srs = osr.SpatialReference(wkt = proj)
+        srs.AutoIdentifyEPSG()
+        EPSG = int(srs.GetAttrValue("AUTHORITY", 1))
+        
+        # Add source metadata to a dictionary
+        md_source = sen2mosaic.Metadata(extent, xres, EPSG)
+        
+        # Build an empty destination dataset
+        ds_dest = createGdalDataset(md_dest, nodata = ds_source.GetRasterBand(1).GetNoDataValue(), dtype = 1)
+        
+        # And reproject landcover dataset to match input image
+        im_rep = np.squeeze(_reprojectImage(ds_source, ds_dest, md_source, md_dest))
+        
+        return im_rep
 
 
 ###########################
@@ -296,3 +588,64 @@ def prepInfiles(infiles, level, tile = ''):
     infiles_reduced = [infile for infile in infiles_reduced if ('_MSIL%s_'%level in infile.split('/')[-3])]
     
     return infiles_reduced
+
+
+def _sortScenes(scenes, by = 'tile'):
+    '''
+    Function to sort a list of scenes by tile, then by date. This is tidier, and reduces some artefacts in mosaics.
+    
+    Args:
+        scenes: A list of sen2mosaic.LoadScene() Sentinel-2 objects
+        by: Set to 'tile' to sort by tile then date, or 'date' to sort by date then tile
+    Returns:
+        A sorted list of scenes
+    '''
+    
+    assert by in ['tile', 'date'], "Sentinel-2 scenes can only be sorted by 'tile' or by 'date'."
+    
+    scenes_out = []
+    
+    scenes = np.array(scenes)
+    
+    dates = np.array([scene.datetime for scene in scenes])
+    tiles = np.array([scene.tile for scene in scenes])
+    
+    if by == 'tile':
+        for tile in np.unique(tiles):
+            scenes_out.extend(scenes[tiles == tile][np.argsort(dates[tiles == tile])].tolist())
+    
+    elif by == 'date':
+        for date in np.unique(dates):
+            scenes_out.extend(scenes[dates == date][np.argsort(tiles[dates == date])].tolist())
+    
+    return scenes_out
+
+
+def loadSceneList(infiles, resolution = 20, md_dest = None, start = '20150101', end = datetime.datetime.today().strftime('%Y%m%d'), level = '2A', sort_by = None):
+    """
+    Function to load a list of infiles or all files in a directory as sen2moisac.LoadScene() objects.
+    """
+    
+    # Prepare input string, or list of files
+    source_files = prepInfiles(infiles, level)
+    
+    scenes = []
+    for source_file in source_files:
+        try:
+            
+            # Load scene
+            scene = sen2mosaic.LoadScene(source_file, resolution = resolution)
+            
+            # Skip scene if conditions not met
+            if md_dest is not None and scene.testInsideTile(md_dest) == False: continue
+            if scene.testInsideDate(start = start, end = end) == False: continue
+            
+            scenes.append(scene)
+        
+        except Exception as e:
+            print("WARNING: Error in loading scene %s with error '%s'. Continuing."%(source_file,str(e)))   
+    
+    # Optionally sort
+    if sort_by is not None: scenes = _sortScenes(scenes, by = sort_by)
+    
+    return scenes

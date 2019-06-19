@@ -13,9 +13,9 @@ import zipfile
 import pdb
 
 
-#########################################################
-### Functions specific to downloading Sentinel-2 data ###
-#########################################################
+#################################################
+### Functions for downloading Sentinel-2 data ###
+#################################################
 
 def _removeZip(zip_file):
     """
