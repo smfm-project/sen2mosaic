@@ -557,7 +557,7 @@ def prepInfiles(infiles, level, tile = ''):
         infiles = [infiles]
     
     # Get absolute path, stripped of symbolic links
-    infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
+    #infiles = [os.path.abspath(os.path.realpath(infile)) for infile in infiles]
     
     # In case infiles is a list of files
     if len(infiles) == 1 and os.path.isfile(infiles[0]):
