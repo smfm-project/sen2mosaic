@@ -145,14 +145,10 @@ if __name__ == "__main__":
         masked_vals = [int(m) for m in args.masked_vals]
     else:
         masked_vals = args.masked_vals[0]
-    
-    print(args.infiles)
-    
+        
     # Get absolute path of input .safe files.
     infiles = sorted([os.path.abspath(i) for i in args.infiles])
-    
-    print(infiles)
-    
+        
     # Find all matching granule files
     #infiles = sen2mosaic.IO.prepInfiles(infiles, args.level)
     
