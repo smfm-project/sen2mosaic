@@ -51,7 +51,7 @@ def main(source_files, extent_dest, EPSG_dest, resolution = 0, percentile = 25.,
     Function to generate seamless mosaics from a list of Sentinel-2 level-2A input files.
         
     Args:
-        source_files: A list of level 1C/2A Sentinel-2 input files.
+        source_files: A list of level 1C/2A Sentinel-2 input files or a directory.
         extent_dest: List desciribing corner coordinate points in destination CRS [xmin, ymin, xmax, ymax].
         EPSG_dest: EPSG code of destination coordinate reference system. Must be a UTM projection. See: https://www.epsg-registry.org/ for codes.
         resolution: Process 10, 20, or 60 m bands. Defaults to processing all three.
@@ -84,7 +84,7 @@ def main(source_files, extent_dest, EPSG_dest, resolution = 0, percentile = 25.,
             if verbose: print('Building band %s at %s m resolution'%(band, str(res)))
             
             # Build composite image for list of input scenes
-            band_out, QA_out = sen2mosaic.mosaic.buildComposite(source_files, band, md_dest, level = level, resolution = resolution, output_dir = output_dir, output_name = output_name, colour_balance = colour_balance, improve_mask = improve_mask, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, output_mask = output_mask, temp_dir = temp_dir, verbose = verbose)            
+            band_out, QA_out = sen2mosaic.mosaic.buildComposite(source_files, band, md_dest, level = level, resolution = resolution, output_dir = output_dir, output_name = output_name, start = start, end = end, colour_balance = colour_balance, improve_mask = improve_mask, percentile = 25., processes = processes, step = 2000, masked_vals = masked_vals, temp_dir = temp_dir, verbose = verbose, output_mask = output_mask)            
             
             # Only output mask on first iteration
             output_mask = False
@@ -146,11 +146,15 @@ if __name__ == "__main__":
     else:
         masked_vals = args.masked_vals[0]
     
+    print(args.infiles)
+    
     # Get absolute path of input .safe files.
     infiles = sorted([os.path.abspath(i) for i in args.infiles])
     
+    print(infiles)
+    
     # Find all matching granule files
-    infiles = sen2mosaic.IO.prepInfiles(infiles, args.level)
+    #infiles = sen2mosaic.IO.prepInfiles(infiles, args.level)
     
     main(infiles, args.target_extent, args.epsg, resolution = args.resolution, percentile = args.percentile, level = args.level, start = args.start, end = args.end, improve_mask = args.improve_mask, colour_balance = args.colour_balance, processes = args.n_processes, output_dir = args.output_dir, output_name = args.output_name, masked_vals = masked_vals, temp_dir = args.temp_dir, verbose = args.verbose)
     
