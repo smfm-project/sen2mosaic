@@ -189,14 +189,13 @@ class LoadScene(object):
     
     def __getFormat(self):
         '''
-        Test that the file of of an appropriate format
+        Test that the file of of an appropriate format. 
         '''
         
-        if self.granule.split('/')[-3].split('.')[-1] == 'SAFE':
-            file_type = 'SAFE'
+        assert self.granule.split('/')[-3].split('.')[-1] == 'SAFE', 'File %s does not match any expected file pattern. Please input a path to a .SAFE granule (*.SAFE/GRANULE/*).'%self.granule
         
-        assert file_type == 'SAFE', 'File %s does not match any expected file pattern'%self.granule
-        
+        file_type = 'SAFE'
+                
         return file_type
         
     def __getLevel(self):
