@@ -168,7 +168,8 @@ class LoadScene(object):
         granule = granule.rstrip()
         
         # Return absolute path
-        granule = os.path.abspath(os.path.realpath(granule))
+        #granule = os.path.abspath(os.path.realpath(granule))
+        granule = os.path.abspath(granule)
         
         # If new file format and user inputs a .SAFE file, forgive and update to granule. Else throw error.
         
