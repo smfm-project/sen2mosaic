@@ -25,14 +25,20 @@ def main(infile, gipp = None, output_dir = os.getcwd(), resolution = 0, verbose 
         output_dir: Optionally specify an output directory. The option gipp must also be specified if you use this option.
     """
     
+    assert resolution in [0, 10, 20, 60], "Resolution must be set to 0, 10, 20 or 60 m."
+    
+    resolutions = [resolution] if resolution != 0 else [10, 20, 60]
+    
     if verbose: print('Processing %s'%infile.split('/')[-1])
-        
+    
     try:
         
-        # Load Sentinel-2 scene
-        S2_scene = sen2mosaic.core.LoadScene(infile, resolution = resolution)
-        
-        L2A_file = S2_scene.processToL2A(gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
+        # Loop through all resolutions if set to 0
+        for resolution in resolutions:
+            
+            S2_scene = sen2mosaic.core.LoadScene(infile, resolution = resolution)
+            
+            L2A_file = S2_scene.processToL2A(gipp = gipp, output_dir = output_dir, resolution = resolution, verbose = verbose)
     
     except Exception as e:
         raise
@@ -40,7 +46,7 @@ def main(infile, gipp = None, output_dir = os.getcwd(), resolution = 0, verbose 
     # Test for completion, and report back
     if sen2mosaic.preprocess.testCompletion(infile, output_dir = output_dir, resolution = resolution) == False:   
         
-        print('WARNING: %s did not complete processing.'%infile)
+        print('WARNING: %s did not complete processing at %s m resolution.'%(infile, str(resolution)))
     
 
 if __name__ == '__main__':

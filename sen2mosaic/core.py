@@ -225,7 +225,7 @@ class LoadScene(object):
         '''
         
         assert resolution in [10, 20, 60], "Resolution must be 10, 20 or 60 m."
-        
+                        
         return resolution
     
                 
@@ -324,15 +324,20 @@ class LoadScene(object):
         # Get a list of expected bands
         bands = ['B02', 'B03', 'B04']
         
-        if self.resolution == 10:
-            bands.extend(['B08'])
-        else:
-            bands.extend(['B05', 'B06', 'B07', 'B8A', 'B11', 'B12'])
+        if self.level == '2A':
+            if self.resolution == 10:
+                bands.extend(['B08'])
+            else:
+                bands.extend(['B05', 'B06', 'B07', 'B8A', 'B11', 'B12'])
         
-        if self.resolution == 60: bands.extend(['B01', 'B09'])
-        
-        if self.level == '2A': bands.extend(['SCL'])
+            if self.resolution == 60:
+                bands.extend(['B01', 'B09'])
             
+            bands.extend(['SCL'])
+        
+        if self.level == '1C':
+            bands.extend(['B01', 'B05', 'B06', 'B07', 'B08', 'B8A', 'B09', 'B10', 'B11', 'B12'])
+                    
         # Test that each is present as expected
         for band in bands:
             if band == 'SCL' and self.resolution == 10:
@@ -481,7 +486,7 @@ class LoadScene(object):
         Args:
             improve: Set to True to apply improvements to the Sentinel-2 mask (recommended)
         '''
-        
+                
         if self.level == '1C':
             
             # Rasterize and load GML cloud mask for L1C data

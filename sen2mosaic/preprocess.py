@@ -48,15 +48,13 @@ def _which(program):
 
 ### Primary functions
 
-def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
+def _setGipp(gipp, median_filter = 0):
     """
     Function that tweaks options in sen2cor's L2A_GIPP.xml file to specify an output directory.
     
     Args:
         gipp: The path to a copy of the L2A_GIPP.xml file.
-        output_dir: The desired output directory. Defaults to the same directory as input files.
-        n_processes: The number of processes to use for sen2cor. Defaults to 1.
-    
+        median_filter: Set 0-3 to perform smoothing operation on classified scene. Not currently used.
     Returns:
         The directory location of a temporary .gipp file, for input to L2A_Process
     """
@@ -64,20 +62,19 @@ def _setGipp(gipp, output_dir = os.getcwd(), n_processes = 1):
     # Test that GIPP and output directory exist
     assert gipp != None, "GIPP file must be specified if you're changing sen2cor options."
     assert os.path.isfile(gipp), "GIPP XML options file doesn't exist at the location %s."%gipp  
-    assert os.path.isdir(output_dir), "Output directory %s doesn't exist."%output_dir
-    
-    # Adds a trailing / to output_dir if not already specified
-    output_dir = os.path.join(output_dir, '')
-   
+    assert median_filter in [0, 1, 2, 3], "median_filter can only be 0-3."
+       
     # Read GIPP file
     tree = ET.ElementTree(file = gipp)
     root = tree.getroot()
     
     # Change output directory    
-    root.find('Common_Section/Target_Directory').text = output_dir
+    #root.find('Common_Section/Target_Directory').text = output_dir
     
     # Change number of processes
-    root.find('Common_Section/Nr_Processes').text = str(n_processes)
+    #root.find('Common_Section/Nr_Processes').text = str(n_processes)
+    
+    root.find('Scene_Classification/Filters/Median_Filter').text = str(median_filter)
     
     # Generate a temporary output file
     temp_gipp = tempfile.mktemp(suffix='.xml')
@@ -158,13 +155,13 @@ def processToL2A(infile, gipp = None, output_dir = os.getcwd(), n_processes = 1,
         gipp = '/'.join(os.path.abspath(__file__).split('/')[:-2] + ['cfg','L2A_GIPP.xml'])
         
     # Set options in L2A GIPP xml. Returns the modified .GIPP file. This prevents concurrency issues in multiprocessing.
-    temp_gipp = _setGipp(gipp, output_dir = output_dir, n_processes = n_processes)
+    temp_gipp = _setGipp(gipp, median_filter = 0)
              
     # Set up sen2cor command
     if resolution != 0:
-        command = ['L2A_Process', '--GIP_L2A', temp_gipp, '--resolution', str(resolution), infile]
+        command = ['L2A_Process', '--GIP_L2A', temp_gipp, '--resolution', str(resolution), '--output_dir', output_dir, infile]
     else:
-        command = ['L2A_Process', '--GIP_L2A', temp_gipp, infile]
+        command = ['L2A_Process', '--GIP_L2A', temp_gipp, '--output_dir', output_dir, infile]
     
     # print(command for user info
     if verbose: print(' '.join(command))
