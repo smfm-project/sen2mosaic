@@ -442,6 +442,56 @@ def loadRaster(raster_file, md_dest = None):
 ###########################
 
 
+
+def loadFormat(filename):
+    '''
+    Get format information for Sentinel-2 .SAFE file
+    
+    Args:
+        filename: String with /path/to/.SAFE file
+    
+    Returns:
+        Image processing level ('1C'/'2A')
+        Spacecraft name ('Sentinel-2A' or 'Sentinel-2B')
+        Product format ('SAFE' or 'SAFE_COMPACT'
+        Image processing baseline (for sen2cor)
+    '''
+    
+    # Remove trailing / from directory if present
+    filename = filename.rstrip('/')
+    
+    assert len(glob.glob((filename + '/*MTD*.xml'))) > 0, "The location %s does not contain a metadata (*MTD*.xml) file."%filename
+    
+    # Find the xml file that contains file metadata
+    xml_file = glob.glob(filename + '/*MTD*.xml')[0]
+    
+    # Get processing level
+    level = xml_file[-6:-4]
+    
+    assert level in ['1C', '2A'], "*MTD*.xml file format not recognised."
+        
+    # Parse xml file
+    tree = ET.ElementTree(file = xml_file)
+    root = tree.getroot()
+
+    # Define xml namespace
+    ns = {'n1':root.tag[1:].split('}')[0]}
+    
+    # Product_Info format in xml varies between processing levels
+    product_info = 'Product_Info' if level == '1C' else 'L2A_Product_Info'
+    
+    # Get processing baseline
+    processing_baseline = root.find("n1:General_Info/%s/PROCESSING_BASELINE"%product_info,ns).text
+    
+    # Get file format ('SAFE' or 'SAFE_COMPACT')
+    product_format = root.find("n1:General_Info/%s/Query_Options[@completeSingleTile='true']/PRODUCT_FORMAT"%product_info,ns).text
+    
+    # Get spacecraft_name ('Sentinel-2A' or 'Sentinel-2B')
+    spacecraft_name = root.find("n1:General_Info/%s/Datatake/SPACECRAFT_NAME"%product_info,ns).text
+    
+    return level, spacecraft_name, product_format, processing_baseline
+
+    
 def loadMetadata(granule_file, resolution = 20, level = '2A', tile = ''):
     '''
     Function to extract georefence info from level 1C/2A Sentinel 2 data in .SAFE format.
@@ -568,6 +618,9 @@ def prepInfiles(infiles, level, tile = ''):
     infiles_reduced = []
     
     for infile in infiles:
+        
+        # Remove trailing /, if present
+        infile = infile.rstrip('/')
          
         # Where infile is a directory:
         infiles_reduced.extend(glob.glob('%s/*_MSIL%s_*/GRANULE/*'%(infile, level)))
@@ -576,7 +629,7 @@ def prepInfiles(infiles, level, tile = ''):
         if '_MSIL%s_'%level in infile.split('/')[-1]: infiles_reduced.extend(glob.glob('%s/GRANULE/*'%infile))
         
         # Where infile is a specific granule 
-        if infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
+        if len(infile.split('/')) >1 and infile.split('/')[-2] == 'GRANULE': infiles_reduced.extend(glob.glob('%s'%infile))
     
     # Strip repeats (in case)
     infiles_reduced = list(set(infiles_reduced))

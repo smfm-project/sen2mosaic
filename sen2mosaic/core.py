@@ -124,7 +124,7 @@ class LoadScene(object):
     Load a Sentinel-2 L1C or L2A scene, including metadata
     '''
         
-    def __init__(self, granule, resolution = 20):
+    def __init__(self, filename, resolution = 20):
         '''
         Args:
             granule: The path to a Sentinel-2 granule file
@@ -132,19 +132,20 @@ class LoadScene(object):
         '''
                 
         # Format granule, and check that it exists
-        self.granule = self.__checkFilename(granule)
+        self.granule = self.__getGranule(filename)
+        
+        # Format filename
+        self.filename = self.__getFilename(filename)
                 
-        # Get file format
-        self.file_format = self.__getFormat()
+        # Get file format info
+        self.__getFormat(filename)
         
         # Save satellite name
         self.satellite = 'S2'
         
         # Save image type (deprecated)
         self.image_type = 'S2'
-        
-        self.level = self.__getLevel()
-        
+                
         self.resolution = self.__getResolution(resolution)
         
         self.__getMetadata()
@@ -156,7 +157,7 @@ class LoadScene(object):
         self.__checkFilesPresent()
         
         
-    def __checkFilename(self, granule):
+    def __getGranule(self, granule):
         '''
         Test that the granule exists.
         '''
@@ -183,41 +184,38 @@ class LoadScene(object):
                 
             else:
                 
-                raise IOError("LoadScene() objects require a single 'granule' file as input (e.g. '...SAFE/GRANULE/L2A_T36KWA_A010242_20170608T080546'). Where a .SAFE file is input with the old Sentinel-2 data format (pre 6th December 2016), it's ambiguous which granule should be loaded. Please instead specify a single granule.")
+                raise IOError("LoadScene() objects require a single 'granule' file as input (e.g. '...SAFE/GRANULE/L2A_T36KWA_A010242_20170608T080546'). Where a .SAFE file is input with the old Sentinel-2 data format (pre 6th December 2016) and a single '.SAFE' file is input, it's ambiguous which granule should be loaded. Please instead specify a single granule.")
+        
+        assert granule.split('/')[-3].split('.')[-1] == 'SAFE', 'File %s does not match any expected file pattern. Please input a path to a .SAFE granule (*.SAFE/GRANULE/*).'%granule
         
         return granule
+
+    def __getFilename(self, filename):
+        '''
+        Format for filename.
+        '''
+        
+        # Get granule name
+        granule = self.__getGranule(filename)
+        
+        # Shorten to filename (ending in .SAFE)
+        filename = '/'.join(granule.split('/')[:-2])
+        
+        assert filename.endswith('.SAFE'), "Filename must end with .SAFE. Input format not recognised. Granule name was %s."%filename
+        
+        return filename
     
-    def __getFormat(self):
+    def __getFormat(self, filename):
         '''
-        Test that the file of of an appropriate format. 
-        '''
-        
-        assert self.granule.split('/')[-3].split('.')[-1] == 'SAFE', 'File %s does not match any expected file pattern. Please input a path to a .SAFE granule (*.SAFE/GRANULE/*).'%self.granule
-        
-        file_type = 'SAFE'
-                
-        return file_type
-        
-    def __getLevel(self):
-        '''
-        Determines the level of Sentinel-2 image.
-        
-        Returns:
-            An integer
+        Get format info for tile 
         '''
         
-        if self.granule.split('/')[-1][:3] == 'L2A':    
-            level = '2A'
-        elif self.granule.split('/')[-1][:3] == 'L1C':    
-            level = '1C'
-        elif self.granule.split('/')[-1].split('_')[3] == 'L2A':
-            level = '2A'
-        elif self.granule.split('/')[-1].split('_')[3] == 'L1C':
-            level = '1C'
-        else:
-            level = 'unknown'
+        filename = self.__getFilename(filename)
         
-        return level
+        # Get format of .SAFE file, which are available in multiple versions.
+        self.level, self.spacecraft_name, self.product_format, self.processing_baseline = sen2mosaic.IO.loadFormat(filename)
+                        
+        return
     
     def __getResolution(self, resolution):
         '''
@@ -412,21 +410,24 @@ class LoadScene(object):
                     
         return mask
     
-    def processToL2A(self, gipp = None, output_dir = os.getcwd(), n_processes = 1, resolution = 0, verbose = False):
+    def processToL2A(self, gipp = None, output_dir = os.getcwd(), resolution = 0, sen2cor = 'L2A_Process', sen2cor_255 = None, verbose = False):
         '''
         Function to process L1C data to L2A using sen2cor.
         
         Args:
             gipp: Optionally specify a copy of the L2A_GIPP.xml file in order to tweak options.
             output_dir: Optionally specify an output directory. Defaults to current working directory.
-            n_processes: Number of processes to allocate to each instance of sen2cor. Defaults to 1.
-            resolution: Optionally specify a resolution (10, 20 or 60) meters. Defaults to 0, which processes all three
+            resolution: Optionally specify a resolution (10, 20 or 60) meters. Defaults to 0, which processes all three.
+            sen2cor: Path to sen2cor (v2.8) (defaults to 'L2A_Process')
+            sen2cor_255: Path to sen2cor_255 (v2.5.5), required if processing an old format of Sentinel-2 data.
         Returns:
             Absolute file path to L2A output file.
         '''
-                
+        
+        assert self.level == '1C', "Only level 1C data can be processed to L2A."
+        
         # Process L1C to L2A
-        outfile = sen2mosaic.preprocess.processToL2A(self.granule, gipp = gipp, output_dir = output_dir, n_processes = n_processes, resolution = resolution, verbose = verbose)
+        outfile = sen2mosaic.preprocess.processToL2A(self.granule, gipp = gipp, output_dir = output_dir, resolution = resolution, sen2cor = sen2cor, sen2cor_255 = sen2cor_255, product_format = self.product_format, verbose = verbose)
                 
         return outfile
     
