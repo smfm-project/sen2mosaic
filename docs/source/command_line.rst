@@ -21,8 +21,8 @@ Help for ``download.py`` can be viewed by typing ``s2m download --help``:
 
 .. code-block:: console
     
-    usage: download.py [-h] -u USER -p PASS -t TILE [-s START] [-e END] [-c %]
-                    [-m MB] [-o PATH] [-r]
+    usage: download.py [-h] -u USER -p PASS -t [TILES [TILES ...]] [-l LEVEL]
+                    [-s START] [-e END] [-c %] [-m MB] [-o PATH] [-r]
 
     Download Sentinel-2 data from the Copernicus Open Access Hub, specifying a
     particular tile, date ranges and degrees of cloud cover.
@@ -31,13 +31,17 @@ Help for ``download.py`` can be viewed by typing ``s2m download --help``:
     -u USER, --user USER  Scihub username
     -p PASS, --password PASS
                             Scihub password
-    -t TILE, --tile TILE  Sentinel 2 tile name, in format ##XXX
+    -t [TILES [TILES ...]], --tiles [TILES [TILES ...]]
+                            Sentinel 2 tile name, in format ##XXX
 
     Optional arguments:
+    -l LEVEL, --level LEVEL
+                            Set to search and download level '1C' (default) or
+                            '2A' data. Note that L2A data may not be available at
+                            all locations.
     -s START, --start START
-                            Start date for search in format YYYYMMDD. Start date
-                            may not precede 20161206, the date where the format of
-                            Sentinel-2 files was simplified. Defaults to 20161206.
+                            Start date for search in format YYYYMMDD. Defaults to
+                            20150523.
     -e END, --end END     End date for search in format YYYYMMDD. Defaults to
                             today's date.
     -c %, --cloud %       Maximum percentage of cloud cover to download.
@@ -49,6 +53,7 @@ Help for ``download.py`` can be viewed by typing ``s2m download --help``:
                             Specify an output directory. Defaults to the present
                             working directory.
     -r, --remove          Remove level 1C .zip files after decompression.
+
 
 For example, to download all data for tile 36KWA between for May and June 2017, with a maximum cloud cover percentage of 30 %, specifying an output location and removing decompressed .zip files, use the following command:
 
@@ -79,8 +84,8 @@ Help for ``preprocess.py`` can be viewed by typing ``s2m preprocess --help``:
 
 .. code-block:: console
     
-    usage: preprocess.py [-h] [-t TILE] [-g GIPP] [-o DIR] [-res 10/20/60] [-p N]
-                        [-v]
+    usage: preprocess.py [-h] [-t TILE] [-g GIPP] [-o DIR] [-res 10/20/60]
+                        [-s PATH] [-s255 PATH] [-p N] [-v]
                         [L1C_FILES [L1C_FILES ...]]
 
     Process level 1C Sentinel-2 data from the Copernicus Open Access Hub to level
@@ -101,8 +106,7 @@ Help for ``preprocess.py`` can be viewed by typing ``s2m preprocess --help``:
     Optional arguments:
     -t TILE, --tile TILE  Specify a specific Sentinel-2 tile to process. If
                             omitted, all tiles in L1C_FILES will be processed.
-    -g GIPP, --gipp GIPP  Specify a custom L2A_Process settings file (default =
-                            sen2cor/cfg/L2A_GIPP.xml).
+    -g GIPP, --gipp GIPP  optionally specify a custom L2A_Process settings file.
     -o DIR, --output_dir DIR
                             Specify a directory to output level 2A files. If not
                             specified, atmospherically corrected images will be
@@ -113,6 +117,12 @@ Help for ``preprocess.py`` can be viewed by typing ``s2m preprocess --help``:
                             three. N.B It is not currently possible to only the 10
                             m resolution, an input of 10 m will instead process
                             all resolutions.
+    -s PATH, --sen2cor PATH
+                            Path to sen2cor (v2.8), if not callable with the
+                            default 'L2A_Process'.
+    -s255 PATH, --sen2cor255 PATH
+                            Path to sen2cor (v2.5.5), required if processing
+                            Sentinel-2 data with the old file format.
     -p N, --n_processes N
                             Specify a maximum number of tiles to process in
                             paralell. Bear in mind that more processes will
@@ -144,8 +154,8 @@ Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
 
 .. code-block:: console
     
-    usage: mosaic.py [-h] -te XMIN YMIN XMAX YMAX -e EPSG [-l 1C/2A] [-st START]
-                    [-en END] [-res 10/20/60] [-m [N [N ...]]] [-b] [-c M]
+    usage: mosaic.py [-h] -te XMIN YMIN XMAX YMAX -e EPSG [-res m] [-l 1C/2A]
+                    [-st START] [-en END] [-pc PC] [-m [N [N ...]]] [-b] [-i]
                     [-t DIR] [-o DIR] [-n NAME] [-p N] [-v]
                     [PATH [PATH ...]]
 
@@ -168,8 +178,10 @@ Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
                             Extent of output image tile, in format <xmin, ymin,
                             xmax, ymax>.
     -e EPSG, --epsg EPSG  EPSG code for output image tile CRS. This must be UTM.
-                            Find the EPSG code of your output CRS as https://www
-                            .epsg-registry.org/.
+                            Find the EPSG code of your output CRS as
+                            https://www.epsg-registry.org/.
+    -res m, --resolution m
+                            Specify a resolution in metres.
 
     optional arguments:
     -l 1C/2A, --level 1C/2A
@@ -180,23 +192,23 @@ Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
                             Defaults to processing all dates.
     -en END, --end END    End date for tiles to include in format YYYYMMDD.
                             Defaults to processing all dates.
-    -res 10/20/60, --resolution 10/20/60
-                            Specify a resolution to process (10, 20, 60, or 0 for
-                            all).
+    -pc PC, --percentile PC
+                            Specify a percentile of reflectance to output.
+                            Defaults to 25 percent, which tends to produce good
+                            results.
     -m [N [N ...]], --masked_vals [N [N ...]]
                             Specify SLC values to not include in the mosaic (e.g.
                             -m 7 8 9). See http://step.esa.int/main/third-party-
                             plugins-2/sen2cor/ for description of sen2cor mask
                             values. Defaults to 'auto', which masks values 0 and
                             9. Also accepts 'none', to include all values.
-    -b, --colour_balance  Perform colour balancing between tiles. Defaults to
-                            False. Not generally recommended, particularly where
-                            working over large areas.
-    -c M, --cloud_buffer M
-                            Apply improvements to sen2cor cloud mask by applying a
-                            buffer around cloudy pixels (in meters). Not generally
-                            recommended, except where a very conservative mask is
-                            desired. Defaults to no buffer.
+    -b, --colour_balance  Perform colour balancing between tiles. Not generally
+                            recommended, particularly where working over large
+                            areas. Defaults to False.
+    -i, --improve_mask    Apply improvements to Sentinel-2 cloud mask. Not
+                            generally recommended, except where a very
+                            conservative mask is desired. Defaults to no
+                            improvement.
     -t DIR, --temp_dir DIR
                             Directory to write temporary files, only required for
                             L1C data. Defaults to '/tmp'.
@@ -211,7 +223,6 @@ Help for ``mosaic.py`` can be viewed by typing ``s2m mosaic --help``:
                             paralell. Bear in mind that more processes will
                             require more memory. Defaults to 1.
     -v, --verbose         Make script verbose.
-
     
 For example, to run ``mosaic.py`` in the directory ``/path/to/DATA_dir/`` which contains level 2A files to create a 200 x 200 km output tile in the UTM36S projection at 20 m resoluton, input:
 
