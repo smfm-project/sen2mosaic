@@ -3,27 +3,30 @@
   <Common_Section>
     <Log_Level>INFO</Log_Level>
     <!-- can be: NOTSET, DEBUG, INFO, WARNING, ERROR, CRITICAL -->
-    <Nr_Threads>AUTO</Nr_Threads>
-    <!-- Nr_Treads determines the number of threads used for reading the OpenJPEG2 images. This is a new
-         feature implemented with OpenJPEG 2.3., improving the speed for importing the Bands.
-         If AUTO is chosen, the number of treads are deduced, using cpu_count().
-         Set this to 1 up to a maximum of 8, if this automatic mode will not fit to your platform -->
+      <Operation_Mode>PDGS</Operation_Mode>
+      <!-- can be: TOOLBOX or PDGS. PDGS reflects changes for integration into PDGS according to SIIMPC-1119 -->
+    <Nr_Processes>1</Nr_Processes>
+    <!-- can be an unsigned integer value specifying the number or processes you intend to operate in parallel or: AUTO. If AUTO is chosen, the processor determines the number of processes automatically, using cpu_count() -->
+    <Target_Directory>DEFAULT</Target_Directory>
+    <!-- should be either a directory or 'DEFAULT'. If default, target will be created at root of L1C product -->
     <DEM_Directory>NONE</DEM_Directory>
     <!-- should be either a directory in the sen2cor home folder or 'NONE'. If NONE, no DEM will be used -->
-    <DEM_Reference>NONE</DEM_Reference>
-    <!-- DEM_Reference>http://data_public:GDdci@data.cgiar-csi.org/srtm/tiles/GeoTIFF/</DEM_Reference -->
-    <!-- disable / enable the upper two rows if you want to use an SRTM DEM -->
-    <!-- The SRTM DEM will then be downloaded from this reference, if no local DEM is available -->
-    <!-- if you use Planet DEM you can optionally add the local path instead,
-         which then will be inserted in the datastrip metadata -->
+    <DEM_Reference>http://data_public:GDdci@data.cgiar-csi.org/srtm/tiles/GeoTIFF/</DEM_Reference>
+    <!-- will be ignored if DEM is NONE. A SRTM DEM will be downloaded from this reference, if no local DEM is available -->
     <Generate_DEM_Output>FALSE</Generate_DEM_Output>
     <!-- FALSE: no DEM output, TRUE: store DEM in the AUX data directory -->
     <Generate_TCI_Output>TRUE</Generate_TCI_Output>
     <!-- FALSE: no TCI output, TRUE: store TCI in the IMAGE data directory -->
     <Generate_DDV_Output>FALSE</Generate_DDV_Output>
     <!-- FALSE: no DDV output, TRUE: store DDV in the QI_DATA directory -->
-    <Downsample_20_to_60>TRUE</Downsample_20_to_60>
-    <!-- TRUE: create additional 60m bands when 20m is processed -->
+    <PSD_Scheme PSD_Version="13.1" PSD_Reference="S2-PDGS-TAS-DI-PSD-V13.1_Schema">
+		<UP_Scheme_1C>S2_User_Product_Level-1C_Metadata</UP_Scheme_1C>
+		<UP_Scheme_2A>S2_User_Product_Level-2A_Metadata</UP_Scheme_2A>
+		<Tile_Scheme_1C>S2_PDI_Level-1C_Tile_Metadata</Tile_Scheme_1C>
+		<Tile_Scheme_2A>S2_PDI_Level-2A_Tile_Metadata</Tile_Scheme_2A>
+		<DS_Scheme_1C>S2_PDI_Level-1C_Datastrip_Metadata</DS_Scheme_1C>
+		<DS_Scheme_2A>S2_PDI_Level-2A_Datastrip_Metadata</DS_Scheme_2A>
+	</PSD_Scheme>
     <PSD_Scheme PSD_Version="14.2" PSD_Reference="S2-PDGS-TAS-DI-PSD-V14.2_Schema">
 		<UP_Scheme_1C>S2_User_Product_Level-1C_Metadata</UP_Scheme_1C>
 		<UP_Scheme_2A>S2_User_Product_Level-2A_Metadata</UP_Scheme_2A>
@@ -32,7 +35,7 @@
 		<DS_Scheme_1C>S2_PDI_Level-1C_Datastrip_Metadata</DS_Scheme_1C>
 		<DS_Scheme_2A>S2_PDI_Level-2A_Datastrip_Metadata</DS_Scheme_2A>
     </PSD_Scheme>
-    <PSD_Scheme PSD_Version="14.5" PSD_Reference="S2-PDGS-TAS-DI-PSD-V14.5_Schema">
+    <PSD_Scheme PSD_Version="14.3" PSD_Reference="S2-PDGS-TAS-DI-PSD-V14.3_Schema">
 		<UP_Scheme_1C>S2_User_Product_Level-1C_Metadata</UP_Scheme_1C>
 		<UP_Scheme_2A>S2_User_Product_Level-2A_Metadata</UP_Scheme_2A>
 		<Tile_Scheme_1C>S2_PDI_Level-1C_Tile_Metadata</Tile_Scheme_1C>
@@ -40,6 +43,14 @@
 		<DS_Scheme_1C>S2_PDI_Level-1C_Datastrip_Metadata</DS_Scheme_1C>
 		<DS_Scheme_2A>S2_PDI_Level-2A_Datastrip_Metadata</DS_Scheme_2A>
 	</PSD_Scheme>
+    <PSD_Scheme PSD_Version="14.5" PSD_Reference="S2-PDGS-TAS-DI-PSD-V14.5_Schema">
+		<UP_Scheme_1C>S2_User_Product_Level-1C_Metadata</UP_Scheme_1C>
+		<UP_Scheme_2A>S2_User_Product_Level-2A_Metadata</UP_Scheme_2A>
+		<Tile_Scheme_1C>S2_PDI_Level-1C_Tile_Metadata</Tile_Scheme_1C>
+		<Tile_Scheme_2A>S2_PDI_Level-2A_Tile_Metadata</Tile_Scheme_2A>
+		<DS_Scheme_1C>S2_PDI_Level-1C_Datastrip_Metadata</DS_Scheme_1C>
+		<DS_Scheme_2A>S2_PDI_Level-2A_Datastrip_Metadata</DS_Scheme_2A>
+	</PSD_Scheme>	
     <GIPP_Scheme>L2A_GIPP</GIPP_Scheme>
     <SC_Scheme>L2A_CAL_SC_GIPP</SC_Scheme>
     <AC_Scheme>L2A_CAL_AC_GIPP</AC_Scheme>
@@ -79,14 +90,14 @@
       <!-- 0: not replaced, 1: land-average, 2: line-average -->
       <Cirrus_Correction>FALSE</Cirrus_Correction>
       <!-- FALSE: no cirrus correction applied, TRUE: cirrus correction applied -->
-      <DEM_Terrain_Correction>TRUE</DEM_Terrain_Correction>
-      <!--Use DEM for Terrain Correction, otherwise only used for WVP and AOT -->
       <BRDF_Correction>0</BRDF_Correction>
-      <!-- 0: no BRDF correction, 1, 2, 11, 12, 22, 21: see IODD for explanation -->
+      <!-- 0: no BRDF correction, 1: , 2: ,11, 12, 22, 21: see IODD for explanation -->
       <BRDF_Lower_Bound>0.22</BRDF_Lower_Bound>
       <!-- In most cases, g=0.2 to 0.25 is adequate, in extreme cases of overcorrection g=0.1 should be applied -->
     </Flags>
     <Calibration>
+      <DEM_Unit>0</DEM_Unit>
+      <!-- (0=[m], 1=[dm], 2=[cm]) -->
       <Adj_Km>1.000</Adj_Km>
       <!-- Adjancency Range [km] -->
       <Visibility>40.0</Visibility>
@@ -97,8 +108,6 @@
       <!-- length of square box, [meters] -->
       <WV_Threshold_Cirrus>0.25</WV_Threshold_Cirrus>
       <!-- water vapor threshold to switch off cirrus algorithm [cm]Range: 0.1-1.0 -->
-      <Database_Compression_Level>0</Database_Compression_Level>
-      <!-- zlib compression level for image database [0-9, 0: best speed, 9: best size] -->
     </Calibration>
   </Atmospheric_Correction>
 </Level-2A_Ground_Image_Processing_Parameter>
