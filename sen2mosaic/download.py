@@ -199,3 +199,10 @@ def decompress(zip_files, output_dir = os.getcwd(), remove = False):
             
             # Delete zip file
             if remove: _removeZip(zip_file)
+
+if __name__ == '__main__':
+    '''
+    '''
+        
+    print('The sen2mosaic command line interface has been moved! Please use scripts in .../sen2mosaic/cli/ to operate sen2mosaic from the command line.')
+    
