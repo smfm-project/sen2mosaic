@@ -43,7 +43,7 @@ To ensure you are working with the appropriate version of Python as well as the 
 
 .. code-block:: console
     
-    conda create -n sen2mosaic -c conda-forge python=3.7 scipy pandas psutil scikit-image gdal opencv
+    conda create -n sen2mosaic -c conda-forge python=3.7 scipy pandas psutil scikit-image gdal opencv pyshp
 
 Activate the ``sen2mosaic`` environment whenever opening a new terminal window by running this command:
 
@@ -140,7 +140,7 @@ To avoid having to reference the full path of the Python scripts in sen2mosaic, 
 
 .. code-block:: console
 
-    echo "alias s2m='_s2m() { python ~/sen2mosaic/sen2mosaic/\"\$1\".py \$(shift; echo \"\$@\") ;}; _s2m'" >> ~/.bashrc
+    echo "alias s2m='_s2m() { python ~/sen2mosaic/cli/\"\$1\".py \$(shift; echo \"\$@\") ;}; _s2m'" >> ~/.bashrc
    
 Is there a Dockerfile?
 ----------------------
