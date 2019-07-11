@@ -121,12 +121,12 @@ if __name__ == "__main__":
     # Required arguments
     required.add_argument('-te', '--target_extent', nargs = 4, metavar = ('XMIN', 'YMIN', 'XMAX', 'YMAX'), type = float, required = True, help = "Extent of output image tile, in format <xmin, ymin, xmax, ymax>.")
     required.add_argument('-e', '--epsg', metavar = 'EPSG', type=int, required = True, help="EPSG code for output image tile CRS. This must be UTM. Find the EPSG code of your output CRS as https://www.epsg-registry.org/.")
-    
+    required.add_argument('-res', '--resolution', metavar = 'm', type=int, help="Specify a resolution in metres.")
+
     # Optional arguments
     optional.add_argument('-l', '--level', type=str, metavar='1C/2A', default = '2A', help = "Input image processing level, '1C' or '2A'. Defaults to '2A'.")
     optional.add_argument('-st', '--start', type = str, default = '20150101', help = "Start date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
     optional.add_argument('-en', '--end', type = str, default = datetime.datetime.today().strftime('%Y%m%d'), help = "End date for tiles to include in format YYYYMMDD. Defaults to processing all dates.")
-    optional.add_argument('-res', '--resolution', metavar = '10/20/60', type=int, default = 0, help="Specify a resolution to process (10, 20, 60, or 0 for all).")
     optional.add_argument('-pc', '--percentile', metavar = 'PC', type=float, default = 25., help="Specify a percentile of reflectance to output. Defaults to 25 percent, which tends to produce good results.")
     optional.add_argument('-m', '--masked_vals', metavar = 'N', type=str, nargs='*', default = ['auto'], help="Specify SLC values to not include in the mosaic (e.g. -m 7 8 9). See http://step.esa.int/main/third-party-plugins-2/sen2cor/ for description of sen2cor mask values. Defaults to 'auto', which masks values 0 and 9. Also accepts 'none', to include all values.")
     optional.add_argument('-b', '--colour_balance', action='store_true', default = False, help = "Perform colour balancing between tiles. Not generally recommended, particularly where working over large areas. Defaults to False.")
