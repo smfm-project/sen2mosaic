@@ -130,13 +130,13 @@ class LoadScene(object):
             granule: The path to a Sentinel-2 granule file
             resolution: The resolution to be loaded (10, 20, or 60 metres).
         '''
-                
+        
         # Format granule, and check that it exists
         self.granule = self.__getGranule(filename)
         
         # Format filename
         self.filename = self.__getFilename(filename)
-                
+          
         # Get file format info
         self.__getFormat(filename)
         
@@ -145,7 +145,7 @@ class LoadScene(object):
         
         # Save image type (deprecated)
         self.image_type = 'S2'
-                
+        
         self.resolution = self.__getResolution(resolution)
         
         self.__getMetadata()
@@ -213,8 +213,13 @@ class LoadScene(object):
         filename = self.__getFilename(filename)
         
         # Get format of .SAFE file, which are available in multiple versions.
-        self.level, self.spacecraft_name, self.product_format, self.processing_baseline = sen2mosaic.IO.loadFormat(filename)
-                        
+        try:
+            self.level, self.spacecraft_name, self.product_format, self.processing_baseline = sen2mosaic.IO.loadFormat(filename)
+            
+        except:
+            print('Failed to load file format metadata.')
+            raise
+        
         return
     
     def __getResolution(self, resolution):
@@ -235,8 +240,10 @@ class LoadScene(object):
         try:
             self.extent, self.EPSG, self.datetime, self.tile, self.nodata_percent = sen2mosaic.IO.loadMetadata(self.granule, self.resolution, level = self.level)
         except Exception as e:
-            print('Failed to load metadata: %s'%str(e))
+            print('Failed to load granule metadata: %s'%str(e))
             raise
+        
+        return
     
     def __getImagePath(self, band, resolution = 20):
         '''
@@ -256,7 +263,7 @@ class LoadScene(object):
         elif self.level == '1C':
             
             image_path = glob.glob(self.granule + '/IMG_DATA/%s_*_%s.jp2'%(str(self.tile), band))        
-        
+                
         assert len(image_path) > 0, "No file found for band: %s, resolution: %s in file %s."%(band, str(resolution), self.granule)
         
         return image_path[0]

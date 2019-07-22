@@ -456,7 +456,7 @@ def loadFormat(filename):
         Product format ('SAFE' or 'SAFE_COMPACT'
         Image processing baseline (for sen2cor)
     '''
-    
+        
     # Remove trailing / from directory if present
     filename = filename.rstrip('/')
     
@@ -465,11 +465,6 @@ def loadFormat(filename):
     # Find the xml file that contains file metadata
     xml_file = glob.glob(filename + '/*MTD*.xml')[0]
     
-    # Get processing level
-    level = xml_file[-6:-4]
-    
-    assert level in ['1C', '2A'], "*MTD*.xml file format not recognised."
-        
     # Parse xml file
     tree = ET.ElementTree(file = xml_file)
     root = tree.getroot()
@@ -477,14 +472,25 @@ def loadFormat(filename):
     # Define xml namespace
     ns = {'n1':root.tag[1:].split('}')[0]}
     
-    # Product_Info format in xml varies between processing levels
-    product_info = 'Product_Info' if level == '1C' else 'L2A_Product_Info'
+    # Determine file structure
+    product_info = 'Product_Info'
+    if root.find("n1:General_Info/%s"%product_info,ns) is None: product_info = 'L2A_Product_Info'
+    
+    # Get processing level
+    processing_level = root.find("n1:General_Info/%s/PROCESSING_LEVEL"%product_info, ns).text
+    
+    # Translate level
+    level = '2A' if '2A' in processing_level else '1C'
     
     # Get processing baseline
-    processing_baseline = root.find("n1:General_Info/%s/PROCESSING_BASELINE"%product_info,ns).text
+    processing_baseline = root.find("n1:General_Info/%s/PROCESSING_BASELINE"%product_info, ns).text
     
-    # Get file format ('SAFE' or 'SAFE_COMPACT')
-    product_format = root.find("n1:General_Info/%s/Query_Options[@completeSingleTile='true']/PRODUCT_FORMAT"%product_info,ns).text
+    # Get file format ('SAFE' or 'SAFE_COMPACT')    
+    format_pos = root.find("n1:General_Info/%s/Query_Options[@completeSingleTile='true']/PRODUCT_FORMAT"%product_info,ns)
+    
+    if format_pos is None: format_pos = root.find("n1:General_Info/%s/Query_Options/PRODUCT_FORMAT"%product_info,ns)
+    
+    product_format = format_pos.text
     
     # Get spacecraft_name ('Sentinel-2A' or 'Sentinel-2B')
     spacecraft_name = root.find("n1:General_Info/%s/Datatake/SPACECRAFT_NAME"%product_info,ns).text
@@ -696,6 +702,7 @@ def loadSceneList(infiles, resolution = 20, md_dest = None, start = '20150101', 
             scenes.append(scene)
         
         except Exception as e:
+            
             print("WARNING: Error in loading scene %s with error '%s'. Continuing."%(source_file,str(e)))   
     
     # Optionally sort
