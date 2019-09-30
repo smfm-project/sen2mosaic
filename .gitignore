@@ -1,0 +1,13 @@
+# Compiled docs
+docs/build/*
+
+# Compiled python modules
+sen2mosaic/*.pyc
+
+# Setuptool's distribution folder
+dist/
+
+# Python egg metadata
+*.egg-info
+*.egg
+
