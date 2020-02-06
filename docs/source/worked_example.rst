@@ -113,8 +113,6 @@ Now it's your turn! ``cd`` to the 36KWB folder, and generate a Sentinel-2 level-
 Generating a cloud-free mosaic image
 ------------------------------------
 
-.. warning:: Be aware that documentation for the mosaicking script is currently a little out-dated. Use the --help flags to confirm available options. We recommend not using the --colour_balance or --cloud_mask options in general use for the best outputs.
-
 Each of these Sentinel-2 level 2A images is now atmospherically corrected, but each still contains masked areas of cloud. The goal of this step is to combine the cloud-free pixels of each image to generate a single cloud-free composite image composed of multiple satellite overpasses. This step also converts data from the Sentinel-2 .SAFE format to the easy to work with GeoTiff format, and allows the specification of a customised tiling grid. We recommend a grid of tiles that's approximately equal to the area of four Sentinel-2 tiles (~200,000 x 200,000 m).
 
 Here we only have two tiles (36KWA and 36KWB), so we'll just perform a small-scale demonstration, generating an output with the limits **500,000 - 600,000** m Eastings and **7,500,000 - 7,700,000** m Northings (**UTM 36S**) at **20** m resolution.
