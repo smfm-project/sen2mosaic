@@ -125,7 +125,7 @@ def search(tile, level = '1C', start = '20150523', end = datetime.datetime.today
     products_df['filesize_mb'] = _get_filesize(products_df)
     
     products_df = products_df[products_df['filesize_mb'] >= float(minsize)]
-        
+     
     return products_df
 
 
@@ -149,7 +149,7 @@ def download(products_df, output_dir = os.getcwd()):
         
         downloaded_files = []
         
-        for uuid, filename, online in zip(products_df['uuid'], products_df['filename'], products_df['online']):
+        for uuid, filename in zip(products_df['uuid'], products_df['filename']):
             
             if os.path.exists('%s/%s'%(output_dir, filename)):
                 print('Skipping file %s, as it has already been downloaded in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir))
@@ -158,7 +158,7 @@ def download(products_df, output_dir = os.getcwd()):
                 
                 print('Skipping file %s, as it has already been downloaded and extracted in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir))
             
-            elif online == False:
+            elif scihub_api.get_product_odata(uuid)['Online'] == False:
                 
                 print('Skipping file %s, as it is part of the long term archive. Consider ordering directly from the Copernicus Open Access Hub.'%filename)
                 
