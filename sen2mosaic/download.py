@@ -149,7 +149,7 @@ def download(products_df, output_dir = os.getcwd()):
         
         downloaded_files = []
         
-        for uuid, filenamem online in zip(products_df['uuid'], products_df['filename'], products_df['online']):
+        for uuid, filename, online in zip(products_df['uuid'], products_df['filename'], products_df['online']):
             
             if os.path.exists('%s/%s'%(output_dir, filename)):
                 print('Skipping file %s, as it has already been downloaded in the directory %s. If you want to re-download it, delete it and run again.'%(filename, output_dir))
