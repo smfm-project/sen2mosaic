@@ -4,7 +4,7 @@ import datetime
 import glob
 import numpy as np
 import os
-from osgeo import gdal, gdalnumeric, osr
+from osgeo import gdal, gdalnumeric, osr, ogr
 from PIL import Image, ImageDraw
 import re
 import shapefile
@@ -300,19 +300,20 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
     shapes = np.array(sf.shapes())
 
     # If extracting a mask for just a single field.
-    if field != None:
+    if field != '':
+        
+        shape_values = _getField(shp, field)
+        
+        field_values = np.array(field_values).astype(shape_values.dtype)
 
-        shapes = shapes[getField(shp, field) == value]
+        shapes = shapes[np.isin(shape_values, field_values)]
     
     # For each shape in shapefile...
-    # For each shape in shapefile...
     for n, shape in enumerate(shapes):
-                
-        atr = dict(zip(field_names, r.record))
         
-        if attribute_value != '' and atr[attribute] not in attribute_values:
-            continue
-        
+        #if field != '' and shape_values[n] not in field_values:
+        #    continue
+
         # Get shape bounding box
         if shape.shapeType == 1 or shape.shapeType == 11:
             # Points don't have a bbox, calculate manually
@@ -325,8 +326,8 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
             
         
         # Transform points
-        sxmin, symin, z = coordTransform.TransformPoint(sxmin, symin)
-        sxmax, symax, z = coordTransform.TransformPoint(sxmax, symax)
+        sxmin, symin, z = coordTransform.TransformPoint(symin, sxmin)
+        sxmax, symax, z = coordTransform.TransformPoint(symax, sxmax)
                 
         # Go to the next record if out of bounds
         geo_t = md_dest.geo_t
@@ -353,11 +354,11 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
             # Transform coordinates to pixel values
             for p in points:
 
-                # First update points from shapefile projection to ALOS mosaic projection
-                lon, lat, z = coordTransform.TransformPoint(p[0], p[1])
+                # First update points from shapefile projection to image projection
+                x, y, z = coordTransform.TransformPoint(p[1], p[0])
 
                 # Then convert map to pixel coordinates using geo transform
-                pixels.append(_world2Pixel(tile.geo_t, lon, lat, buffer_size = buffer_size_degrees))
+                pixels.append(_world2Pixel(md_dest.geo_t, x, y))
 
             # Draw the mask for this shape...
             # if a point...
@@ -374,7 +375,6 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
 
             else:
                 print('Shapefile type %s not recognised!'%(str(shape.shapeType)))
-
     
     #Converts a Python Imaging Library array to a gdalnumeric image.
     mask = gdalnumeric.fromstring(rasterPoly.tobytes(),dtype=np.uint32)
