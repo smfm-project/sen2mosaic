@@ -280,7 +280,7 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
             value_out.append(s[field_n])
 
         return np.array(value_out, dtype = dtype)
-    
+     
     # Create output image
     rasterPoly = Image.new("I", (md_dest.ncols , md_dest.nrows), 0)
     rasterize = ImageDraw.Draw(rasterPoly)
@@ -323,11 +323,10 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
             symax = np.max(np.array(shape.points)[:,1])
         else:
             sxmin, symin, sxmax, symax = shape.bbox
-            
-        
+         
         # Transform points
-        sxmin, symin, z = coordTransform.TransformPoint(symin, sxmin)
-        sxmax, symax, z = coordTransform.TransformPoint(symax, sxmax)
+        sxmin, symin, z = coordTransform.TransformPoint(sxmin, symin)
+        sxmax, symax, z = coordTransform.TransformPoint(sxmax, symax)
                 
         # Go to the next record if out of bounds
         geo_t = md_dest.geo_t
@@ -355,11 +354,11 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
             for p in points:
 
                 # First update points from shapefile projection to image projection
-                x, y, z = coordTransform.TransformPoint(p[1], p[0])
+                x, y, z = coordTransform.TransformPoint(p[0], p[1])
 
                 # Then convert map to pixel coordinates using geo transform
                 pixels.append(_world2Pixel(md_dest.geo_t, x, y))
-
+            
             # Draw the mask for this shape...
             # if a point...
             if shape.shapeType == 0 or shape.shapeType == 1 or shape.shapeType == 11:
@@ -370,6 +369,7 @@ def loadShapefile(shp, md_dest, field = '', field_values = ''):
                 rasterize.line(pixels, n+1)
 
             # or a polygon.
+            
             elif shape.shapeType == 5 or shape.shapeType == 15:
                 rasterize.polygon(pixels, n+1)
 
