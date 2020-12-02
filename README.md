@@ -2,9 +2,7 @@
 
 ### Latest updates ###
 
-* _11/07/2019_: Now compatable with the latest version of sen2cor (2.8.0). Note that command line scripts have also moved to a new location (.../sen2mosaic/cli).
-* Now compatable with Python 3. It should remain possible to run these scripts with Python 2, but this will no longer be supported.
-* Multiple near-identical mask outputs have been replaced with a single 'SLC' file.
+* Moved to permanent home on Github.
 
 ### What is this repository for? ###
 
