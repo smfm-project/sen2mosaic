@@ -9,7 +9,7 @@ This toolset is written for use in Linux.
 You will need access to a PC or server with at least:
 
 * Python 3
-* `sen2mosaic <https://bitbucket.org/sambowers/sen2mosaic/>`
+* `sen2mosaic <https://github.com/smfm-project/sen2mosaic/>`
 * 8 GB of RAM to run sen2cor.
 
 Installing Anaconda Python
@@ -154,7 +154,7 @@ sen2mosaic can be downloaded to a machine from its `repository <https://bitbucke
 
 .. code-block:: console
 
-    git clone https://sambowers@bitbucket.org/sambowers/sen2mosaic.git
+    git clone https://github.com/smfm-project/sen2mosaic.git
 
 To install sen2mosaic, navigate to the sen2mosaic directory and run the following within your sen2mosaic environment.
 
@@ -176,5 +176,5 @@ Coming soon!
 Where do I get help?
 --------------------
 
-For help installing sen2cor and sen2three, it's best to refer to the `ESA STEP forum <http://forum.step.esa.int/>`_. For assistance in setting up and using sen2mosaic, email `sam.bowers@ed.ac.uk <mailto:sam.bowers@ed.ac.uk>`_.
+For help installing sen2cor, it's best to refer to the `ESA STEP forum <http://forum.step.esa.int/>`_. For assistance in setting up and using sen2mosaic, email `sam.bowers@ed.ac.uk <mailto:sam.bowers@ed.ac.uk>`_.
 
