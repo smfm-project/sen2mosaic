@@ -4,8 +4,8 @@
    contain the root `toctree` directive.
    Setup assisted by https://samnicholls.net/2016/06/15/how-to-sphinx-readthedocs/
 
-Welcome to sen2mosaic's documentation!
-======================================
+Documentation for SMFM sen2mosaic
+=================================
 
 .. image:: _static/zambia_mosaic.png
 
