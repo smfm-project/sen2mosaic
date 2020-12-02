@@ -9,7 +9,7 @@ This toolset is written for use in Linux.
 You will need access to a PC or server with at least:
 
 * Python 3
-* `sen2mosaic <https://github.com/smfm-project/sen2mosaic/>`
+* `sen2mosaic <https://github.com/smfm-project/sen2mosaic/>`_
 * 8 GB of RAM to run sen2cor.
 
 Installing Anaconda Python
@@ -150,7 +150,7 @@ At the time of writing, the installation process is as follows:
 Installing sen2mosaic
 ---------------------
 
-sen2mosaic can be downloaded to a machine from its `repository <https://bitbucket.org/sambowers/sen2mosaic/>`_ . To do this, open a terminal window and input:
+sen2mosaic can be downloaded to a machine from its `repository <https://github.com/smfm-project/sen2mosaic/>`_ . To do this, open a terminal window and input:
 
 .. code-block:: console
 
